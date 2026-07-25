@@ -2,13 +2,227 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(32);
+select plan(45);
 
 insert into auth.users (id, email)
 values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'a@example.test'),
   ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'b@example.test'),
   ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'c@example.test');
+
+select is(
+  (
+    select count(*)
+    from public.accounts
+    where user_id in (
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    )
+  ),
+  3::bigint,
+  'Creating Auth users creates one account for each user'
+);
+
+select is(
+  (
+    select count(*)
+    from public.profiles
+    where user_id in (
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    )
+  ),
+  3::bigint,
+  'Creating Auth users creates one profile for each user'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_catalog.pg_trigger as trigger
+    join pg_catalog.pg_class as relation
+      on relation.oid = trigger.tgrelid
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'auth'
+      and relation.relname = 'users'
+      and trigger.tgname = 'my_diary_on_auth_user_created'
+      and not trigger.tgisinternal
+  ),
+  'The Auth trigger uses the project-specific name'
+);
+
+create function public.test_unrelated_auth_trigger()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  return new;
+end;
+$$;
+
+revoke all on function public.test_unrelated_auth_trigger()
+  from public, anon, authenticated;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.test_unrelated_auth_trigger();
+
+select ok(
+  exists (
+    select 1
+    from pg_catalog.pg_trigger as trigger
+    join pg_catalog.pg_class as relation
+      on relation.oid = trigger.tgrelid
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'auth'
+      and relation.relname = 'users'
+      and trigger.tgname = 'on_auth_user_created'
+      and not trigger.tgisinternal
+  )
+  and exists (
+    select 1
+    from pg_catalog.pg_trigger as trigger
+    join pg_catalog.pg_class as relation
+      on relation.oid = trigger.tgrelid
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'auth'
+      and relation.relname = 'users'
+      and trigger.tgname = 'my_diary_on_auth_user_created'
+      and not trigger.tgisinternal
+  ),
+  'An unrelated general Auth trigger can coexist with the project trigger'
+);
+
+select is(
+  (
+    select count(*)
+    from pg_catalog.pg_proc as function
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = function.pronamespace
+    where (
+      (namespace.nspname = 'public'
+        and function.proname in (
+          'my_diary_handle_new_auth_user',
+          'my_diary_soft_delete_post'
+        ))
+      or (
+        namespace.nspname = 'my_diary_private'
+        and function.proname = 'my_diary_is_account_active'
+      )
+    )
+      and function.prosecdef
+      and pg_catalog.pg_get_userbyid(function.proowner) = 'postgres'
+  ),
+  3::bigint,
+  'All SECURITY DEFINER functions are owned by postgres'
+);
+
+select is(
+  (
+    select count(*)
+    from pg_catalog.pg_proc as function
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = function.pronamespace
+    where (
+      (namespace.nspname = 'public'
+        and function.proname in (
+          'my_diary_handle_new_auth_user',
+          'my_diary_soft_delete_post'
+        ))
+      or (
+        namespace.nspname = 'my_diary_private'
+        and function.proname = 'my_diary_is_account_active'
+      )
+    )
+      and function.proconfig @> array['search_path=""']::text[]
+  ),
+  3::bigint,
+  'All SECURITY DEFINER functions use an empty search_path'
+);
+
+select ok(
+  not exists (
+    select 1
+    from pg_catalog.pg_proc as function
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = function.pronamespace
+    cross join lateral pg_catalog.aclexplode(
+      coalesce(
+        function.proacl,
+        pg_catalog.acldefault('f', function.proowner)
+      )
+    ) as privilege
+    where (
+      (namespace.nspname = 'public'
+        and function.proname in (
+          'my_diary_set_updated_at',
+          'my_diary_handle_new_auth_user',
+          'my_diary_soft_delete_post'
+        ))
+      or (
+        namespace.nspname = 'my_diary_private'
+        and function.proname = 'my_diary_is_account_active'
+      )
+    )
+      and privilege.grantee = 0
+      and privilege.privilege_type = 'EXECUTE'
+  ),
+  'PUBLIC has no EXECUTE privilege on project functions'
+);
+
+select ok(
+  not pg_catalog.has_function_privilege(
+    'anon',
+    'public.my_diary_set_updated_at()',
+    'EXECUTE'
+  )
+  and not pg_catalog.has_function_privilege(
+    'anon',
+    'public.my_diary_handle_new_auth_user()',
+    'EXECUTE'
+  )
+  and not pg_catalog.has_function_privilege(
+    'anon',
+    'my_diary_private.my_diary_is_account_active(uuid)',
+    'EXECUTE'
+  )
+  and not pg_catalog.has_function_privilege(
+    'anon',
+    'public.my_diary_soft_delete_post(uuid)',
+    'EXECUTE'
+  ),
+  'anon has no EXECUTE privilege on project functions'
+);
+
+select ok(
+  not pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.my_diary_set_updated_at()',
+    'EXECUTE'
+  )
+  and not pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.my_diary_handle_new_auth_user()',
+    'EXECUTE'
+  )
+  and pg_catalog.has_function_privilege(
+    'authenticated',
+    'my_diary_private.my_diary_is_account_active(uuid)',
+    'EXECUTE'
+  )
+  and pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.my_diary_soft_delete_post(uuid)',
+    'EXECUTE'
+  ),
+  'authenticated can execute only the two required project functions'
+);
 
 insert into public.posts (id, user_id, title, body, visibility, deleted_at)
 values
@@ -51,6 +265,14 @@ values
     'A delete target',
     'private',
     null
+  ),
+  (
+    '10000000-0000-4000-8000-000000000006',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'suspended delete target',
+    'A suspended delete target',
+    'private',
+    null
   );
 
 insert into public.follows (follower_id, following_id)
@@ -83,6 +305,13 @@ select throws_ok(
   '42501',
   null,
   'Anonymous user cannot read A private post'
+);
+
+select throws_ok(
+  $$select id from public.posts where id = '10000000-0000-4000-8000-000000000002'$$,
+  '42501',
+  null,
+  'Anonymous user cannot read A public post'
 );
 
 reset role;
@@ -188,7 +417,7 @@ select throws_ok(
 
 select results_eq(
   $$
-    select public.soft_delete_post(
+    select public.my_diary_soft_delete_post(
       '10000000-0000-4000-8000-000000000002'
     )
   $$,
@@ -249,7 +478,7 @@ select throws_ok(
 
 select results_eq(
   $$
-    select public.soft_delete_post(
+    select public.my_diary_soft_delete_post(
       '10000000-0000-4000-8000-000000000005'
     )
   $$,
@@ -527,6 +756,41 @@ select results_eq(
   $$select id from public.posts where id = '10000000-0000-4000-8000-000000000002'$$,
   $$values ('10000000-0000-4000-8000-000000000002'::uuid)$$,
   'Suspended A can still read own non-deleted post'
+);
+
+select throws_ok(
+  $$
+    insert into public.posts (user_id, body, visibility)
+    values (
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'suspended user post',
+      'private'
+    )
+  $$,
+  '42501',
+  null,
+  'Suspended A cannot create a post'
+);
+
+select results_eq(
+  $$
+    update public.posts
+    set title = 'changed while suspended'
+    where id = '10000000-0000-4000-8000-000000000002'
+    returning id
+  $$,
+  $$select null::uuid where false$$,
+  'Suspended A cannot update a post'
+);
+
+select results_eq(
+  $$
+    select public.my_diary_soft_delete_post(
+      '10000000-0000-4000-8000-000000000006'
+    )
+  $$,
+  $$values (false)$$,
+  'Suspended A cannot soft-delete a post'
 );
 
 reset role;
