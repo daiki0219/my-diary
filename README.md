@@ -2,7 +2,7 @@
 
 日々の出来事や気持ちを気軽に記録し、必要なときだけ人とゆるくつながれる「ゆる日記SNS」のWebアプリケーションです。
 
-現在はPhase 0-Bとして、Next.jsとSupabaseの接続基盤までを構築しています。機能要件は `my-diary_MVP_spec_v1.0.md`、開発ルールは `AGENTS.md` を参照してください。
+現在はPhase 1の最初の単位として、メールアドレスとパスワードによる認証基盤までを構築しています。機能要件は `my-diary_MVP_spec_v1.0.md`、開発ルールは `AGENTS.md` を参照してください。
 
 ## 必要な環境
 
@@ -21,9 +21,12 @@ npm install
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_SITE_URL=
 ```
 
 `.env.local` はGit管理対象外です。値をソースコード、README、チャット、コミットへ記載しないでください。
+
+`NEXT_PUBLIC_SITE_URL` には、確認メールから戻るWebアプリのオリジンを設定します。ローカル確認時は `http://localhost:3000` です。この値は秘密情報ではありません。
 
 ## 開発サーバー
 
@@ -102,7 +105,34 @@ http://localhost:3000/api/health/supabase
 - `src/lib/supabase/server.ts`: Server Component、Route Handler、Server Action向けCookie対応サーバークライアント
 - `src/lib/supabase/env.ts`: 公開接続情報の取得と未設定チェック
 
-認証実装時には、サーバー側のセッション更新を担うNext.js Proxyを追加します。認可は画面表示だけに依存させず、テーブル作成時にSupabase RLSを最終防衛線として設計します。
+Next.js Proxyが有効期限の近い認証トークンを更新し、セッションCookieをリクエストとレスポンスへ反映します。サーバー側でユーザーを信頼する際は `getSession()` ではなく、署名を検証する `getClaims()` を使用します。データの認可は画面表示やProxyだけに依存せず、Supabase RLSを最終防衛線にします。
+
+## メール認証
+
+開発用Supabaseプロジェクトは、メール認証が有効で、新規登録時のメール確認も有効です。この実装では設定を変更せず、現在のメール確認フローに従います。
+
+認証ページは次のURLです。
+
+- 新規登録: [http://localhost:3000/sign-up](http://localhost:3000/sign-up)
+- ログイン: [http://localhost:3000/login](http://localhost:3000/login)
+- ログイン後ホーム: [http://localhost:3000/home](http://localhost:3000/home)
+
+確認メールの遷移先として、Supabase AuthのSite URLまたはRedirect URLsに次のURLが許可されていることを確認してください。設定変更が必要な場合は、変更内容を確認してからDashboardで行います。
+
+```text
+http://localhost:3000/auth/callback
+```
+
+### 新規登録と初期データの確認
+
+1. `npm run dev` で開発サーバーを起動する
+2. `/sign-up` を開き、テスト用メールアドレスとパスワードを画面上で入力する
+3. 届いた確認メールのリンクを、登録操作を行ったブラウザで開く
+4. `/home` に遷移してログイン状態がCookieで維持されていることを確認する
+5. 「初期データの状態」に `accounts / profiles: 作成済み` と表示されることを確認する
+6. ログアウト後に `/home` を開き、`/login` へリダイレクトされることを確認する
+
+ホーム画面の初期データ確認は、ログインユーザー自身のセッションとRLSを通して `accounts` と `profiles` を各1件照合します。service role keyは使用しません。テスト用の認証情報はソースコード、README、チャット、コミットへ記載しないでください。
 
 ## 技術構成
 
