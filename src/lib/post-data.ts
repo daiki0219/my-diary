@@ -49,6 +49,13 @@ export type Post = {
   created_at: string;
 };
 
+export type TimelinePost = Post & {
+  user_id: string;
+  author: {
+    username: string;
+  } | null;
+};
+
 export async function getOwnPosts(
   supabase: SupabaseClient,
   userId: string,
@@ -60,6 +67,48 @@ export async function getOwnPosts(
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .returns<Post[]>();
+}
+
+export async function getTimelinePosts(supabase: SupabaseClient) {
+  const postsResult = await supabase
+    .from("posts")
+    .select("id, user_id, title, body, mood, visibility, created_at")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(50)
+    .returns<Omit<TimelinePost, "author">[]>();
+
+  if (postsResult.error || !postsResult.data) {
+    return {
+      data: null,
+      error: postsResult.error,
+    };
+  }
+
+  const authorIds = [...new Set(postsResult.data.map((post) => post.user_id))];
+  const profilesResult =
+    authorIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("user_id, username")
+          .in("user_id", authorIds)
+          .returns<Array<{ user_id: string; username: string }>>()
+      : { data: [], error: null };
+  const profilesByUserId = new Map(
+    (profilesResult.data ?? []).map((profile) => [
+      profile.user_id,
+      { username: profile.username },
+    ]),
+  );
+
+  return {
+    data: postsResult.data.map((post) => ({
+      ...post,
+      author: profilesByUserId.get(post.user_id) ?? null,
+    })),
+    error: profilesResult.error,
+  };
 }
 
 export function isPostMood(value: string): value is PostMood {
