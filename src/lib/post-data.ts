@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { getCommentCounts } from "@/lib/comment-data";
 import {
   getReactionSummaries,
   type ReactionSummary,
@@ -53,6 +54,7 @@ export type Post = {
   visibility: PostVisibility;
   created_at: string;
   reactions: ReactionSummary | null;
+  commentCount: number | null;
 };
 
 export type TimelinePost = Post & {
@@ -62,7 +64,7 @@ export type TimelinePost = Post & {
   } | null;
 };
 
-export type PostDetail = TimelinePost;
+export type PostDetail = Omit<TimelinePost, "commentCount">;
 
 export type PostDetailResult =
   | {
@@ -86,29 +88,32 @@ export async function getOwnPosts(
     .eq("user_id", userId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
-    .returns<Array<Omit<Post, "reactions">>>();
+    .returns<Array<Omit<Post, "reactions" | "commentCount">>>();
 
   if (postsResult.error || !postsResult.data) {
     return {
       data: null,
       error: postsResult.error,
       reactionsError: null,
+      commentsError: null,
     };
   }
 
-  const reactionsResult = await getReactionSummaries(
-    supabase,
-    postsResult.data.map((post) => post.id),
-    userId,
-  );
+  const postIds = postsResult.data.map((post) => post.id);
+  const [reactionsResult, commentsResult] = await Promise.all([
+    getReactionSummaries(supabase, postIds, userId),
+    getCommentCounts(supabase, postIds),
+  ]);
 
   return {
     data: postsResult.data.map((post) => ({
       ...post,
       reactions: reactionsResult.data?.get(post.id) ?? null,
+      commentCount: commentsResult.data?.get(post.id) ?? null,
     })),
     error: null,
     reactionsError: reactionsResult.error,
+    commentsError: commentsResult.error,
   };
 }
 
@@ -123,18 +128,22 @@ export async function getTimelinePosts(
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(50)
-    .returns<Array<Omit<TimelinePost, "author" | "reactions">>>();
+    .returns<
+      Array<Omit<TimelinePost, "author" | "reactions" | "commentCount">>
+    >();
 
   if (postsResult.error || !postsResult.data) {
     return {
       data: null,
       error: postsResult.error,
       reactionsError: null,
+      commentsError: null,
     };
   }
 
   const authorIds = [...new Set(postsResult.data.map((post) => post.user_id))];
-  const [profilesResult, reactionsResult] = await Promise.all([
+  const postIds = postsResult.data.map((post) => post.id);
+  const [profilesResult, reactionsResult, commentsResult] = await Promise.all([
     authorIds.length > 0
       ? supabase
           .from("profiles")
@@ -144,9 +153,10 @@ export async function getTimelinePosts(
       : Promise.resolve({ data: [], error: null }),
     getReactionSummaries(
       supabase,
-      postsResult.data.map((post) => post.id),
+      postIds,
       currentUserId,
     ),
+    getCommentCounts(supabase, postIds),
   ]);
   const profilesByUserId = new Map(
     (profilesResult.data ?? []).map((profile) => [
@@ -160,9 +170,11 @@ export async function getTimelinePosts(
       ...post,
       author: profilesByUserId.get(post.user_id) ?? null,
       reactions: reactionsResult.data?.get(post.id) ?? null,
+      commentCount: commentsResult.data?.get(post.id) ?? null,
     })),
     error: profilesResult.error,
     reactionsError: reactionsResult.error,
+    commentsError: commentsResult.error,
   };
 }
 

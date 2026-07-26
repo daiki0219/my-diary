@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
+import { CommentForm } from "@/components/posts/comment-form";
+import { CommentList } from "@/components/posts/comment-list";
 import { PostDetail } from "@/components/posts/post-detail";
+import { getCommentsForPost } from "@/lib/comment-data";
 import { getPostDetail } from "@/lib/post-data";
 import { isUuid } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
@@ -33,7 +36,10 @@ export default async function PostDetailPage({
     notFound();
   }
 
-  const result = await getPostDetail(supabase, postId, currentUserId);
+  const [result, commentsResult] = await Promise.all([
+    getPostDetail(supabase, postId, currentUserId),
+    getCommentsForPost(supabase, postId),
+  ]);
 
   if (result.status === "not-found") {
     notFound();
@@ -59,6 +65,15 @@ export default async function PostDetailPage({
           isOwnPost={result.post.user_id === currentUserId}
           post={result.post}
         />
+        <CommentList
+          comments={commentsResult.data}
+          currentUserId={currentUserId}
+          error={Boolean(commentsResult.error)}
+          isTruncated={commentsResult.isTruncated}
+          postId={postId}
+          total={commentsResult.total}
+        />
+        <CommentForm postId={postId} />
       </div>
     </section>
   );

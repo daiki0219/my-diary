@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CommentCount } from "@/components/posts/comment-count";
 import { DeletePostButton } from "@/components/posts/delete-post-button";
 import { ReactionControls } from "@/components/posts/reaction-controls";
 import {
@@ -50,6 +51,7 @@ export function PostCard({ post }: { post: Post }) {
       </p>
 
       <ReactionControls postId={post.id} summary={post.reactions} />
+      <CommentCount count={post.commentCount} />
 
       <Link
         className="mt-5 inline-flex rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
