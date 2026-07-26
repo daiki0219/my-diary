@@ -33,7 +33,7 @@ export default async function PostDetailPage({
     notFound();
   }
 
-  const result = await getPostDetail(supabase, postId);
+  const result = await getPostDetail(supabase, postId, currentUserId);
 
   if (result.status === "not-found") {
     notFound();

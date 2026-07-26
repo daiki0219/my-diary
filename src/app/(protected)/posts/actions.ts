@@ -9,6 +9,10 @@ import {
   type PostMood,
 } from "@/lib/post-data";
 import { isUuid } from "@/lib/profile-data";
+import {
+  isReactionType,
+  type ReactionType,
+} from "@/lib/reaction-data";
 import { createClient } from "@/lib/supabase/server";
 
 export type CreatePostActionState = {
@@ -22,6 +26,10 @@ export type CreatePostActionState = {
 };
 
 export type DeletePostActionState = {
+  error: string | null;
+};
+
+export type ToggleReactionActionState = {
   error: string | null;
 };
 
@@ -186,5 +194,135 @@ export async function deletePost(
   revalidatePath("/profile");
   revalidatePath("/profile/posts");
   revalidatePath(`/users/${userId}`);
+  return { error: null };
+}
+
+export async function toggleReaction(
+  _previousState: ToggleReactionActionState,
+  formData: FormData,
+): Promise<ToggleReactionActionState> {
+  const postIdValue = formData.get("postId");
+  const reactionTypeValue = formData.get("reactionType");
+
+  if (typeof postIdValue !== "string" || !isUuid(postIdValue)) {
+    return { error: "リアクションする投稿を確認できませんでした。" };
+  }
+
+  if (
+    typeof reactionTypeValue !== "string" ||
+    !isReactionType(reactionTypeValue)
+  ) {
+    return { error: "リアクションの種類を確認できませんでした。" };
+  }
+
+  const supabase = await createClient();
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+
+  if (claimsError || !userId) {
+    return {
+      error: "ログイン状態を確認できませんでした。もう一度ログインしてください。",
+    };
+  }
+
+  const accountResult = await supabase
+    .from("accounts")
+    .select("status")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle<{ status: string }>();
+
+  if (accountResult.error) {
+    return {
+      error:
+        "アカウントの状態を確認できませんでした。時間をおいてもう一度お試しください。",
+    };
+  }
+
+  if (accountResult.data?.status !== "active") {
+    return {
+      error: "現在のアカウント状態ではリアクションを変更できません。",
+    };
+  }
+
+  const postResult = await supabase
+    .from("posts")
+    .select("id")
+    .eq("id", postIdValue)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+
+  if (postResult.error) {
+    return {
+      error:
+        "日記の状態を確認できませんでした。時間をおいてもう一度お試しください。",
+    };
+  }
+
+  if (!postResult.data) {
+    return {
+      error: "この日記は現在表示できないため、リアクションできません。",
+    };
+  }
+
+  const currentResult = await supabase
+    .from("reactions")
+    .select("id, reaction_type")
+    .eq("post_id", postIdValue)
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle<{ id: string; reaction_type: ReactionType }>();
+
+  if (currentResult.error) {
+    return {
+      error:
+        "リアクションを確認できませんでした。時間をおいてもう一度お試しください。",
+    };
+  }
+
+  let mutationResult:
+    | { data: { id: string } | null; error: { code?: string } | null }
+    | undefined;
+
+  if (currentResult.data?.reaction_type === reactionTypeValue) {
+    mutationResult = await supabase
+      .from("reactions")
+      .delete()
+      .eq("id", currentResult.data.id)
+      .eq("user_id", userId)
+      .select("id")
+      .maybeSingle<{ id: string }>();
+  } else if (currentResult.data) {
+    mutationResult = await supabase
+      .from("reactions")
+      .update({ reaction_type: reactionTypeValue })
+      .eq("id", currentResult.data.id)
+      .eq("user_id", userId)
+      .select("id")
+      .maybeSingle<{ id: string }>();
+  } else {
+    mutationResult = await supabase
+      .from("reactions")
+      .insert({
+        post_id: postIdValue,
+        user_id: userId,
+        reaction_type: reactionTypeValue,
+      })
+      .select("id")
+      .maybeSingle<{ id: string }>();
+  }
+
+  if (mutationResult.error || !mutationResult.data) {
+    return {
+      error: "リアクションを更新できませんでした。もう一度お試しください。",
+    };
+  }
+
+  revalidatePath("/home");
+  revalidatePath("/profile/posts");
+  revalidatePath(`/posts/${postIdValue}`);
+
   return { error: null };
 }

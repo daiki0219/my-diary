@@ -27,7 +27,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }
 
   const [{ data: posts, error: postsError }, params] = await Promise.all([
-    getTimelinePosts(supabase),
+    getTimelinePosts(supabase, userId),
     searchParams,
   ]);
 

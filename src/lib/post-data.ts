@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  getReactionSummaries,
+  type ReactionSummary,
+} from "@/lib/reaction-data";
+
 export const POST_MOODS = [
   "happy",
   "sad",
@@ -47,6 +52,7 @@ export type Post = {
   mood: PostMood | null;
   visibility: PostVisibility;
   created_at: string;
+  reactions: ReactionSummary | null;
 };
 
 export type TimelinePost = Post & {
@@ -74,16 +80,42 @@ export async function getOwnPosts(
   supabase: SupabaseClient,
   userId: string,
 ) {
-  return supabase
+  const postsResult = await supabase
     .from("posts")
     .select("id, title, body, mood, visibility, created_at")
     .eq("user_id", userId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
-    .returns<Post[]>();
+    .returns<Array<Omit<Post, "reactions">>>();
+
+  if (postsResult.error || !postsResult.data) {
+    return {
+      data: null,
+      error: postsResult.error,
+      reactionsError: null,
+    };
+  }
+
+  const reactionsResult = await getReactionSummaries(
+    supabase,
+    postsResult.data.map((post) => post.id),
+    userId,
+  );
+
+  return {
+    data: postsResult.data.map((post) => ({
+      ...post,
+      reactions: reactionsResult.data?.get(post.id) ?? null,
+    })),
+    error: null,
+    reactionsError: reactionsResult.error,
+  };
 }
 
-export async function getTimelinePosts(supabase: SupabaseClient) {
+export async function getTimelinePosts(
+  supabase: SupabaseClient,
+  currentUserId: string,
+) {
   const postsResult = await supabase
     .from("posts")
     .select("id, user_id, title, body, mood, visibility, created_at")
@@ -91,24 +123,31 @@ export async function getTimelinePosts(supabase: SupabaseClient) {
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(50)
-    .returns<Omit<TimelinePost, "author">[]>();
+    .returns<Array<Omit<TimelinePost, "author" | "reactions">>>();
 
   if (postsResult.error || !postsResult.data) {
     return {
       data: null,
       error: postsResult.error,
+      reactionsError: null,
     };
   }
 
   const authorIds = [...new Set(postsResult.data.map((post) => post.user_id))];
-  const profilesResult =
+  const [profilesResult, reactionsResult] = await Promise.all([
     authorIds.length > 0
-      ? await supabase
+      ? supabase
           .from("profiles")
           .select("user_id, username")
           .in("user_id", authorIds)
           .returns<Array<{ user_id: string; username: string }>>()
-      : { data: [], error: null };
+      : Promise.resolve({ data: [], error: null }),
+    getReactionSummaries(
+      supabase,
+      postsResult.data.map((post) => post.id),
+      currentUserId,
+    ),
+  ]);
   const profilesByUserId = new Map(
     (profilesResult.data ?? []).map((profile) => [
       profile.user_id,
@@ -120,14 +159,17 @@ export async function getTimelinePosts(supabase: SupabaseClient) {
     data: postsResult.data.map((post) => ({
       ...post,
       author: profilesByUserId.get(post.user_id) ?? null,
+      reactions: reactionsResult.data?.get(post.id) ?? null,
     })),
     error: profilesResult.error,
+    reactionsError: reactionsResult.error,
   };
 }
 
 export async function getPostDetail(
   supabase: SupabaseClient,
   postId: string,
+  currentUserId: string,
 ): Promise<PostDetailResult> {
   const postsResult = await supabase
     .from("posts")
@@ -135,7 +177,7 @@ export async function getPostDetail(
     .eq("id", postId)
     .is("deleted_at", null)
     .limit(1)
-    .returns<Array<Omit<PostDetail, "author">>>();
+    .returns<Array<Omit<PostDetail, "author" | "reactions">>>();
 
   if (postsResult.error || !postsResult.data) {
     return { status: "error" };
@@ -147,12 +189,15 @@ export async function getPostDetail(
     return { status: "not-found" };
   }
 
-  const profileResult = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("user_id", post.user_id)
-    .limit(1)
-    .returns<Array<{ username: string }>>();
+  const [profileResult, reactionsResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("username")
+      .eq("user_id", post.user_id)
+      .limit(1)
+      .returns<Array<{ username: string }>>(),
+    getReactionSummaries(supabase, [post.id], currentUserId),
+  ]);
 
   return {
     status: "found",
@@ -162,6 +207,7 @@ export async function getPostDetail(
         profileResult.error || !profileResult.data?.[0]
           ? null
           : { username: profileResult.data[0].username },
+      reactions: reactionsResult.data?.get(post.id) ?? null,
     },
   };
 }

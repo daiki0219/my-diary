@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ReactionControls } from "@/components/posts/reaction-controls";
 import { getMoodLabel, type TimelinePost } from "@/lib/post-data";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -53,6 +54,8 @@ export function TimelinePostCard({ post }: { post: TimelinePost }) {
       <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
         {post.body}
       </p>
+
+      <ReactionControls postId={post.id} summary={post.reactions} />
 
       <Link
         className="mt-5 inline-flex rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"

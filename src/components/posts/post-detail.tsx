@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ReactionControls } from "@/components/posts/reaction-controls";
 import {
   getMoodLabel,
   getVisibilityLabel,
@@ -71,6 +72,8 @@ export function PostDetail({
           {post.body}
         </p>
       </div>
+
+      <ReactionControls postId={post.id} summary={post.reactions} />
 
       <nav
         aria-label="日記詳細からの移動"
