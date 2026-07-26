@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { logout } from "@/app/auth/actions";
@@ -80,6 +81,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </p>
           )}
         </div>
+
+        <Link
+          className="mt-6 block w-full rounded-full bg-orange-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+          href="/profile"
+        >
+          プロフィールを見る
+        </Link>
 
         <form action={logout} className="mt-8">
           <button
