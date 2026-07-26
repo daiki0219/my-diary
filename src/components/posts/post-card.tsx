@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { DeletePostButton } from "@/components/posts/delete-post-button";
 import {
   getMoodLabel,
@@ -45,6 +47,13 @@ export function PostCard({ post }: { post: Post }) {
       <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
         {post.body}
       </p>
+
+      <Link
+        className="mt-5 inline-flex rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+        href={`/posts/${post.id}`}
+      >
+        詳細を見る
+      </Link>
 
       <DeletePostButton postId={post.id} />
     </article>

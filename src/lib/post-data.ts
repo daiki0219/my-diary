@@ -56,6 +56,20 @@ export type TimelinePost = Post & {
   } | null;
 };
 
+export type PostDetail = TimelinePost;
+
+export type PostDetailResult =
+  | {
+      status: "found";
+      post: PostDetail;
+    }
+  | {
+      status: "not-found";
+    }
+  | {
+      status: "error";
+    };
+
 export async function getOwnPosts(
   supabase: SupabaseClient,
   userId: string,
@@ -108,6 +122,47 @@ export async function getTimelinePosts(supabase: SupabaseClient) {
       author: profilesByUserId.get(post.user_id) ?? null,
     })),
     error: profilesResult.error,
+  };
+}
+
+export async function getPostDetail(
+  supabase: SupabaseClient,
+  postId: string,
+): Promise<PostDetailResult> {
+  const postsResult = await supabase
+    .from("posts")
+    .select("id, user_id, title, body, mood, visibility, created_at")
+    .eq("id", postId)
+    .is("deleted_at", null)
+    .limit(1)
+    .returns<Array<Omit<PostDetail, "author">>>();
+
+  if (postsResult.error || !postsResult.data) {
+    return { status: "error" };
+  }
+
+  const post = postsResult.data[0];
+
+  if (!post) {
+    return { status: "not-found" };
+  }
+
+  const profileResult = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("user_id", post.user_id)
+    .limit(1)
+    .returns<Array<{ username: string }>>();
+
+  return {
+    status: "found",
+    post: {
+      ...post,
+      author:
+        profileResult.error || !profileResult.data?.[0]
+          ? null
+          : { username: profileResult.data[0].username },
+    },
   };
 }
 
