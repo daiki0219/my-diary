@@ -84,6 +84,13 @@ export default async function ProfilePage({
           </Link>
         </div>
 
+        <Link
+          className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
+          href="/search"
+        >
+          ユーザーを探す
+        </Link>
+
         <div className="mt-5">
           <ProfileCard
             counts={result.counts}

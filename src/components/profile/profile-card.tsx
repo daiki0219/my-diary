@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import type { Profile, ProfileCounts } from "@/lib/profile-data";
 
@@ -6,6 +7,7 @@ type ProfileCardProps = {
   profile: Profile;
   counts: ProfileCounts;
   isOwnProfile: boolean;
+  actions?: ReactNode;
 };
 
 function ProfileStat({
@@ -29,6 +31,7 @@ export function ProfileCard({
   profile,
   counts,
   isOwnProfile,
+  actions,
 }: ProfileCardProps) {
   const normalizedUsername = profile.username.trim();
   const initial = Array.from(normalizedUsername)[0] ?? "人";
@@ -90,6 +93,8 @@ export function ProfileCard({
           プロフィールを編集
         </Link>
       )}
+
+      {!isOwnProfile && actions}
     </div>
   );
 }

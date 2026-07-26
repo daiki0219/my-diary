@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ProfileCard } from "@/components/profile/profile-card";
+import { FollowButton } from "@/components/profile/follow-button";
 import { getProfileWithCounts, isUuid } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,7 +38,22 @@ export default async function UserProfilePage({
     redirect("/profile");
   }
 
-  const result = await getProfileWithCounts(supabase, userId);
+  const [result, followResult, accountResult] = await Promise.all([
+    getProfileWithCounts(supabase, userId),
+    supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", currentUserId)
+      .eq("following_id", userId)
+      .limit(1)
+      .maybeSingle<{ following_id: string }>(),
+    supabase
+      .from("accounts")
+      .select("status")
+      .eq("user_id", currentUserId)
+      .limit(1)
+      .maybeSingle<{ status: string }>(),
+  ]);
 
   if (result.profileLoadFailed) {
     return (
@@ -68,6 +84,13 @@ export default async function UserProfilePage({
 
         <div className="mt-5">
           <ProfileCard
+            actions={
+              <FollowButton
+                canManageFollows={accountResult.data?.status === "active"}
+                isFollowing={Boolean(followResult.data)}
+                targetUserId={userId}
+              />
+            }
             counts={result.counts}
             isOwnProfile={false}
             profile={result.profile}
