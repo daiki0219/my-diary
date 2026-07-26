@@ -69,6 +69,21 @@ export default async function ProfilePage({
           </p>
         )}
 
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <Link
+            className="rounded-full bg-orange-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+            href="/posts/new"
+          >
+            日記を書く
+          </Link>
+          <Link
+            className="rounded-full border border-orange-300 bg-orange-50 px-5 py-3 text-center font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+            href="/profile/posts"
+          >
+            自分の日記
+          </Link>
+        </div>
+
         <div className="mt-5">
           <ProfileCard
             counts={result.counts}
