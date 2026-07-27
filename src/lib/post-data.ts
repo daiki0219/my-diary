@@ -66,6 +66,11 @@ export type TimelinePost = Post & {
 
 export type PostDetail = Omit<TimelinePost, "commentCount">;
 
+export type EditablePost = Pick<
+  PostDetail,
+  "id" | "title" | "body" | "mood" | "visibility"
+>;
+
 export type PostDetailResult =
   | {
       status: "found";
@@ -222,6 +227,21 @@ export async function getPostDetail(
       reactions: reactionsResult.data?.get(post.id) ?? null,
     },
   };
+}
+
+export async function getEditablePost(
+  supabase: SupabaseClient,
+  postId: string,
+  currentUserId: string,
+) {
+  return supabase
+    .from("posts")
+    .select("id, title, body, mood, visibility")
+    .eq("id", postId)
+    .eq("user_id", currentUserId)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle<EditablePost>();
 }
 
 export function isPostMood(value: string): value is PostMood {

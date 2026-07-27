@@ -17,12 +17,17 @@ type PostDetailPageProps = {
   params: Promise<{
     postId: string;
   }>;
+  searchParams: Promise<{
+    status?: string;
+  }>;
 };
 
 export default async function PostDetailPage({
   params,
+  searchParams,
 }: PostDetailPageProps) {
   const { postId } = await params;
+  const query = await searchParams;
   const supabase = await createClient();
   const { data: claimsData, error: claimsError } =
     await supabase.auth.getClaims();
@@ -58,11 +63,34 @@ export default async function PostDetailPage({
     );
   }
 
+  const isOwnPost = result.post.user_id === currentUserId;
+  const accountResult = isOwnPost
+    ? await supabase
+        .from("accounts")
+        .select("status")
+        .eq("user_id", currentUserId)
+        .limit(1)
+        .maybeSingle<{ status: string }>()
+    : null;
+  const canEditPost =
+    isOwnPost &&
+    !accountResult?.error &&
+    accountResult?.data?.status === "active";
+
   return (
     <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
       <div className="mx-auto w-full max-w-lg">
+        {query.status === "updated" && (
+          <p
+            className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800"
+            role="status"
+          >
+            投稿を更新しました。
+          </p>
+        )}
         <PostDetail
-          isOwnPost={result.post.user_id === currentUserId}
+          canEditPost={canEditPost}
+          isOwnPost={isOwnPost}
           post={result.post}
         />
         <CommentList

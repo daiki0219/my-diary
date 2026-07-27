@@ -14,9 +14,11 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
 });
 
 export function PostDetail({
+  canEditPost,
   isOwnPost,
   post,
 }: {
+  canEditPost: boolean;
   isOwnPost: boolean;
   post: PostDetailData;
 }) {
@@ -85,6 +87,14 @@ export function PostDetail({
         >
           タイムラインへ戻る
         </Link>
+        {canEditPost && (
+          <Link
+            className="rounded-lg text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+            href={`/posts/${post.id}/edit`}
+          >
+            投稿を編集
+          </Link>
+        )}
         {isOwnPost && (
           <Link
             className="rounded-lg text-stone-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"

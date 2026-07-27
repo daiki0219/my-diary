@@ -26,6 +26,8 @@ export type CreatePostActionState = {
   };
 };
 
+export type UpdatePostActionState = CreatePostActionState;
+
 export type DeletePostActionState = {
   error: string | null;
 };
@@ -156,6 +158,119 @@ export async function createPost(
   revalidatePath("/profile/posts");
   revalidatePath(`/users/${userId}`);
   redirect("/profile/posts?status=created");
+}
+
+export async function updatePost(
+  _previousState: UpdatePostActionState,
+  formData: FormData,
+): Promise<UpdatePostActionState> {
+  const postIdValue = formData.get("postId");
+  const titleValue = formData.get("title");
+  const bodyValue = formData.get("body");
+  const moodValue = formData.get("mood");
+  const visibilityValue = formData.get("visibility");
+  const fieldErrors: UpdatePostActionState["fieldErrors"] = {};
+
+  if (typeof postIdValue !== "string" || !isUuid(postIdValue)) {
+    return {
+      error: "更新する投稿を確認できませんでした。",
+      fieldErrors,
+    };
+  }
+
+  if (titleValue !== null && typeof titleValue !== "string") {
+    fieldErrors.title = "タイトルを正しく入力してください。";
+  }
+
+  if (typeof bodyValue !== "string") {
+    fieldErrors.body = "本文を入力してください。";
+  }
+
+  if (moodValue !== null && typeof moodValue !== "string") {
+    fieldErrors.mood = "気分を正しく選択してください。";
+  }
+
+  if (typeof visibilityValue !== "string") {
+    fieldErrors.visibility = "公開範囲を選択してください。";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { error: "入力内容を確認してください。", fieldErrors };
+  }
+
+  const normalizedTitle =
+    typeof titleValue === "string" ? titleValue.trim() : "";
+  const title = normalizedTitle || null;
+  const body = (bodyValue as string).trim();
+  const mood =
+    typeof moodValue === "string" && moodValue !== ""
+      ? moodValue
+      : null;
+  const visibility = visibilityValue as string;
+
+  if (title !== null && characterCount(title) > 120) {
+    fieldErrors.title = "タイトルは120文字以下で入力してください。";
+  }
+
+  if (characterCount(body) < 1) {
+    fieldErrors.body = "本文を入力してください。";
+  } else if (characterCount(body) > 10000) {
+    fieldErrors.body = "本文は10,000文字以下で入力してください。";
+  }
+
+  if (mood !== null && !isPostMood(mood)) {
+    fieldErrors.mood = "選択された気分は使用できません。";
+  }
+
+  if (!isPostVisibility(visibility)) {
+    fieldErrors.visibility = "選択された公開範囲は使用できません。";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { error: "入力内容を確認してください。", fieldErrors };
+  }
+
+  const supabase = await createClient();
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+
+  if (claimsError || !userId) {
+    return {
+      error: "ログイン状態を確認できませんでした。もう一度ログインしてください。",
+      fieldErrors: {},
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("posts")
+    .update({
+      title,
+      body,
+      mood: mood as PostMood | null,
+      visibility,
+    })
+    .eq("id", postIdValue)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !data) {
+    return {
+      error:
+        "投稿を更新できませんでした。投稿またはアカウントの状態を確認してください。",
+      fieldErrors: {},
+    };
+  }
+
+  revalidatePath("/home");
+  revalidatePath("/profile");
+  revalidatePath("/profile/posts");
+  revalidatePath(`/posts/${postIdValue}`);
+  revalidatePath(`/posts/${postIdValue}/edit`);
+  revalidatePath(`/users/${userId}`);
+  redirect(`/posts/${postIdValue}?status=updated`);
 }
 
 export async function deletePost(
