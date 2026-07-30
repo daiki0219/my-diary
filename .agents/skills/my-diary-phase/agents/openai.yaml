@@ -1,0 +1,7 @@
+interface:
+  display_name: "my-diary Phase進行"
+  short_description: "my-diaryの通常Phaseを安全に進める共通手順"
+  default_prompt: "Use $my-diary-phase to進めるPhaseの範囲と許可事項を確認し、安全ゲート付きで作業してください。"
+
+policy:
+  allow_implicit_invocation: false
