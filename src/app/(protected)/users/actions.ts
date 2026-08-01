@@ -80,11 +80,17 @@ async function getFollowContext(formData: FormData) {
   } as const;
 }
 
-function revalidateFollowViews(targetUserId: string) {
+function revalidateFollowViews(
+  currentUserId: string,
+  targetUserId: string,
+) {
   revalidatePath("/home");
   revalidatePath("/profile");
   revalidatePath(`/users/${targetUserId}`);
   revalidatePath("/search");
+  revalidatePath("/profile/following");
+  revalidatePath(`/users/${currentUserId}/following`);
+  revalidatePath(`/users/${targetUserId}/followers`);
 }
 
 export async function followUser(
@@ -135,7 +141,7 @@ export async function followUser(
     };
   }
 
-  revalidateFollowViews(context.targetUserId);
+  revalidateFollowViews(context.currentUserId, context.targetUserId);
   return { error: null, success: true };
 }
 
@@ -186,6 +192,6 @@ export async function unfollowUser(
     };
   }
 
-  revalidateFollowViews(context.targetUserId);
+  revalidateFollowViews(context.currentUserId, context.targetUserId);
   return { error: null, success: true };
 }

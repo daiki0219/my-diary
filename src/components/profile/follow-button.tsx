@@ -13,6 +13,7 @@ type FollowButtonProps = {
   targetUserId: string;
   isFollowing: boolean;
   canManageFollows: boolean;
+  className?: string;
 };
 
 const initialState: FollowActionState = {
@@ -24,6 +25,7 @@ export function FollowButton({
   targetUserId,
   isFollowing,
   canManageFollows,
+  className = "mt-6",
 }: FollowButtonProps) {
   const router = useRouter();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -57,7 +59,7 @@ export function FollowButton({
   }
 
   return (
-    <div className="mt-6">
+    <div className={className}>
       {isFollowing ? (
         isConfirming ? (
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">

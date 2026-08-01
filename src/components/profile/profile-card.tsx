@@ -11,18 +11,34 @@ type ProfileCardProps = {
 };
 
 function ProfileStat({
+  href,
   label,
   value,
 }: {
+  href?: string;
   label: string;
   value: number | null;
 }) {
-  return (
-    <div className="min-w-0 text-center">
+  const content = (
+    <>
       <p className="text-xl font-bold tabular-nums text-stone-800">
         {value ?? "—"}
       </p>
       <p className="mt-1 text-xs text-stone-500">{label}</p>
+    </>
+  );
+
+  return href ? (
+    <Link
+      aria-label={`${label}一覧を見る`}
+      className="min-w-0 rounded-xl py-1 text-center transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+      href={href}
+    >
+      {content}
+    </Link>
+  ) : (
+    <div className="min-w-0 text-center">
+      {content}
     </div>
   );
 }
@@ -75,8 +91,24 @@ export function ProfileCard({
         className="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-stone-50 px-2 py-4"
       >
         <ProfileStat label="投稿" value={counts.posts} />
-        <ProfileStat label="フォロー" value={counts.following} />
-        <ProfileStat label="フォロワー" value={counts.followers} />
+        <ProfileStat
+          href={
+            isOwnProfile
+              ? "/profile/following"
+              : `/users/${profile.user_id}/following`
+          }
+          label="フォロー"
+          value={counts.following}
+        />
+        <ProfileStat
+          href={
+            isOwnProfile
+              ? "/profile/followers"
+              : `/users/${profile.user_id}/followers`
+          }
+          label="フォロワー"
+          value={counts.followers}
+        />
       </div>
 
       {Object.values(counts).some((count) => count === null) && (

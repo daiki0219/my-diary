@@ -120,9 +120,12 @@ TypeScriptの文字列unionとして生成・管理する予定とする。
 
 ### follows
 
-- SELECT: アクティブなログイン済みユーザー
+- SELECT: 閲覧者、`follower_id`、`following_id`の3者がすべてactiveの場合のみ
 - INSERT / DELETE: `follower_id = auth.uid()` の行だけ
 - UPDATE: 許可しない
+
+停止中のユーザーを含む既存関係は削除せずSELECT結果から除外する。両者が
+activeへ戻り、関係行が残っている場合は一覧と件数へ再表示される。
 
 ### accounts
 
@@ -214,6 +217,10 @@ REVOKEの対象はこのマイグレーションが新規作成するオブジ�
   `(follower_id, following_id)` 検索に使用
 - `my_diary_follows_following_follower_idx`: フォロワー一覧とフォロワー数の
   逆向き検索用
+- `my_diary_follows_follower_created_following_idx`: フォロー中一覧を
+  `created_at DESC, following_id DESC`で最大件数取得するため
+- `my_diary_follows_following_created_follower_idx`: フォロワー一覧を
+  `created_at DESC, follower_id DESC`で最大件数取得するため
 - `my_diary_profiles_username_lower_idx`: 大文字小文字を無視したユーザー名検索の
   準備
 
