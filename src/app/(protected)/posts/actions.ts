@@ -374,11 +374,11 @@ export async function toggleReaction(
 
   const postResult = await supabase
     .from("posts")
-    .select("id")
+    .select("id, user_id")
     .eq("id", postIdValue)
     .is("deleted_at", null)
     .limit(1)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string; user_id: string }>();
 
   if (postResult.error) {
     return {
@@ -449,6 +449,7 @@ export async function toggleReaction(
   revalidatePath("/home");
   revalidatePath("/profile/posts");
   revalidatePath(`/posts/${postIdValue}`);
+  revalidatePath(`/users/${postResult.data.user_id}`);
 
   return { error: null };
 }
@@ -533,11 +534,11 @@ export async function createComment(
 
   const postResult = await supabase
     .from("posts")
-    .select("id")
+    .select("id, user_id")
     .eq("id", postIdValue)
     .is("deleted_at", null)
     .limit(1)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string; user_id: string }>();
 
   if (postResult.error) {
     return {
@@ -577,6 +578,7 @@ export async function createComment(
   revalidatePath("/home");
   revalidatePath("/profile/posts");
   revalidatePath(`/posts/${postIdValue}`);
+  revalidatePath(`/users/${postResult.data.user_id}`);
 
   return {
     error: null,
@@ -634,11 +636,11 @@ export async function deleteComment(
 
   const postResult = await supabase
     .from("posts")
-    .select("id")
+    .select("id, user_id")
     .eq("id", postIdValue)
     .is("deleted_at", null)
     .limit(1)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string; user_id: string }>();
 
   if (postResult.error || !postResult.data) {
     return {
@@ -662,6 +664,7 @@ export async function deleteComment(
   revalidatePath("/home");
   revalidatePath("/profile/posts");
   revalidatePath(`/posts/${postIdValue}`);
+  revalidatePath(`/users/${postResult.data.user_id}`);
 
   return { error: null };
 }

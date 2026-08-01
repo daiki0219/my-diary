@@ -81,7 +81,7 @@ export default async function OwnPostsPage({
         ) : posts && posts.length > 0 ? (
           <div className="mt-5 space-y-4">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <PostCard canDeletePost key={post.id} post={post} />
             ))}
           </div>
         ) : (

@@ -15,7 +15,13 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo",
 });
 
-export function PostCard({ post }: { post: Post }) {
+export function PostCard({
+  canDeletePost,
+  post,
+}: {
+  canDeletePost: boolean;
+  post: Post;
+}) {
   const createdAt = new Date(post.created_at);
 
   return (
@@ -60,7 +66,7 @@ export function PostCard({ post }: { post: Post }) {
         詳細を見る
       </Link>
 
-      <DeletePostButton postId={post.id} />
+      {canDeletePost && <DeletePostButton postId={post.id} />}
     </article>
   );
 }

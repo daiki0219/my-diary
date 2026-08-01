@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PostCard } from "@/components/posts/post-card";
 import { ProfileCard } from "@/components/profile/profile-card";
 import { FollowButton } from "@/components/profile/follow-button";
+import { getVisiblePostsByUser } from "@/lib/post-data";
 import { getProfileWithCounts, isUuid } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,7 +40,7 @@ export default async function UserProfilePage({
     redirect("/profile");
   }
 
-  const [result, followResult, accountResult] = await Promise.all([
+  const [result, followResult, accountResult, postsResult] = await Promise.all([
     getProfileWithCounts(supabase, userId),
     supabase
       .from("follows")
@@ -53,6 +55,7 @@ export default async function UserProfilePage({
       .eq("user_id", currentUserId)
       .limit(1)
       .maybeSingle<{ status: string }>(),
+    getVisiblePostsByUser(supabase, userId, currentUserId),
   ]);
 
   if (result.profileLoadFailed) {
@@ -96,6 +99,48 @@ export default async function UserProfilePage({
             profile={result.profile}
           />
         </div>
+
+        <section aria-labelledby="user-posts-heading" className="mt-8">
+          <h2
+            className="text-2xl font-bold tracking-tight text-stone-800"
+            id="user-posts-heading"
+          >
+            このユーザーの日記
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            あなたが閲覧できる日記を新しい順に表示します。
+          </p>
+
+          {postsResult.error ? (
+            <p
+              className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+              role="alert"
+            >
+              日記を読み込めませんでした。時間をおいてもう一度お試しください。
+            </p>
+          ) : postsResult.data && postsResult.data.length > 0 ? (
+            <>
+              <div className="mt-5 space-y-4">
+                {postsResult.data.map((post) => (
+                  <PostCard
+                    canDeletePost={false}
+                    key={post.id}
+                    post={post}
+                  />
+                ))}
+              </div>
+              {postsResult.hasMore && (
+                <p className="mt-4 text-center text-sm text-stone-500">
+                  最新20件を表示しています。
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center text-sm leading-6 text-stone-500 shadow-sm">
+              閲覧できる日記はまだありません。
+            </p>
+          )}
+        </section>
       </div>
     </section>
   );

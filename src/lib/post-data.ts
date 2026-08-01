@@ -83,6 +83,8 @@ export type PostDetailResult =
       status: "error";
     };
 
+const USER_PROFILE_POST_LIMIT = 20;
+
 export async function getOwnPosts(
   supabase: SupabaseClient,
   userId: string,
@@ -116,6 +118,51 @@ export async function getOwnPosts(
       reactions: reactionsResult.data?.get(post.id) ?? null,
       commentCount: commentsResult.data?.get(post.id) ?? null,
     })),
+    error: null,
+    reactionsError: reactionsResult.error,
+    commentsError: commentsResult.error,
+  };
+}
+
+export async function getVisiblePostsByUser(
+  supabase: SupabaseClient,
+  targetUserId: string,
+  currentUserId: string,
+) {
+  const postsResult = await supabase
+    .from("posts")
+    .select("id, title, body, mood, visibility, created_at")
+    .eq("user_id", targetUserId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(USER_PROFILE_POST_LIMIT + 1)
+    .returns<Array<Omit<Post, "reactions" | "commentCount">>>();
+
+  if (postsResult.error || !postsResult.data) {
+    return {
+      data: null,
+      hasMore: false,
+      error: postsResult.error,
+      reactionsError: null,
+      commentsError: null,
+    };
+  }
+
+  const posts = postsResult.data.slice(0, USER_PROFILE_POST_LIMIT);
+  const postIds = posts.map((post) => post.id);
+  const [reactionsResult, commentsResult] = await Promise.all([
+    getReactionSummaries(supabase, postIds, currentUserId),
+    getCommentCounts(supabase, postIds),
+  ]);
+
+  return {
+    data: posts.map((post) => ({
+      ...post,
+      reactions: reactionsResult.data?.get(post.id) ?? null,
+      commentCount: commentsResult.data?.get(post.id) ?? null,
+    })),
+    hasMore: postsResult.data.length > USER_PROFILE_POST_LIMIT,
     error: null,
     reactionsError: reactionsResult.error,
     commentsError: commentsResult.error,
