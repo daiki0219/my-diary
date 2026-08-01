@@ -207,6 +207,34 @@ REVOKEの対象はこのマイグレーションが新規作成するオブジ�
 更新時刻を統一する通常のトリガー関数。追加権限が不要なので
 `SECURITY DEFINER` は使用しない。`search_path = ''` は固定する。
 
+## RLS自動有効化の安全網
+
+`20260801000200_manage_rls_auto_enable.sql` は、Dashboard等で作成されて
+migration管理外だった `public.rls_auto_enable()` とevent trigger
+`ensure_rls` を、既存remoteの定義を検証したうえでmigration管理へ取り込む。
+これらは既存の一般名を維持する必要があるため、プロジェクト固有名の原則に
+対するbaseline化済みの例外として扱い、renameや無条件再作成は行わない。
+
+`ensure_rls` は `ddl_command_end` で動作し、`public` schemaに対する
+`CREATE TABLE`、`CREATE TABLE AS`、`SELECT INTO`のうち、tableまたは
+partitioned tableを作成するDDLだけを対象とする。対象relationには
+`ENABLE ROW LEVEL SECURITY`だけを実行し、policyの自動作成や
+`FORCE ROW LEVEL SECURITY`は行わない。既存tableや、作成後に`public`へ
+移されたtableには遡及しない。このため、各migrationでtable作成直後にRLSを
+明示的に有効化し、必要なpolicyを定義する既存方針は引き続き必須である。
+
+関数は既存定義どおりownerを`postgres`、`SECURITY DEFINER`、
+`search_path=pg_catalog`とする。既定の関数権限により生じる不要な呼び出し経路を
+閉じるため、`PUBLIC`、`anon`、`authenticated`、`service_role`、
+`authenticator`からEXECUTEをREVOKEし、ownerである`postgres`だけが
+EXECUTE可能な状態を維持する。event trigger経由の自動有効化は、このACL
+hardening後も動作することをpgTAPで検証する。
+
+既知の制約として、RLS有効化中の例外はLOGへ記録して元のDDLを成功させる
+fail-open挙動を維持している。自動有効化に失敗した場合でもtable作成自体は
+ロールバックされないため、将来Phaseでfail-closed化を別途検討する。
+関数とevent triggerにはbaselineとの差を増やさないためDB commentを追加しない。
+
 ## インデックス
 
 - `my_diary_posts_user_created_at_idx`: ユーザープロフィール、本人の日記、
