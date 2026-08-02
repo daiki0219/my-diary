@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-02
 - 調査時branch: `main`
-- 調査時HEAD: `072c73ef460869105051134c3addd1901df3a11b`
-- 調査時HEADのmessage: `feat: split home timeline feeds`
+- 調査時HEAD: `7cb256627f544510d5bd8b75067b652b53100b1f`
+- 調査時HEADのmessage: `docs: align implementation status with timeline phase`
 
 ### 更新ルール
 
@@ -43,17 +43,17 @@
 | 状態 | 件数 |
 | --- | ---: |
 | 実装済み | 17 |
-| 一部実装済み | 8 |
-| 未実装 | 16 |
+| 一部実装済み | 9 |
+| 未実装 | 15 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
 | 合計 | 58 |
 
 現在は、メールアドレスとパスワードによる認証、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索まで実装されている。
 
-DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`の6 tableと、公開範囲・active状態を守るRLS、権限を限定した`SECURITY DEFINER`関数、RLS自動有効化の安全網がmigration管理されている。pgTAPは8ファイル、plan合計267 assertionで、認証後の権限境界、soft delete、visibility変更、suspended状態、follow一覧、RLS自動有効化とACLを対象としている。
+DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`の8 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。自由タグはNFKCによるcanonical name、制約、SELECT専用RLSまで実装済みである。pgTAPは9ファイル、plan合計338 assertionで、認証後の権限境界、soft delete、visibility変更、suspended状態、follow一覧、タグ名漏えい防止、RLS自動有効化とACLを対象としている。
 
-MVP完了条件との差分は、画像、自由タグ、場所入力UI、タイムラインのページネーション、コメント返信、通知、タグ・投稿検索、カレンダー、設定である。パスワードリセットとOAuth、avatarも未完成である。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分は、画像、自由タグのmutation・入力・表示・画面導線、場所入力UI、タイムラインのページネーション、コメント返信、通知、タグ・投稿検索、カレンダー、設定である。パスワードリセットとOAuth、avatarも未完成である。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
 ## 3. 技術・リポジトリ状態
 
@@ -64,12 +64,12 @@ MVP完了条件との差分は、画像、自由タグ、場所入力UI、タイ
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/proxy.ts` |
-| migration | 8ファイル | `supabase/migrations/*.sql` |
-| DB table | 6 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments` |
-| pgTAP | 8ファイル、plan合計267 | `supabase/tests/database/*.sql` |
+| migration | 9ファイル | `supabase/migrations/*.sql` |
+| DB table | 8 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags` |
+| pgTAP | 9ファイル、plan合計338 | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 最新commit | `072c73ef460869105051134c3addd1901df3a11b` | `feat: split home timeline feeds` |
+| 最新commit | `7cb256627f544510d5bd8b75067b652b53100b1f` | `docs: align implementation status with timeline phase` |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。mutationはServer Actionで認証済みユーザーIDを取得し、RLSを最終認可としている。専用の`loading.tsx`はなく、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -110,11 +110,11 @@ Server Componentがpageとデータ取得を担当し、入力フォーム、フ
 | 気分 | 実装済み | 6種類と未設定を作成・編集・一覧・詳細で扱う。DB CHECKあり | なし |
 | 公開範囲 | 実装済み | `private`、`followers`、`public`。作成・編集可能で、RLSが閲覧を制御 | 未認証public閲覧は対象外の運用 |
 | 画像 | 未実装 | `post_images` table、Storage、upload、preview、並び順、画像表示なし | 最大10枚、形式・容量検証、非公開画像の認可が必要 |
-| 自由タグ | 未実装 | `tags`、`post_tags` table、入力・表示・検索routeなし | MVP検索とタグ画面を含めて実装する |
+| 自由タグ | 一部実装済み | `tags`、`post_tags`、NFKC canonical name、文字数・文字種制約、重複防止、可視post連動SELECT RLSを実装。直接mutation権限なし | atomic mutation RPC、1投稿最大5個のDB保証、入力・表示、タグroute、検索を実装する |
 | 場所名 | 一部実装済み | `posts.location_name`、100文字CHECK、authenticatedのinsert/update権限は存在 | form、Server Actionの入力・保存、表示がない |
 | カテゴリー・推し・ぬい・イベント・アルバム関連 | MVP後 | 正式仕様でPhase 3以降 | MVP完了条件には含めない |
 
-投稿の関連コードは`src/app/(protected)/posts/actions.ts`、`src/lib/post-data.ts`、`src/components/posts/**`である。`0001_core_rls.test.sql`、`0005_post_edit_rls.test.sql`、`0006_user_profile_posts_rls.test.sql`が主要なDB回帰を担う。
+投稿の関連コードは`src/app/(protected)/posts/actions.ts`、`src/lib/post-data.ts`、`src/components/posts/**`である。`0001_core_rls.test.sql`、`0005_post_edit_rls.test.sql`、`0006_user_profile_posts_rls.test.sql`、`0009_tags_rls.test.sql`が主要なDB回帰を担う。
 
 ### 4.4 タイムライン
 
@@ -192,20 +192,24 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | --- | --- | --- | --- |
 | `accounts` | 実装済み | `user_id`、`role`、`status`、`timezone`、`created_at`、`updated_at` | Auth userへのcascade FK、role/status/timezone CHECK、本人SELECT、active時のtimezone更新 |
 | `profiles` | 一部実装済み | `user_id`、`username`、`bio`、`avatar_path`、`created_at`、`updated_at` | Auth userへのcascade FK、文字数CHECK、`lower(username)` index、本人更新。avatar利用UIとsuspended対象のSELECT制限は未完成 |
-| `posts` | 一部実装済み | `id`、`user_id`、`title`、`body`、`mood`、`location_name`、`visibility`、`created_at`、`updated_at`、`deleted_at` | Auth userへのcascade FK、入力値CHECK、user/newestとpublic/newestのpartial index、本人mutation、可視性RLS。画像・タグ等の関連tableは未作成 |
+| `posts` | 一部実装済み | `id`、`user_id`、`title`、`body`、`mood`、`location_name`、`visibility`、`created_at`、`updated_at`、`deleted_at` | Auth userへのcascade FK、入力値CHECK、user/newestとpublic/newestのpartial index、本人mutation、可視性RLS。タグ関連tableは作成済みだがmutation未接続。画像関連tableは未作成 |
 | `follows` | 実装済み | `follower_id`、`following_id`、`created_at` | 両userへのcascade FK、複合PK、self-follow CHECK、active関係だけのSELECT、following/follower安定順index |
 | `reactions` | 実装済み | `id`、`post_id`、`user_id`、`reaction_type`、`created_at`、`updated_at` | post/accountへのcascade FK、3種類CHECK、投稿×ユーザーUNIQUE、post/type index、可視post連動RLS |
 | `comments` | 一部実装済み | `id`、`post_id`、`user_id`、`body`、`created_at`、`updated_at`、`deleted_at` | post/accountへのcascade FK、body/deleted_at CHECK、未削除post/newest partial index、可視post連動RLS、soft-delete RPC。返信用columnは未作成 |
+| `tags` | 一部実装済み | `id`、`name`、`normalized_name`、`created_at` | NFKC canonical name、30 codepoint上限、comma・`#`・制御文字拒否、normalized name UNIQUE。可視postに紐づくtagだけSELECT可能。mutation RPC・UI・routeは未実装 |
+| `post_tags` | 一部実装済み | `post_id`、`tag_id`、`created_at` | 複合PK、post/tagへのcascade FK、tag/post逆引きindex、可視post連動SELECT RLS。最大5個保証とmutation経路は未実装 |
 
 Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reaction_type`をtextとCHECK制約で管理している。主要FKはuser削除またはpost削除に対するcascadeを設定している。物理DELETEは一般ユーザーへ付与せず、postとcommentは専用RPCでsoft deleteする。
 
 ### 5.2 RLS、function、trigger、ACL
 
-- 6つのpublic tableすべてでRLSを明示的に有効化している。
-- 現在のpolicyは合計16件で、accounts 2、profiles 2、posts 3、follows 3、reactions 4、comments 2である。
+- 8つのpublic tableすべてでRLSを明示的に有効化している。
+- 現在のpolicyは合計18件で、accounts 2、profiles 2、posts 3、follows 3、reactions 4、comments 2、tags 1、post_tags 1である。
 - `posts` SELECTは本人、active viewer、active author、follow関係、visibility、`deleted_at`をDB側で評価する。
 - reactionsとcommentsは、参照先postを現在のviewerが閲覧できる場合だけSELECT・mutationできる。
+- post_tagsは可視postだけをSELECTでき、tagsは可視なpost_tagsが存在する場合だけSELECTできる。tags → post_tags → postsの一方向評価とし、private・権限外followers・soft-delete済みpostだけに紐づくtag名を隠す。
 - `my_diary_is_account_active`と`my_diary_can_view_post`をprivate schemaへ置き、再帰的RLSを避けている。
+- `my_diary_normalize_tag_name`をprivate schemaへ置き、NFKC、前後空白、先頭`#`、連続空白、ASCII caseを決定的にcanonical化する。一般application roleにはEXECUTEを付与しない。
 - `my_diary_soft_delete_post`、`my_diary_soft_delete_comment`は本人とactive状態を再検証する。
 - `my_diary_search_profiles`はauthenticated identity、入力長、literal wildcard、active対象、20件上限を関数内で検証する。
 - `SECURITY DEFINER`関数はownerを`postgres`へ固定し、空の`search_path`または`pg_catalog`固定を使用する。
@@ -217,7 +221,7 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 
 ### 5.3 未作成の主要table
 
-MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notifications`である。Phase 2の`reports`、Phase 3以降のcategories、favorites、communities、plushies、events、albumsと各紐付けtableも未作成である。
+MVP対象で未作成なのは`post_images`と`notifications`である。`tags`と`post_tags`はDB読み取り基盤まで作成済みだが、mutationと利用者向け機能は未実装である。Phase 2の`reports`、Phase 3以降のcategories、favorites、communities、plushies、events、albumsと各紐付けtableも未作成である。
 
 ## 6. MVP後の機能
 
@@ -273,8 +277,9 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 | `20260726000500` | `20260726000500_secure_user_search_and_follows.sql` | active targetだけのfollow INSERT、hardened username検索RPC |
 | `20260801000100` | `20260801000100_secure_follow_lists.sql` | active viewer・両端userだけのfollow SELECT、following/follower安定順index |
 | `20260801000200` | `20260801000200_manage_rls_auto_enable.sql` | 既存RLS自動有効化関数とevent triggerをpreflight付きでmigration管理し、EXECUTE ACLをhardening |
+| `20260802000100` | `20260802000100_create_tags.sql` | tag normalizer、tags・post_tags、canonical制約、index、可視post連動SELECT RLS、read-only ACL |
 
-既存migrationは上記8件で、最新は`20260801000200_manage_rls_auto_enable.sql`である。既存migrationの変更はこの調査では行っていない。
+既存8 migrationは変更せず、Phase B1で`20260802000100_create_tags.sql`を追加した。ローカルresetで9件すべてをfresh適用し、リンク済みのリモート開発DBにも適用済みである。
 
 ## 9. テスト状況
 
@@ -290,13 +295,15 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 | `0006_user_profile_posts_rls.test.sql` | 13 | 他者profile投稿のpublic/followers/private境界、soft delete、author/viewer suspended、順序 |
 | `0007_follow_lists_rls.test.sql` | 22 | follow SELECT policy、安定順index、suspended両端、追加・削除回帰 |
 | `0008_rls_auto_enable.test.sql` | 29 | function/event trigger定義、ACL、CREATE TABLE/CTAS/SELECT INTO、非対象schema、非遡及 |
-| 合計 | 267 | 8ファイル |
+| `0009_tags_rls.test.sql` | 71 | normalizer、schema、制約、ACL、public/followers/private/soft delete/suspended、visibility変更、RLS非再帰、cascade |
+| 合計 | 338 | 9ファイル |
 
 ### 9.2 実行結果の区別
 
 - 直前作業までの確認済み結果として、全pgTAP `267 / 267`、最新追加分`29 / 29`、`npm run lint`、`npm run typecheck`、`npm run build`成功が作業依頼に記録されている。
 - Phase A1では`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`を再実行し、すべて成功した。migrationは8件のまま、`supabase/migrations`、`package.json`、`package-lock.json`に差分がないことも確認した。
 - Phase A1では全pgTAP `267 / 267`が成功した。今回の文書記録更新では、直前の全件成功を根拠としてpgTAPを再実行していない。
+- Phase B1ではVectorを除外したローカルstackでDB resetにより9 migrationをfresh適用し、新規pgTAP `71 / 71`、全pgTAP `338 / 338`が成功した。PostgreSQL 17.6の標準NFKCとNode/TypeScript相当の正規化も既知ケースで一致した。リモート適用後のpg-delta catalog cache生成ではCLIの証明書参照警告が発生したが、remote migration履歴9件の一致、PostgreSQL catalog由来のschema dump、再dry-runで適用対象0件、linked schema diff 0件を確認した。
 - 認証済みブラウザ検証では、following / latestの表示行列、URL直接アクセス、不正・空・複数feed値、リンク切り替え、再読み込み、戻る・進む、`aria-current`、空状態、動的反映を確認した。320 / 360 / 375 / 390 / 1280pxで横スクロールがなく、長文・改行・連続半角文字列の表示も正常であり、console error / warning、React warning、hydration errorはなかった。ユーザーによる最終手動確認も問題なかった。
 - repository内にunit、component、browser E2Eの自動test fileは確認できない。
 
@@ -326,12 +333,12 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 - 主な影響範囲: `src/app/(protected)/home`、`src/lib/post-data.ts`、投稿card、必要な回帰テスト。
 - 推奨理由: 正式仕様の性能要件と一覧可読性を満たし、現在の最大50件固定を解消できる。
 
-### 候補B: 自由タグとタグ検索
+### 候補B: 自由タグmutation・UIとタグ検索
 
 - 目的: 日記への複数タグ付与、タグ一覧・詳細、タグ検索を実装する。
-- 現在の不足: `tags`、`post_tags`、UI、検索がすべて未実装。
-- 前提: normalized name、重複防止、visibilityを守る検索RLSを先に設計する。
-- 主な影響範囲: 新規migration、post form/action、tag route、検索、pgTAP。
+- 現在の不足: DB読み取り基盤は実装済み。atomic mutation RPC、1投稿最大5個のDB保証、post form/action、表示、tag route、検索が未実装。
+- 前提: Phase B1のcanonical name、重複防止、可視post連動SELECT RLSを維持する。
+- 主な影響範囲: 後続migration、post form/action、tag route、検索、pgTAP。
 - 推奨理由: MVP完了条件のタグ導線と検索差分を同じ基盤で前進できる。
 
 ### 候補C: 画像投稿とavatarの共通Storage基盤
@@ -362,5 +369,6 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-02 | `7cb256627f544510d5bd8b75067b652b53100b1f` | Phase B1として自由タグDB読み取り基盤、NFKC canonical制約、可視post連動SELECT RLS、pgTAPを追加。mutation・最大5個保証・UI・route・検索は未実装として維持 |
 | 2026-08-02 | `072c73ef460869105051134c3addd1901df3a11b` | Phase A1としてフォロー中・最新投稿timelineとリンク型feed分離を実装。最大50件固定、pagination・無限scroll・長文省略は未実装として維持 |
 | 2026-08-02 | `4c7ff37de13b035decb791f91f05adb4038c88b3` | Ver.2.0、repository、8 migration、8 pgTAPに基づき初回作成 |

@@ -3,13 +3,14 @@
 ## 対象と前提
 
 この設計案は、最初のデータベース単位として `accounts`、`profiles`、
-`posts`、`follows` のみを対象とする。投稿画像、タグ、リアクション、
-コメント、通知、通報、Storageは含めない。
+`posts`、`follows` を対象とした。投稿画像、リアクション、コメント、通知、
+通報、Storageは初回単位に含めない。自由タグの後続Phase B1設計は本書の
+「自由タグPhase B1追加設計」に追記する。
 
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` には4テーブルの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-今回作成したSQLはレビュー用の案であり、リモートSupabaseには未適用である。
+今回作成したSQLはmigrationとして管理し、リンク済みのリモート開発Supabaseへ適用済みである。
 
 ## データモデル
 
@@ -235,6 +236,80 @@ fail-open挙動を維持している。自動有効化に失敗した場合で�
 ロールバックされないため、将来Phaseでfail-closed化を別途検討する。
 関数とevent triggerにはbaselineとの差を増やさないためDB commentを追加しない。
 
+## 自由タグPhase B1追加設計
+
+`20260802000100_create_tags.sql`は、自由タグのDB読み取り基盤だけを追加する。
+ローカルresetとpgTAPで検証後、リモート開発DBへ適用した。適用後のpg-delta
+catalog cache生成ではCLIの証明書参照警告が発生したが、remote migration履歴、
+PostgreSQL catalog由来のschema dump、再dry-run、linked schema diffで適用状態と
+定義の一致を確認した。
+投稿作成・編集へ接続するmutation RPC、1投稿最大5個のDB保証、入力・表示UI、
+タグroute、検索はPhase B1に含めない。
+
+### tag nameのcanonical化
+
+`my_diary_private.my_diary_normalize_tag_name(text)`はPostgreSQL標準の
+`normalize(..., NFKC)`を使用し、次の順にcanonical nameを返す。
+
+1. Unicode NFKC正規化
+2. 前後の半角space除去
+3. 1個以上の先頭`#`除去
+4. `#`除去後の前後space除去
+5. 連続する半角spaceを1個へ集約
+6. ASCII `A`〜`Z`だけを小文字化
+
+関数は`IMMUTABLE`、`STRICT`、`PARALLEL SAFE`、`SECURITY INVOKER`、
+`search_path = ''`、owner=`postgres`とする。table CHECKからのみ利用するため、
+`PUBLIC`、`anon`、`authenticated`、`service_role`、`authenticator`には
+EXECUTEを付与しない。同じ処理はTypeScriptで`String.prototype.normalize('NFKC')`
+とASCII限定の置換処理により再現できることを既知入力で確認する。
+
+### tags
+
+- `id`: UUID主キー
+- `name`: canonical表示名
+- `normalized_name`: canonical検索・重複判定名
+- `created_at`: `TIMESTAMPTZ`
+
+Phase B1では`name = normalized_name = canonical value`を必須とし、
+`normalized_name`へUNIQUE制約を置く。長さは`char_length`で1〜30 Unicode
+codepointとする。comma、保存値内の`#`、改行・tabを含むC0/C1制御文字を
+拒否する。PostgreSQLの`text`が保持できないNULは入力段階で拒否される。
+
+### post_tags
+
+- `post_id`: `posts.id`へのcascade FK
+- `tag_id`: `tags.id`へのcascade FK
+- `created_at`: `TIMESTAMPTZ`
+
+`(post_id, tag_id)`を複合主キーとして同一投稿内の重複を禁止する。
+tagからpostを逆引きするため`(tag_id, post_id)` indexを置く。Phase B1では
+最大5個をtriggerやCHECKで保証せず、後続のatomic mutation RPCと同じ
+transactionで保証する。
+
+### tags・post_tagsのRLSとACL
+
+両tableは作成migration内でRLSを明示的に有効化し、`anon`には権限を与えない。
+`authenticated`にはSELECTだけをGRANTし、INSERT、UPDATE、DELETEは付与しない。
+Phase B1にはmutation policyも作成しない。
+
+`post_tags`のSELECT policyは、同じ`post_id`の`public.posts`行が既存posts RLSで
+閲覧可能な場合だけ関係行を返す。`tags`のSELECT policyは、現在のviewerへ
+見える`post_tags`が1件以上存在する場合だけtag行を返す。評価方向を
+`tags` → `post_tags` → `posts`へ固定し、tagsへ戻るpolicy参照を作らないため、
+RLS再帰を発生させない。
+
+この構成により、private投稿、権限のないfollowers投稿、soft-delete済み投稿、
+suspended投稿者の投稿だけに紐づくtag名は取得できない。follow解除やvisibility
+変更も、既存posts RLSの次回評価から即時に反映される。
+
+### Phase B1 migrationの安全条件
+
+migrationは同名table・関数との衝突、private schema・posts・Supabase roleの
+存在をpreflightで確認する。作成後はfunction属性とACL、table owner・列、
+制約、cascade FK、reverse index、RLS、policy数、authenticated/anon権限を
+postconditionで検証し、不一致ならtransaction全体をrollbackする。
+
 ## インデックス
 
 - `my_diary_posts_user_created_at_idx`: ユーザープロフィール、本人の日記、
@@ -251,6 +326,8 @@ fail-open挙動を維持している。自動有効化に失敗した場合で�
   `created_at DESC, follower_id DESC`で最大件数取得するため
 - `my_diary_profiles_username_lower_idx`: 大文字小文字を無視したユーザー名検索の
   準備
+- `my_diary_tags_normalized_name_key`: canonical tag nameの重複防止と検索準備
+- `my_diary_post_tags_tag_post_idx`: tagから可視post relationを逆引きするため
 
 部分インデックスでは `deleted_at is null` を条件にし、通常の取得対象だけを
 小さく保つ。
@@ -316,6 +393,11 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
 - Authユーザー作成時のaccounts / profiles自動作成
 - プロジェクト固有Authトリガーと一般名トリガーの共存
 - SECURITY DEFINER関数の所有者、`search_path`、EXECUTE権限
+- tag normalizerのNFKC・space・先頭`#`・ASCII case canonical化とACL
+- tags/post_tagsの列、制約、cascade FK、index、RLS、SELECT専用grant
+- private / followers / public / deleted / suspended / visibility変更時のtag名境界
+- tags → post_tags → postsの評価でRLS再帰が起きないこと
+- Phase B1では1投稿6個のlinkが可能で、最大5個保証を未導入のまま維持すること
 
 ## リモート適用後のAuth確認
 
