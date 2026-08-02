@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-02
 - 調査時branch: `main`
-- 調査時HEAD: `2e5896e6d4d7844ba71240425290a2cedce56ebf`
-- 調査時HEADのmessage: `docs: consolidate project specifications`
+- 調査時HEAD: `072c73ef460869105051134c3addd1901df3a11b`
+- 調査時HEADのmessage: `feat: split home timeline feeds`
 
 ### 更新ルール
 
@@ -69,7 +69,7 @@ MVP完了条件との差分は、画像、自由タグ、場所入力UI、タイ
 | pgTAP | 8ファイル、plan合計267 | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 最新commit | `2e5896e6d4d7844ba71240425290a2cedce56ebf` | `docs: consolidate project specifications` |
+| 最新commit | `072c73ef460869105051134c3addd1901df3a11b` | `feat: split home timeline feeds` |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。mutationはServer Actionで認証済みユーザーIDを取得し、RLSを最終認可としている。専用の`loading.tsx`はなく、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -244,7 +244,7 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 | `/login` | page | email/passwordログイン |
 | `/sign-up` | page | email/password会員登録 |
 | `/auth/callback` | route handler | email確認codeをsessionへ交換 |
-| `/home` | page | 認証済みviewerが閲覧可能な単一timeline |
+| `/home` | page | 認証済みviewer向けのフォロー中・最新投稿timeline（`feed=following` / `feed=latest`） |
 | `/posts/new` | page | 日記作成 |
 | `/posts/[postId]` | dynamic page | 閲覧可能な日記詳細、reaction、comment |
 | `/posts/[postId]/edit` | dynamic page | 本人の日記編集 |
@@ -362,5 +362,5 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
-| 2026-08-02 | `2e5896e6d4d7844ba71240425290a2cedce56ebf` | Phase A1としてフォロー中・最新投稿timelineとリンク型feed分離を実装。最大50件固定、pagination・無限scroll・長文省略は未実装として維持 |
+| 2026-08-02 | `072c73ef460869105051134c3addd1901df3a11b` | Phase A1としてフォロー中・最新投稿timelineとリンク型feed分離を実装。最大50件固定、pagination・無限scroll・長文省略は未実装として維持 |
 | 2026-08-02 | `4c7ff37de13b035decb791f91f05adb4038c88b3` | Ver.2.0、repository、8 migration、8 pgTAPに基づき初回作成 |
