@@ -25,6 +25,8 @@ export const POST_VISIBILITIES = [
 
 export type PostVisibility = (typeof POST_VISIBILITIES)[number];
 
+export type TimelineFeed = "following" | "latest";
+
 export const POST_MOOD_OPTIONS: ReadonlyArray<{
   value: PostMood;
   label: string;
@@ -172,11 +174,41 @@ export async function getVisiblePostsByUser(
 export async function getTimelinePosts(
   supabase: SupabaseClient,
   currentUserId: string,
+  feed: TimelineFeed,
 ) {
-  const postsResult = await supabase
+  let postsQuery = supabase
     .from("posts")
     .select("id, user_id, title, body, mood, visibility, created_at")
-    .is("deleted_at", null)
+    .is("deleted_at", null);
+
+  if (feed === "following") {
+    const followsResult = await supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", currentUserId)
+      .returns<Array<{ following_id: string }>>();
+
+    if (followsResult.error || !followsResult.data) {
+      return {
+        data: null,
+        error: followsResult.error,
+        reactionsError: null,
+        commentsError: null,
+      };
+    }
+
+    const authorIds = [
+      ...new Set([
+        currentUserId,
+        ...followsResult.data.map((follow) => follow.following_id),
+      ]),
+    ];
+    postsQuery = postsQuery.in("user_id", authorIds);
+  } else {
+    postsQuery = postsQuery.eq("visibility", "public");
+  }
+
+  const postsResult = await postsQuery
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(50)

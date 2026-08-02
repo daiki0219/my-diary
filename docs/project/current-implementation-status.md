@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-02
 - 調査時branch: `main`
-- 調査時HEAD: `4c7ff37de13b035decb791f91f05adb4038c88b3`
-- 調査時HEADのmessage: `feat: manage automatic RLS enablement`
+- 調査時HEAD: `2e5896e6d4d7844ba71240425290a2cedce56ebf`
+- 調査時HEADのmessage: `docs: consolidate project specifications`
 
 ### 更新ルール
 
@@ -42,18 +42,18 @@
 
 | 状態 | 件数 |
 | --- | ---: |
-| 実装済み | 14 |
-| 一部実装済み | 9 |
-| 未実装 | 18 |
+| 実装済み | 17 |
+| 一部実装済み | 8 |
+| 未実装 | 16 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
 | 合計 | 58 |
 
-現在は、メールアドレスとパスワードによる認証、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、3段階の公開範囲、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索まで実装されている。
+現在は、メールアドレスとパスワードによる認証、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索まで実装されている。
 
 DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`の6 tableと、公開範囲・active状態を守るRLS、権限を限定した`SECURITY DEFINER`関数、RLS自動有効化の安全網がmigration管理されている。pgTAPは8ファイル、plan合計267 assertionで、認証後の権限境界、soft delete、visibility変更、suspended状態、follow一覧、RLS自動有効化とACLを対象としている。
 
-MVP完了条件との差分は、画像、自由タグ、場所入力UI、フォロー中と最新投稿の分離、ページネーション、コメント返信、通知、タグ・投稿検索、カレンダー、設定である。パスワードリセットとOAuth、avatarも未完成である。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分は、画像、自由タグ、場所入力UI、タイムラインのページネーション、コメント返信、通知、タグ・投稿検索、カレンダー、設定である。パスワードリセットとOAuth、avatarも未完成である。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
 ## 3. 技術・リポジトリ状態
 
@@ -69,7 +69,7 @@ MVP完了条件との差分は、画像、自由タグ、場所入力UI、フォ
 | pgTAP | 8ファイル、plan合計267 | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 最新commit | `4c7ff37de13b035decb791f91f05adb4038c88b3` | `feat: manage automatic RLS enablement` |
+| 最新commit | `2e5896e6d4d7844ba71240425290a2cedce56ebf` | `docs: consolidate project specifications` |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。mutationはServer Actionで認証済みユーザーIDを取得し、RLSを最終認可としている。専用の`loading.tsx`はなく、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -120,12 +120,12 @@ Server Componentがpageとデータ取得を担当し、入力フォーム、フ
 
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
-| 閲覧可能投稿の単一timeline | 一部実装済み | `/home`でRLSにより閲覧可能な投稿を新着順に最大50件表示。投稿者、日時、気分、title、body、reaction、comment件数、詳細導線あり | body省略、画像、タグ、timeline種別、継続取得がない |
-| フォロー中timeline | 未実装 | 専用route、tab、queryなし | 自分＋follow中ユーザーのpublic/followersに限定する |
-| 最新投稿timeline | 未実装 | 専用route、tab、public限定queryなし | 全activeユーザーのpublic投稿だけの一覧が必要 |
+| timeline共通表示・feed分離 | 実装済み | `/home?feed=following`と`/home?feed=latest`をリンク型navigationで切り替え、選択中リンクへ`aria-current="page"`を付与。投稿者、日時、気分、title、body、reaction、comment件数、詳細導線を共通利用 | body省略、画像、タグ、継続取得がない |
+| フォロー中timeline | 実装済み | queryなし・空・未知・複数値を含む既定feed。`follows`からfollow先を取得し、自分＋follow先のauthorへ絞ったうえでRLSがprivate、suspended、soft delete等を最終除外 | 最大50件固定。大量follow時の`.in(...)`は実データで評価が必要 |
+| 最新投稿timeline | 実装済み | `feed=latest`で`visibility = public`を明示し、RLS上閲覧可能な全active投稿者のpublic投稿を新着順に表示 | 最大50件固定 |
 | pagination / infinite scroll | 未実装 | homeは50件固定、profile投稿とfollow一覧は20件固定で案内文のみ | cursor等による安定した継続取得が必要 |
 
-RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿をDB取得結果から除外する。`getTimelinePosts`は作者プロフィール、reaction、comment件数をbatch取得し、投稿単位のN+1を避けている。
+RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿をDB取得結果から除外する。`getTimelinePosts`は`created_at DESC, id DESC`、最大50件を共通条件とし、作者プロフィール、reaction、comment件数をbatch取得して投稿単位のN+1を避けている。各feedには固有の説明文と空状態がある。
 
 ### 4.5 リアクション
 
@@ -295,9 +295,9 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 ### 9.2 実行結果の区別
 
 - 直前作業までの確認済み結果として、全pgTAP `267 / 267`、最新追加分`29 / 29`、`npm run lint`、`npm run typecheck`、`npm run build`成功が作業依頼に記録されている。
-- 今回は文書作成の根拠として現在のtest定義とnpm scriptを読み、plan合計を再集計した。
-- 今回、pgTAP、lint、typecheck、buildは再実行していない。アプリコード、DB、packageを変更しておらず、文書だけの変更に対する重い検証を避けたためである。
-- ローカルDB catalogは今回照会していない。repositoryの8 migrationと8 pgTAPで分類に必要なschema・権限根拠が揃い、環境固有DB状態を恒久文書へ混在させる必要がなかったためである。
+- Phase A1では`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`を再実行し、すべて成功した。migrationは8件のまま、`supabase/migrations`、`package.json`、`package-lock.json`に差分がないことも確認した。
+- Phase A1では全pgTAP `267 / 267`が成功した。今回の文書記録更新では、直前の全件成功を根拠としてpgTAPを再実行していない。
+- 認証済みブラウザ検証では、following / latestの表示行列、URL直接アクセス、不正・空・複数feed値、リンク切り替え、再読み込み、戻る・進む、`aria-current`、空状態、動的反映を確認した。320 / 360 / 375 / 390 / 1280pxで横スクロールがなく、長文・改行・連続半角文字列の表示も正常であり、console error / warning、React warning、hydration errorはなかった。ユーザーによる最終手動確認も問題なかった。
 - repository内にunit、component、browser E2Eの自動test fileは確認できない。
 
 ## 10. 既知の制限・技術的負債
@@ -307,7 +307,7 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 3. suspended accountはRLSでmutationと他者投稿・follow関係を制限するが、Supabase Authへのlogin自体は拒否していない。
 4. `profiles` SELECT policyはauthenticated全体に許可され、直接の他ユーザープロフィールrouteは対象accountのactive状態を検証していない。
 5. timelineは最大50件、他者投稿とfollow一覧は最新20件、comment一覧は古い順100件で打ち切り、継続取得を実装していない。
-6. timelineはフォロー中と最新投稿に分かれておらず、一覧本文も省略しない。
+6. timelineはフォロー中と最新投稿に分離済みだが、一覧本文を省略しない。フォロー中feedのauthor filterは`.in(...)`を使用するため、大量follow時のURL長・query性能を実データで評価する必要がある。
 7. avatar_pathとlocation_nameはDB基盤だけで、UIから利用できない。
 8. comment返信用`parent_comment_id`がなく、通知・通報を含む関連tableも未作成である。
 9. unit、component、E2E、accessibility、viewport別responsiveの自動回帰がない。
@@ -318,13 +318,13 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 
 次の候補は確定順ではない。正式仕様のMVP完了条件と、現在の実装差分から選定した。
 
-### 候補A: timelineの「フォロー中」「最新投稿」分離
+### 候補A: timelineの継続取得と長文省略
 
-- 目的: 正式仕様の2種類のtimelineを提供する。
-- 現在の不足: `/home`はRLSで見える投稿を混在表示し、tabと継続取得がない。
+- 目的: 分離済みの2種類のtimelineへ安定した継続取得を追加し、一覧の長文を読みやすくする。
+- 現在の不足: `/home`は各feed最大50件固定で、cursor pagination、無限スクロール、長文省略がない。
 - 前提: 現行post visibility RLSとfollow RLSを維持する。
-- 主な影響範囲: `src/app/(protected)/home`、`src/lib/post-data.ts`、投稿card、pgTAP。
-- 推奨理由: 既存tableとRLSを再利用でき、DB変更を抑えてMVPの主要導線を完成に近づけられる。
+- 主な影響範囲: `src/app/(protected)/home`、`src/lib/post-data.ts`、投稿card、必要な回帰テスト。
+- 推奨理由: 正式仕様の性能要件と一覧可読性を満たし、現在の最大50件固定を解消できる。
 
 ### 候補B: 自由タグとタグ検索
 
@@ -362,4 +362,5 @@ MVP対象で未作成なのは`post_images`、`tags`、`post_tags`、`notificati
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-02 | `2e5896e6d4d7844ba71240425290a2cedce56ebf` | Phase A1としてフォロー中・最新投稿timelineとリンク型feed分離を実装。最大50件固定、pagination・無限scroll・長文省略は未実装として維持 |
 | 2026-08-02 | `4c7ff37de13b035decb791f91f05adb4038c88b3` | Ver.2.0、repository、8 migration、8 pgTAPに基づき初回作成 |
