@@ -5,12 +5,13 @@
 この設計案は、最初のデータベース単位として `accounts`、`profiles`、
 `posts`、`follows` を対象とした。投稿画像、リアクション、コメント、通知、
 通報、Storageは初回単位に含めない。自由タグの後続Phase B1設計は本書の
-「自由タグPhase B1追加設計」に追記する。
+「自由タグPhase B1追加設計」と「自由タグPhase B2a atomic mutation設計」に追記する。
 
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` には4テーブルの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-今回作成したSQLはmigrationとして管理し、リンク済みのリモート開発Supabaseへ適用済みである。
+初回schemaとPhase B1までのSQLはmigrationとして管理し、リンク済みのリモート開発
+Supabaseへ適用済みである。Phase B2a migrationはローカル検証済み・リモート未適用である。
 
 ## データモデル
 
@@ -102,16 +103,19 @@ TypeScriptの文字列unionとして生成・管理する予定とする。
 投稿者が `suspended` の場合、投稿者本人だけは自分の未削除投稿を閲覧できるが、
 他ユーザーからはpublic投稿を含めて非表示になる。
 
-### posts INSERT / UPDATE / ソフトデリート
+### posts作成 / 更新 / ソフトデリート
 
-- INSERT: `user_id = auth.uid()` かつ `deleted_at is null`
-- UPDATE: 削除前の本人投稿だけ。更新後も `user_id = auth.uid()`
+- 作成: `my_diary_create_post_with_tags` RPCがactiveな`auth.uid()`をownerとして
+  postとtag relationを同一transactionで作成する
+- 更新: `my_diary_update_post_with_tags` RPCが本人所有・未削除のpostをrow lockし、
+  post本体と任意のtag集合を同一transactionで更新する
 - ソフトデリート: 本人だけが `my_diary_soft_delete_post` 関数で
   `deleted_at` を設定
 - DELETE: 一般ユーザーには権限もRLSポリシーも付与しない
 
-列権限により、一般ユーザーは `id`、`user_id`、作成・更新日時を直接変更
-できない。`updated_at` はトリガーで更新する。
+Phase B2a以降、`authenticated`にはpostsの直接INSERT / UPDATE列権限を
+付与しない。既存INSERT / UPDATE policyは防御層として維持するが、一般アプリの
+作成・更新経路は上記2 RPCだけである。`updated_at` はトリガーで更新する。
 
 ### profiles
 
@@ -310,6 +314,90 @@ migrationは同名table・関数との衝突、private schema・posts・Supabase
 制約、cascade FK、reverse index、RLS、policy数、authenticated/anon権限を
 postconditionで検証し、不一致ならtransaction全体をrollbackする。
 
+## 自由タグPhase B2a atomic mutation設計
+
+`20260802000200_create_atomic_post_tag_mutation.sql`は、投稿作成・更新と自由タグの
+関連付けを1回のPostgREST RPC transactionへまとめる。公開signatureは次の2つで、
+overloadとdefault引数は作らない。`location_name`は引数に含めず、作成時は既定の
+`NULL`、更新時は既存値を維持する。
+
+```sql
+public.my_diary_create_post_with_tags(
+  p_title text,
+  p_body text,
+  p_mood text,
+  p_visibility text,
+  p_tags text[]
+) returns uuid
+
+public.my_diary_update_post_with_tags(
+  p_post_id uuid,
+  p_title text,
+  p_body text,
+  p_mood text,
+  p_visibility text,
+  p_tags text[]
+) returns uuid
+```
+
+両関数は`VOLATILE`、`SECURITY DEFINER`、owner=`postgres`、
+`search_path = ''`とし、関数内のobjectを完全修飾する。`PUBLIC`、`anon`、
+`service_role`、`authenticator`にはEXECUTEを付与せず、`authenticated`だけに
+付与する。RLSを迂回する関数であるため、`auth.uid()`の存在、accountのactive状態、
+本人所有、未削除を関数内で再検証する。更新対象が存在しない、他人所有、
+soft-delete済みのどれかは、同じ認可エラーとして扱う。
+
+### 投稿・タグ入力
+
+投稿値はRPC内で前後の空白を正規化し、既存posts CHECKと同じ上限を
+明示的に検証する。titleは`NULL`または1〜120 codepoint、bodyはtrim後
+1〜10,000 codepoint、moodは既存6種類または`NULL`、visibilityは既存3種類である。
+Server ActionとClient formのvalidationは早いUX feedback用として維持し、DB関数と
+CHECKを最終境界とする。
+
+tag配列は1次元、raw最大20要素、配列内`NULL`なしとする。各要素は既存の
+`my_diary_private.my_diary_normalize_tag_name(text)`でcanonical化し、空、30 codepoint
+超過、comma、canonical値内の`#`、制御文字を拒否する。同じ正規化処理をRPCへ
+複製しない。最大5個はcanonical化後に重複排除したdistinct数で数えるため、rawが
+6〜20要素でもdistinctが5以下なら受理する。処理順はcanonical名の昇順へ固定し、
+tag順序自体は保存しない。
+
+作成では`p_tags IS NULL`と空配列をどちらも「タグなし」とする。更新では次のように
+区別する。
+
+- `p_tags IS NULL`: relationをSELECT・DELETE・INSERTせず、現在のtag集合を維持
+- 空配列: すべてのrelationを解除
+- 非空配列: canonical化後の希望集合へ差分更新
+
+### transaction・lock・差分更新
+
+作成RPCはpost INSERT、tag master解決、post_tags INSERT、uuid返却を同一transactionで
+実行する。更新RPCは本人所有かつ未削除のpostを`FOR UPDATE`でlockしてからpost本体と
+relationを処理する。同じpostへの更新とsoft deleteはpost row lockで直列化され、
+lockはtransaction終了まで保持される。
+
+tag masterはcanonical名の昇順で`INSERT ... ON CONFLICT (normalized_name) DO NOTHING`
+を実行し、その後の別statementでIDを取得する。同じ新規tagを作るtransactionが
+競合しても不要な`DO UPDATE`を行わず、UNIQUE violationを一般利用者へ露出させない。
+
+更新時は、現在あって希望集合にないrelationだけをDELETEし、希望集合にあって
+現在ないrelationだけをINSERTする。共通するrelationは変更せず、既存の
+`post_tags.created_at`を維持する。処理途中の例外はpost、tag master、relationを含む
+RPC statement全体をrollbackする。relationを外した後も未使用tag masterは自動削除
+しない。
+
+`authenticated`のposts直接INSERT / UPDATE列grantを取り消すことで、この2 RPCを
+一般アプリの唯一の作成・更新経路とする。RPC内の最大5個検証と更新時row lockにより
+一般アプリ経路では最大数をDB側で保証するが、`postgres`等の特権roleによる直接SQL
+まで構造的に禁止するconstraint triggerやcounterはPhase B2aでは追加しない。
+
+### Phase B2a migrationの安全条件
+
+migrationは同名RPC/overload、必要table・normalizer・Supabase role、移行前posts列grantを
+preflightで確認する。作成後はexact signature、引数名、return型、言語、volatility、
+owner、SECURITY DEFINER、固定search_path、comment、ACL、posts/tag table権限を
+postconditionで検証し、不一致ならtransaction全体をrollbackする。
+
 ## インデックス
 
 - `my_diary_posts_user_created_at_idx`: ユーザープロフィール、本人の日記、
@@ -397,7 +485,12 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
 - tags/post_tagsの列、制約、cascade FK、index、RLS、SELECT専用grant
 - private / followers / public / deleted / suspended / visibility変更時のtag名境界
 - tags → post_tags → postsの評価でRLS再帰が起きないこと
-- Phase B1では1投稿6個のlinkが可能で、最大5個保証を未導入のまま維持すること
+- 特権roleの直接SQLでは1投稿6個のlinkが可能という構造上の境界を維持しつつ、
+  Phase B2aのauthenticated RPC経路ではcanonical distinct最大5個を拒否すること
+- atomic RPCのexact signature、属性、ACL、posts直接grant取消、入力境界
+- tagのNULL / 空配列 / 非空配列、差分更新、unchanged relationの`created_at`
+- relation段階の強制例外でpost・tag master・relationが一括rollbackすること
+- 補助2-session検証で同一tag UNIQUE競合と同一post row lockを実際に待機させること
 
 ## リモート適用後のAuth確認
 

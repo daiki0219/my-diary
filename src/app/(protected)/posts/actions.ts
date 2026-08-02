@@ -7,7 +7,6 @@ import { COMMENT_MAX_LENGTH } from "@/lib/comment-data";
 import {
   isPostMood,
   isPostVisibility,
-  type PostMood,
 } from "@/lib/post-data";
 import { isUuid } from "@/lib/profile-data";
 import {
@@ -124,30 +123,21 @@ export async function createPost(
     };
   }
 
-  const { data, error } = await supabase
-    .from("posts")
-    .insert({
-      user_id: userId,
-      title,
-      body,
-      mood: mood as PostMood | null,
-      visibility,
-    })
-    .select("id")
-    .maybeSingle();
+  const { data, error } = await supabase.rpc(
+    "my_diary_create_post_with_tags",
+    {
+      p_title: title,
+      p_body: body,
+      p_mood: mood,
+      p_visibility: visibility,
+      p_tags: [],
+    },
+  );
 
-  if (!error && !data) {
+  if (error || typeof data !== "string" || !isUuid(data)) {
     return {
       error:
-        "投稿を作成できませんでした。アカウントの状態を確認してください。",
-      fieldErrors: {},
-    };
-  }
-
-  if (error) {
-    return {
-      error:
-        error.code === "42501"
+        error?.code === "42501"
           ? "投稿を作成する権限がありません。アカウントの状態を確認してください。"
           : "投稿に失敗しました。時間をおいてもう一度お試しください。",
       fieldErrors: {},
@@ -242,21 +232,19 @@ export async function updatePost(
     };
   }
 
-  const { data, error } = await supabase
-    .from("posts")
-    .update({
-      title,
-      body,
-      mood: mood as PostMood | null,
-      visibility,
-    })
-    .eq("id", postIdValue)
-    .eq("user_id", userId)
-    .is("deleted_at", null)
-    .select("id")
-    .maybeSingle<{ id: string }>();
+  const { data, error } = await supabase.rpc(
+    "my_diary_update_post_with_tags",
+    {
+      p_post_id: postIdValue,
+      p_title: title,
+      p_body: body,
+      p_mood: mood,
+      p_visibility: visibility,
+      p_tags: null,
+    },
+  );
 
-  if (error || !data) {
+  if (error || typeof data !== "string" || !isUuid(data)) {
     return {
       error:
         "投稿を更新できませんでした。投稿またはアカウントの状態を確認してください。",

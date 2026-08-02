@@ -460,18 +460,16 @@ set local role authenticated;
 
 select results_eq(
   $$
-    insert into public.posts (user_id, body, visibility)
-    values (
-      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    select public.my_diary_create_post_with_tags(
+      null,
       'INSERT RETURNING regression',
-      'private'
-    )
-    returning user_id
+      null,
+      'private',
+      null
+    ) is not null
   $$,
-  $$
-    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid)
-  $$,
-  'A can create an own post and receive its row through INSERT RETURNING'
+  $$values (true)$$,
+  'A can create an own post and receive a uuid through the atomic RPC'
 );
 
 select lives_ok(

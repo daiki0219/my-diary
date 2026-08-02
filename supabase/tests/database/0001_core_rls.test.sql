@@ -220,8 +220,18 @@ select ok(
     'authenticated',
     'public.my_diary_soft_delete_post(uuid)',
     'EXECUTE'
+  )
+  and pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.my_diary_create_post_with_tags(text,text,text,text,text[])',
+    'EXECUTE'
+  )
+  and pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.my_diary_update_post_with_tags(uuid,text,text,text,text,text[])',
+    'EXECUTE'
   ),
-  'authenticated can execute only the two required project functions'
+  'authenticated can execute the required core and post mutation functions'
 );
 
 insert into public.posts (id, user_id, title, body, visibility, deleted_at)
@@ -382,20 +392,23 @@ select results_eq(
   'B loses access after unfollowing A'
 );
 
-update public.posts
-set title = 'changed by B'
-where id = '10000000-0000-4000-8000-000000000002';
-
-reset role;
-select is(
-  (
-    select title
-    from public.posts
-    where id = '10000000-0000-4000-8000-000000000002'
-  ),
-  'public',
+select throws_ok(
+  $$
+    select public.my_diary_update_post_with_tags(
+      '10000000-0000-4000-8000-000000000002',
+      'changed by B',
+      'A public post',
+      null,
+      'public',
+      null
+    )
+  $$,
+  '42501',
+  null,
   'B cannot update A post'
 );
+
+reset role;
 
 select set_config(
   'request.jwt.claim.sub',
@@ -443,9 +456,14 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-update public.posts
-set title = 'changed by A'
-where id = '10000000-0000-4000-8000-000000000002';
+select public.my_diary_update_post_with_tags(
+  '10000000-0000-4000-8000-000000000002',
+  'changed by A',
+  'A public post',
+  null,
+  'public',
+  null
+);
 
 reset role;
 select is(
@@ -760,11 +778,12 @@ select results_eq(
 
 select throws_ok(
   $$
-    insert into public.posts (user_id, body, visibility)
-    values (
-      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    select public.my_diary_create_post_with_tags(
+      null,
       'suspended user post',
-      'private'
+      null,
+      'private',
+      null
     )
   $$,
   '42501',
@@ -772,14 +791,19 @@ select throws_ok(
   'Suspended A cannot create a post'
 );
 
-select results_eq(
+select throws_ok(
   $$
-    update public.posts
-    set title = 'changed while suspended'
-    where id = '10000000-0000-4000-8000-000000000002'
-    returning id
+    select public.my_diary_update_post_with_tags(
+      '10000000-0000-4000-8000-000000000002',
+      'changed while suspended',
+      'A public post',
+      null,
+      'public',
+      null
+    )
   $$,
-  $$select null::uuid where false$$,
+  '42501',
+  null,
   'Suspended A cannot update a post'
 );
 

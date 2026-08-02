@@ -85,16 +85,15 @@ values (
 );
 
 select ok(
-  has_column_privilege('authenticated', 'public.posts', 'title', 'UPDATE')
-  and has_column_privilege('authenticated', 'public.posts', 'body', 'UPDATE')
-  and has_column_privilege('authenticated', 'public.posts', 'mood', 'UPDATE')
-  and has_column_privilege(
+  not pg_catalog.has_any_column_privilege(
+    'authenticated', 'public.posts', 'UPDATE'
+  )
+  and pg_catalog.has_function_privilege(
     'authenticated',
-    'public.posts',
-    'visibility',
-    'UPDATE'
+    'public.my_diary_update_post_with_tags(uuid,text,text,text,text,text[])',
+    'EXECUTE'
   ),
-  'authenticated can update every editable post column'
+  'authenticated updates posts only through the atomic RPC'
 );
 
 select ok(
@@ -135,45 +134,61 @@ set local role authenticated;
 
 select results_eq(
   $$
-    update public.posts
-    set title = 'Edited title'
-    where id = '50000000-0000-4000-8000-000000000001'
-    returning title
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000001',
+      'Edited title',
+      'Editable body',
+      'neutral',
+      'public',
+      null
+    )
   $$,
-  $$values ('Edited title'::text)$$,
+  $$values ('50000000-0000-4000-8000-000000000001'::uuid)$$,
   'An owner can update title'
 );
 
 select results_eq(
   $$
-    update public.posts
-    set body = E'Edited\nbody'
-    where id = '50000000-0000-4000-8000-000000000001'
-    returning body
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000001',
+      'Edited title',
+      E'Edited\nbody',
+      'neutral',
+      'public',
+      null
+    )
   $$,
-  $$values (E'Edited\nbody'::text)$$,
+  $$values ('50000000-0000-4000-8000-000000000001'::uuid)$$,
   'An owner can update body while preserving internal newlines'
 );
 
 select results_eq(
   $$
-    update public.posts
-    set mood = 'calm'
-    where id = '50000000-0000-4000-8000-000000000001'
-    returning mood
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000001',
+      'Edited title',
+      E'Edited\nbody',
+      'calm',
+      'public',
+      null
+    )
   $$,
-  $$values ('calm'::text)$$,
+  $$values ('50000000-0000-4000-8000-000000000001'::uuid)$$,
   'An owner can update mood'
 );
 
 select results_eq(
   $$
-    update public.posts
-    set visibility = 'followers'
-    where id = '50000000-0000-4000-8000-000000000001'
-    returning visibility
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000001',
+      'Edited title',
+      E'Edited\nbody',
+      'calm',
+      'followers',
+      null
+    )
   $$,
-  $$values ('followers'::text)$$,
+  $$values ('50000000-0000-4000-8000-000000000001'::uuid)$$,
   'An owner can update visibility'
 );
 
@@ -186,14 +201,19 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-select results_eq(
+select throws_ok(
   $$
-    update public.posts
-    set title = 'Changed by B'
-    where id = '50000000-0000-4000-8000-000000000001'
-    returning id
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000001',
+      'Changed by B',
+      E'Edited\nbody',
+      'calm',
+      'followers',
+      null
+    )
   $$,
-  $$select null::uuid where false$$,
+  '42501',
+  null,
   'Another user cannot update the post'
 );
 
@@ -210,14 +230,19 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-select results_eq(
+select throws_ok(
   $$
-    update public.posts
-    set title = 'Changed while suspended'
-    where id = '50000000-0000-4000-8000-000000000001'
-    returning id
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000001',
+      'Changed while suspended',
+      E'Edited\nbody',
+      'calm',
+      'followers',
+      null
+    )
   $$,
-  $$select null::uuid where false$$,
+  '42501',
+  null,
   'A suspended owner cannot update the post'
 );
 
@@ -234,75 +259,110 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-select results_eq(
+select throws_ok(
   $$
-    update public.posts
-    set title = 'Changed after deletion'
-    where id = '50000000-0000-4000-8000-000000000002'
-    returning id
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000002',
+      'Changed after deletion',
+      'Deleted body',
+      null,
+      'public',
+      null
+    )
   $$,
-  $$select null::uuid where false$$,
+  '42501',
+  null,
   'An owner cannot update a soft-deleted post'
 );
 
 select lives_ok(
   $$
-    update public.posts
-    set title = repeat('あ', 120)
-    where id = '50000000-0000-4000-8000-000000000004'
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000004',
+      repeat('あ', 120),
+      'Boundary body',
+      null,
+      'private',
+      null
+    )
   $$,
   'A 120-character title is accepted'
 );
 
 select throws_ok(
   $$
-    update public.posts
-    set title = repeat('あ', 121)
-    where id = '50000000-0000-4000-8000-000000000004'
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000004',
+      repeat('あ', 121),
+      'Boundary body',
+      null,
+      'private',
+      null
+    )
   $$,
-  '23514',
+  '22023',
   null,
   'A 121-character title is rejected'
 );
 
 select lives_ok(
   $$
-    update public.posts
-    set body = repeat('あ', 10000)
-    where id = '50000000-0000-4000-8000-000000000004'
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000004',
+      repeat('あ', 120),
+      repeat('あ', 10000),
+      null,
+      'private',
+      null
+    )
   $$,
   'A 10000-character body is accepted'
 );
 
 select throws_ok(
   $$
-    update public.posts
-    set body = repeat('あ', 10001)
-    where id = '50000000-0000-4000-8000-000000000004'
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000004',
+      repeat('あ', 120),
+      repeat('あ', 10001),
+      null,
+      'private',
+      null
+    )
   $$,
-  '23514',
+  '22023',
   null,
   'A 10001-character body is rejected'
 );
 
 select throws_ok(
   $$
-    update public.posts
-    set mood = 'invalid'
-    where id = '50000000-0000-4000-8000-000000000004'
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000004',
+      repeat('あ', 120),
+      repeat('あ', 10000),
+      'invalid',
+      'private',
+      null
+    )
   $$,
-  '23514',
+  '22023',
   null,
   'An invalid mood is rejected'
 );
 
 select throws_ok(
   $$
-    update public.posts
-    set visibility = 'invalid'
-    where id = '50000000-0000-4000-8000-000000000004'
+    select public.my_diary_update_post_with_tags(
+      '50000000-0000-4000-8000-000000000004',
+      repeat('あ', 120),
+      repeat('あ', 10000),
+      null,
+      'invalid',
+      null
+    )
   $$,
-  '23514',
+  '22023',
   null,
   'An invalid visibility is rejected'
 );
@@ -316,9 +376,14 @@ select ok(
   'Updating an editable field refreshes updated_at'
 );
 
-update public.posts
-set visibility = 'private'
-where id = '50000000-0000-4000-8000-000000000001';
+select public.my_diary_update_post_with_tags(
+  '50000000-0000-4000-8000-000000000001',
+  'Edited title',
+  E'Edited\nbody',
+  'calm',
+  'private',
+  null
+);
 
 reset role;
 select set_config(
@@ -362,9 +427,14 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-update public.posts
-set visibility = 'followers'
-where id = '50000000-0000-4000-8000-000000000001';
+select public.my_diary_update_post_with_tags(
+  '50000000-0000-4000-8000-000000000001',
+  'Edited title',
+  E'Edited\nbody',
+  'calm',
+  'followers',
+  null
+);
 
 reset role;
 select set_config(
@@ -415,9 +485,14 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-update public.posts
-set visibility = 'public'
-where id = '50000000-0000-4000-8000-000000000001';
+select public.my_diary_update_post_with_tags(
+  '50000000-0000-4000-8000-000000000001',
+  'Edited title',
+  E'Edited\nbody',
+  'calm',
+  'public',
+  null
+);
 
 reset role;
 select set_config(

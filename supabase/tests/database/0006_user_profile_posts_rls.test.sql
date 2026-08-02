@@ -290,9 +290,14 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-update public.posts
-set visibility = 'followers'
-where id = '71000000-0000-4000-8000-000000000009';
+select public.my_diary_update_post_with_tags(
+  '71000000-0000-4000-8000-000000000009',
+  'A visibility changes',
+  'A visibility changes body',
+  null,
+  'followers',
+  null
+);
 
 reset role;
 select set_config(
@@ -346,9 +351,14 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-update public.posts
-set visibility = 'private'
-where id = '71000000-0000-4000-8000-000000000009';
+select public.my_diary_update_post_with_tags(
+  '71000000-0000-4000-8000-000000000009',
+  'A visibility changes',
+  'A visibility changes body',
+  null,
+  'private',
+  null
+);
 
 reset role;
 select set_config(
@@ -378,9 +388,14 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-update public.posts
-set visibility = 'public'
-where id = '71000000-0000-4000-8000-000000000009';
+select public.my_diary_update_post_with_tags(
+  '71000000-0000-4000-8000-000000000009',
+  'A visibility changes',
+  'A visibility changes body',
+  null,
+  'public',
+  null
+);
 
 reset role;
 select set_config(
