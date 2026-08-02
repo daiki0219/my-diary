@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CommentCount } from "@/components/posts/comment-count";
 import { DeletePostButton } from "@/components/posts/delete-post-button";
 import { ReactionControls } from "@/components/posts/reaction-controls";
+import { TagList } from "@/components/posts/tag-list";
 import {
   getMoodLabel,
   getVisibilityLabel,
@@ -51,6 +52,8 @@ export function PostCard({
           </span>
         </div>
       </div>
+
+      <TagList tags={post.tags} />
 
       <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
         {post.body}

@@ -8,6 +8,7 @@ import {
   updatePost,
   type UpdatePostActionState,
 } from "@/app/(protected)/posts/actions";
+import { TagInput } from "@/components/posts/tag-input";
 import {
   POST_MOOD_OPTIONS,
   POST_VISIBILITY_OPTIONS,
@@ -41,6 +42,8 @@ export function EditPostForm({ post }: { post: EditablePost }) {
   const initialState: UpdatePostActionState = {
     error: null,
     fieldErrors: {},
+    submittedTagValues: null,
+    revision: 0,
   };
   const [state, formAction] = useActionState(updatePost, initialState);
 
@@ -135,6 +138,15 @@ export function EditPostForm({ post }: { post: EditablePost }) {
           </p>
         )}
       </div>
+
+      <TagInput
+        fieldError={state.fieldErrors.tags}
+        idPrefix="edit-post"
+        initialValues={
+          state.submittedTagValues ?? post.tags.map((tag) => tag.name)
+        }
+        key={state.revision}
+      />
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div>

@@ -8,6 +8,7 @@ import {
   createPost,
   type CreatePostActionState,
 } from "@/app/(protected)/posts/actions";
+import { TagInput } from "@/components/posts/tag-input";
 import {
   POST_MOOD_OPTIONS,
   POST_VISIBILITY_OPTIONS,
@@ -34,6 +35,8 @@ export function PostForm() {
   const initialState: CreatePostActionState = {
     error: null,
     fieldErrors: {},
+    submittedTagValues: null,
+    revision: 0,
   };
   const [state, formAction] = useActionState(createPost, initialState);
 
@@ -127,6 +130,13 @@ export function PostForm() {
           </p>
         )}
       </div>
+
+      <TagInput
+        fieldError={state.fieldErrors.tags}
+        idPrefix="post"
+        initialValues={state.submittedTagValues ?? []}
+        key={state.revision}
+      />
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div>

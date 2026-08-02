@@ -14,6 +14,7 @@ import {
   type ReactionType,
 } from "@/lib/reaction-data";
 import { createClient } from "@/lib/supabase/server";
+import { validateTagInputValues } from "@/lib/tag-data";
 
 export type CreatePostActionState = {
   error: string | null;
@@ -22,7 +23,10 @@ export type CreatePostActionState = {
     body?: string;
     mood?: string;
     visibility?: string;
+    tags?: string;
   };
+  submittedTagValues: string[] | null;
+  revision: number;
 };
 
 export type UpdatePostActionState = CreatePostActionState;
@@ -49,8 +53,39 @@ function characterCount(value: string) {
   return Array.from(value).length;
 }
 
+function getValidatedTags(formData: FormData) {
+  const entries = formData.getAll("tags");
+  const submittedTagValues = entries.filter(
+    (entry): entry is string => typeof entry === "string",
+  );
+
+  if (entries.length === 0 || submittedTagValues.length !== entries.length) {
+    return {
+      data: null,
+      error: "タグの入力内容を確認してください。",
+      submittedTagValues,
+    };
+  }
+
+  const result = validateTagInputValues(submittedTagValues);
+  return { ...result, submittedTagValues };
+}
+
+function inputErrorState(
+  previousState: CreatePostActionState,
+  fieldErrors: CreatePostActionState["fieldErrors"],
+  submittedTagValues: string[],
+): CreatePostActionState {
+  return {
+    error: "入力内容を確認してください。",
+    fieldErrors,
+    submittedTagValues,
+    revision: previousState.revision + 1,
+  };
+}
+
 export async function createPost(
-  _previousState: CreatePostActionState,
+  previousState: CreatePostActionState,
   formData: FormData,
 ): Promise<CreatePostActionState> {
   const titleValue = formData.get("title");
@@ -58,6 +93,7 @@ export async function createPost(
   const moodValue = formData.get("mood");
   const visibilityValue = formData.get("visibility");
   const fieldErrors: CreatePostActionState["fieldErrors"] = {};
+  const tagsResult = getValidatedTags(formData);
 
   if (titleValue !== null && typeof titleValue !== "string") {
     fieldErrors.title = "タイトルを正しく入力してください。";
@@ -75,8 +111,16 @@ export async function createPost(
     fieldErrors.visibility = "公開範囲を選択してください。";
   }
 
+  if (tagsResult.error) {
+    fieldErrors.tags = tagsResult.error;
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "入力内容を確認してください。", fieldErrors };
+    return inputErrorState(
+      previousState,
+      fieldErrors,
+      tagsResult.submittedTagValues,
+    );
   }
 
   const normalizedTitle =
@@ -108,7 +152,11 @@ export async function createPost(
   }
 
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "入力内容を確認してください。", fieldErrors };
+    return inputErrorState(
+      previousState,
+      fieldErrors,
+      tagsResult.submittedTagValues,
+    );
   }
 
   const supabase = await createClient();
@@ -120,6 +168,8 @@ export async function createPost(
     return {
       error: "ログイン状態を確認できませんでした。もう一度ログインしてください。",
       fieldErrors: {},
+      submittedTagValues: tagsResult.submittedTagValues,
+      revision: previousState.revision + 1,
     };
   }
 
@@ -130,20 +180,33 @@ export async function createPost(
       p_body: body,
       p_mood: mood,
       p_visibility: visibility,
-      p_tags: [],
+      p_tags: tagsResult.data,
     },
   );
 
   if (error || typeof data !== "string" || !isUuid(data)) {
+    if (error?.code === "22023") {
+      return {
+        error:
+          "タグを保存できませんでした。時間をおいてもう一度お試しください。",
+        fieldErrors: { tags: "タグの入力内容を確認してください。" },
+        submittedTagValues: tagsResult.submittedTagValues,
+        revision: previousState.revision + 1,
+      };
+    }
+
     return {
       error:
         error?.code === "42501"
           ? "投稿を作成する権限がありません。アカウントの状態を確認してください。"
           : "投稿に失敗しました。時間をおいてもう一度お試しください。",
       fieldErrors: {},
+      submittedTagValues: tagsResult.submittedTagValues,
+      revision: previousState.revision + 1,
     };
   }
 
+  revalidatePath("/home");
   revalidatePath("/profile");
   revalidatePath("/profile/posts");
   revalidatePath(`/users/${userId}`);
@@ -151,7 +214,7 @@ export async function createPost(
 }
 
 export async function updatePost(
-  _previousState: UpdatePostActionState,
+  previousState: UpdatePostActionState,
   formData: FormData,
 ): Promise<UpdatePostActionState> {
   const postIdValue = formData.get("postId");
@@ -160,11 +223,14 @@ export async function updatePost(
   const moodValue = formData.get("mood");
   const visibilityValue = formData.get("visibility");
   const fieldErrors: UpdatePostActionState["fieldErrors"] = {};
+  const tagsResult = getValidatedTags(formData);
 
   if (typeof postIdValue !== "string" || !isUuid(postIdValue)) {
     return {
       error: "更新する投稿を確認できませんでした。",
       fieldErrors,
+      submittedTagValues: tagsResult.submittedTagValues,
+      revision: previousState.revision + 1,
     };
   }
 
@@ -184,8 +250,16 @@ export async function updatePost(
     fieldErrors.visibility = "公開範囲を選択してください。";
   }
 
+  if (tagsResult.error) {
+    fieldErrors.tags = tagsResult.error;
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "入力内容を確認してください。", fieldErrors };
+    return inputErrorState(
+      previousState,
+      fieldErrors,
+      tagsResult.submittedTagValues,
+    );
   }
 
   const normalizedTitle =
@@ -217,7 +291,11 @@ export async function updatePost(
   }
 
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "入力内容を確認してください。", fieldErrors };
+    return inputErrorState(
+      previousState,
+      fieldErrors,
+      tagsResult.submittedTagValues,
+    );
   }
 
   const supabase = await createClient();
@@ -229,6 +307,8 @@ export async function updatePost(
     return {
       error: "ログイン状態を確認できませんでした。もう一度ログインしてください。",
       fieldErrors: {},
+      submittedTagValues: tagsResult.submittedTagValues,
+      revision: previousState.revision + 1,
     };
   }
 
@@ -240,15 +320,27 @@ export async function updatePost(
       p_body: body,
       p_mood: mood,
       p_visibility: visibility,
-      p_tags: null,
+      p_tags: tagsResult.data,
     },
   );
 
   if (error || typeof data !== "string" || !isUuid(data)) {
+    if (error?.code === "22023") {
+      return {
+        error:
+          "タグを保存できませんでした。時間をおいてもう一度お試しください。",
+        fieldErrors: { tags: "タグの入力内容を確認してください。" },
+        submittedTagValues: tagsResult.submittedTagValues,
+        revision: previousState.revision + 1,
+      };
+    }
+
     return {
       error:
         "投稿を更新できませんでした。投稿またはアカウントの状態を確認してください。",
       fieldErrors: {},
+      submittedTagValues: tagsResult.submittedTagValues,
+      revision: previousState.revision + 1,
     };
   }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ReactionControls } from "@/components/posts/reaction-controls";
+import { TagList } from "@/components/posts/tag-list";
 import {
   getMoodLabel,
   getVisibilityLabel,
@@ -69,6 +70,8 @@ export function PostDetail({
             公開範囲：{getVisibilityLabel(post.visibility)}
           </span>
         </div>
+
+        <TagList tags={post.tags} />
 
         <p className="mt-6 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
           {post.body}

@@ -5,6 +5,10 @@ import {
   getReactionSummaries,
   type ReactionSummary,
 } from "@/lib/reaction-data";
+import {
+  compareCanonicalTagNames,
+  type PostTag,
+} from "@/lib/tag-data";
 
 export const POST_MOODS = [
   "happy",
@@ -55,6 +59,7 @@ export type Post = {
   mood: PostMood | null;
   visibility: PostVisibility;
   created_at: string;
+  tags: PostTag[];
   reactions: ReactionSummary | null;
   commentCount: number | null;
 };
@@ -70,7 +75,7 @@ export type PostDetail = Omit<TimelinePost, "commentCount">;
 
 export type EditablePost = Pick<
   PostDetail,
-  "id" | "title" | "body" | "mood" | "visibility"
+  "id" | "title" | "body" | "mood" | "visibility" | "tags"
 >;
 
 export type PostDetailResult =
@@ -86,6 +91,57 @@ export type PostDetailResult =
     };
 
 const USER_PROFILE_POST_LIMIT = 20;
+const TAG_RELATION_LOAD_ERROR = new Error("Post tag relation shape is invalid.");
+
+type RawTagRelations = {
+  post_tags: unknown;
+};
+
+function parsePostTags(value: unknown): PostTag[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const tags: PostTag[] = [];
+
+  for (const relation of value) {
+    if (
+      typeof relation !== "object" ||
+      relation === null ||
+      !("tags" in relation) ||
+      typeof relation.tags !== "object" ||
+      relation.tags === null ||
+      !("name" in relation.tags) ||
+      typeof relation.tags.name !== "string"
+    ) {
+      return null;
+    }
+
+    tags.push({ name: relation.tags.name });
+  }
+
+  return tags.sort((left, right) =>
+    compareCanonicalTagNames(left.name, right.name),
+  );
+}
+
+function attachPostTags<T extends RawTagRelations>(rows: readonly T[]) {
+  const posts: Array<Omit<T, "post_tags"> & { tags: PostTag[] }> = [];
+
+  for (const row of rows) {
+    const tags = parsePostTags(row.post_tags);
+
+    if (!tags) {
+      return null;
+    }
+
+    const { post_tags: omittedPostTags, ...post } = row;
+    void omittedPostTags;
+    posts.push({ ...post, tags });
+  }
+
+  return posts;
+}
 
 export async function getOwnPosts(
   supabase: SupabaseClient,
@@ -93,11 +149,17 @@ export async function getOwnPosts(
 ) {
   const postsResult = await supabase
     .from("posts")
-    .select("id, title, body, mood, visibility, created_at")
+    .select(
+      "id, title, body, mood, visibility, created_at, post_tags(tags(name))",
+    )
     .eq("user_id", userId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
-    .returns<Array<Omit<Post, "reactions" | "commentCount">>>();
+    .returns<
+      Array<
+        Omit<Post, "reactions" | "commentCount" | "tags"> & RawTagRelations
+      >
+    >();
 
   if (postsResult.error || !postsResult.data) {
     return {
@@ -108,14 +170,25 @@ export async function getOwnPosts(
     };
   }
 
-  const postIds = postsResult.data.map((post) => post.id);
+  const posts = attachPostTags(postsResult.data);
+
+  if (!posts) {
+    return {
+      data: null,
+      error: TAG_RELATION_LOAD_ERROR,
+      reactionsError: null,
+      commentsError: null,
+    };
+  }
+
+  const postIds = posts.map((post) => post.id);
   const [reactionsResult, commentsResult] = await Promise.all([
     getReactionSummaries(supabase, postIds, userId),
     getCommentCounts(supabase, postIds),
   ]);
 
   return {
-    data: postsResult.data.map((post) => ({
+    data: posts.map((post) => ({
       ...post,
       reactions: reactionsResult.data?.get(post.id) ?? null,
       commentCount: commentsResult.data?.get(post.id) ?? null,
@@ -133,13 +206,19 @@ export async function getVisiblePostsByUser(
 ) {
   const postsResult = await supabase
     .from("posts")
-    .select("id, title, body, mood, visibility, created_at")
+    .select(
+      "id, title, body, mood, visibility, created_at, post_tags(tags(name))",
+    )
     .eq("user_id", targetUserId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(USER_PROFILE_POST_LIMIT + 1)
-    .returns<Array<Omit<Post, "reactions" | "commentCount">>>();
+    .returns<
+      Array<
+        Omit<Post, "reactions" | "commentCount" | "tags"> & RawTagRelations
+      >
+    >();
 
   if (postsResult.error || !postsResult.data) {
     return {
@@ -151,7 +230,19 @@ export async function getVisiblePostsByUser(
     };
   }
 
-  const posts = postsResult.data.slice(0, USER_PROFILE_POST_LIMIT);
+  const loadedPosts = attachPostTags(postsResult.data);
+
+  if (!loadedPosts) {
+    return {
+      data: null,
+      hasMore: false,
+      error: TAG_RELATION_LOAD_ERROR,
+      reactionsError: null,
+      commentsError: null,
+    };
+  }
+
+  const posts = loadedPosts.slice(0, USER_PROFILE_POST_LIMIT);
   const postIds = posts.map((post) => post.id);
   const [reactionsResult, commentsResult] = await Promise.all([
     getReactionSummaries(supabase, postIds, currentUserId),
@@ -164,7 +255,7 @@ export async function getVisiblePostsByUser(
       reactions: reactionsResult.data?.get(post.id) ?? null,
       commentCount: commentsResult.data?.get(post.id) ?? null,
     })),
-    hasMore: postsResult.data.length > USER_PROFILE_POST_LIMIT,
+    hasMore: loadedPosts.length > USER_PROFILE_POST_LIMIT,
     error: null,
     reactionsError: reactionsResult.error,
     commentsError: commentsResult.error,
@@ -178,7 +269,9 @@ export async function getTimelinePosts(
 ) {
   let postsQuery = supabase
     .from("posts")
-    .select("id, user_id, title, body, mood, visibility, created_at")
+    .select(
+      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(name))",
+    )
     .is("deleted_at", null);
 
   if (feed === "following") {
@@ -213,7 +306,13 @@ export async function getTimelinePosts(
     .order("id", { ascending: false })
     .limit(50)
     .returns<
-      Array<Omit<TimelinePost, "author" | "reactions" | "commentCount">>
+      Array<
+        Omit<
+          TimelinePost,
+          "author" | "reactions" | "commentCount" | "tags"
+        > &
+          RawTagRelations
+      >
     >();
 
   if (postsResult.error || !postsResult.data) {
@@ -225,8 +324,19 @@ export async function getTimelinePosts(
     };
   }
 
-  const authorIds = [...new Set(postsResult.data.map((post) => post.user_id))];
-  const postIds = postsResult.data.map((post) => post.id);
+  const posts = attachPostTags(postsResult.data);
+
+  if (!posts) {
+    return {
+      data: null,
+      error: TAG_RELATION_LOAD_ERROR,
+      reactionsError: null,
+      commentsError: null,
+    };
+  }
+
+  const authorIds = [...new Set(posts.map((post) => post.user_id))];
+  const postIds = posts.map((post) => post.id);
   const [profilesResult, reactionsResult, commentsResult] = await Promise.all([
     authorIds.length > 0
       ? supabase
@@ -250,7 +360,7 @@ export async function getTimelinePosts(
   );
 
   return {
-    data: postsResult.data.map((post) => ({
+    data: posts.map((post) => ({
       ...post,
       author: profilesByUserId.get(post.user_id) ?? null,
       reactions: reactionsResult.data?.get(post.id) ?? null,
@@ -269,20 +379,32 @@ export async function getPostDetail(
 ): Promise<PostDetailResult> {
   const postsResult = await supabase
     .from("posts")
-    .select("id, user_id, title, body, mood, visibility, created_at")
+    .select(
+      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(name))",
+    )
     .eq("id", postId)
     .is("deleted_at", null)
     .limit(1)
-    .returns<Array<Omit<PostDetail, "author" | "reactions">>>();
+    .returns<
+      Array<
+        Omit<PostDetail, "author" | "reactions" | "tags"> & RawTagRelations
+      >
+    >();
 
   if (postsResult.error || !postsResult.data) {
     return { status: "error" };
   }
 
-  const post = postsResult.data[0];
+  const rawPost = postsResult.data[0];
+
+  if (!rawPost) {
+    return { status: "not-found" };
+  }
+
+  const post = attachPostTags([rawPost])?.[0];
 
   if (!post) {
-    return { status: "not-found" };
+    return { status: "error" };
   }
 
   const [profileResult, reactionsResult] = await Promise.all([
@@ -313,14 +435,28 @@ export async function getEditablePost(
   postId: string,
   currentUserId: string,
 ) {
-  return supabase
+  const result = await supabase
     .from("posts")
-    .select("id, title, body, mood, visibility")
+    .select("id, title, body, mood, visibility, post_tags(tags(name))")
     .eq("id", postId)
     .eq("user_id", currentUserId)
     .is("deleted_at", null)
     .limit(1)
-    .maybeSingle<EditablePost>();
+    .maybeSingle<
+      Omit<EditablePost, "tags"> & RawTagRelations
+    >();
+
+  if (result.error || !result.data) {
+    return { data: null, error: result.error };
+  }
+
+  const post = attachPostTags([result.data])?.[0];
+
+  if (!post) {
+    return { data: null, error: TAG_RELATION_LOAD_ERROR };
+  }
+
+  return { data: post, error: null };
 }
 
 export function isPostMood(value: string): value is PostMood {
