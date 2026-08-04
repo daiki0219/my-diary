@@ -6,6 +6,7 @@ const TAG_DELIMITER_PATTERN = /[,，\r\n]/u;
 const TAG_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
 
 export type PostTag = {
+  id: string;
   name: string;
 };
 

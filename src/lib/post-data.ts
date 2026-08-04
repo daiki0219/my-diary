@@ -93,11 +93,11 @@ export type PostDetailResult =
 const USER_PROFILE_POST_LIMIT = 20;
 const TAG_RELATION_LOAD_ERROR = new Error("Post tag relation shape is invalid.");
 
-type RawTagRelations = {
+export type RawTagRelations = {
   post_tags: unknown;
 };
 
-function parsePostTags(value: unknown): PostTag[] | null {
+export function parsePostTags(value: unknown): PostTag[] | null {
   if (!Array.isArray(value)) {
     return null;
   }
@@ -111,13 +111,15 @@ function parsePostTags(value: unknown): PostTag[] | null {
       !("tags" in relation) ||
       typeof relation.tags !== "object" ||
       relation.tags === null ||
+      !("id" in relation.tags) ||
+      typeof relation.tags.id !== "string" ||
       !("name" in relation.tags) ||
       typeof relation.tags.name !== "string"
     ) {
       return null;
     }
 
-    tags.push({ name: relation.tags.name });
+    tags.push({ id: relation.tags.id, name: relation.tags.name });
   }
 
   return tags.sort((left, right) =>
@@ -125,7 +127,7 @@ function parsePostTags(value: unknown): PostTag[] | null {
   );
 }
 
-function attachPostTags<T extends RawTagRelations>(rows: readonly T[]) {
+export function attachPostTags<T extends RawTagRelations>(rows: readonly T[]) {
   const posts: Array<Omit<T, "post_tags"> & { tags: PostTag[] }> = [];
 
   for (const row of rows) {
@@ -150,7 +152,7 @@ export async function getOwnPosts(
   const postsResult = await supabase
     .from("posts")
     .select(
-      "id, title, body, mood, visibility, created_at, post_tags(tags(name))",
+      "id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
     )
     .eq("user_id", userId)
     .is("deleted_at", null)
@@ -207,7 +209,7 @@ export async function getVisiblePostsByUser(
   const postsResult = await supabase
     .from("posts")
     .select(
-      "id, title, body, mood, visibility, created_at, post_tags(tags(name))",
+      "id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
     )
     .eq("user_id", targetUserId)
     .is("deleted_at", null)
@@ -270,7 +272,7 @@ export async function getTimelinePosts(
   let postsQuery = supabase
     .from("posts")
     .select(
-      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(name))",
+      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
     )
     .is("deleted_at", null);
 
@@ -335,6 +337,22 @@ export async function getTimelinePosts(
     };
   }
 
+  const hydrationResult = await hydrateTimelinePosts(
+    supabase,
+    posts,
+    currentUserId,
+  );
+
+  return hydrationResult;
+}
+
+export async function hydrateTimelinePosts(
+  supabase: SupabaseClient,
+  posts: ReadonlyArray<
+    Omit<TimelinePost, "author" | "reactions" | "commentCount">
+  >,
+  currentUserId: string,
+) {
   const authorIds = [...new Set(posts.map((post) => post.user_id))];
   const postIds = posts.map((post) => post.id);
   const [profilesResult, reactionsResult, commentsResult] = await Promise.all([
@@ -380,7 +398,7 @@ export async function getPostDetail(
   const postsResult = await supabase
     .from("posts")
     .select(
-      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(name))",
+      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
     )
     .eq("id", postId)
     .is("deleted_at", null)
@@ -437,7 +455,7 @@ export async function getEditablePost(
 ) {
   const result = await supabase
     .from("posts")
-    .select("id, title, body, mood, visibility, post_tags(tags(name))")
+    .select("id, title, body, mood, visibility, post_tags(tags(id, name))")
     .eq("id", postId)
     .eq("user_id", currentUserId)
     .is("deleted_at", null)
