@@ -398,6 +398,77 @@ preflightで確認する。作成後はexact signature、引数名、return型�
 owner、SECURITY DEFINER、固定search_path、comment、ACL、posts/tag table権限を
 postconditionで検証し、不一致ならtransaction全体をrollbackする。
 
+## 検索Phase B2b-3a設計
+
+`20260804000100_extend_user_and_tag_search.sql`は、既存ユーザー検索のNFKC対応と、
+閲覧可能な自由タグの部分一致検索RPCを追加する。既存table、RLS policy、indexは
+変更しない。このmigrationはローカルresetとpgTAPで検証した後、リンク済みの
+リモート開発DBへ適用済みである。local / remote migration履歴は11件で一致し、
+適用後の再dry-runはup to date、`public,my_diary_private`のlinked schema diffは空である。
+
+### ユーザー検索
+
+既存の`public.my_diary_search_profiles(text)`はsignature、return列、並び順、20件上限、
+`SECURITY DEFINER`、owner=`postgres`、`search_path = ''`、authenticated専用ACLを
+維持する。入力と`profiles.username`をNFKC化してから前後空白を除き、ASCII小文字化
+した部分一致を行う。`\\`、`%`、`_`はescapeしてliteralとして扱い、active accountと
+本人を含む既存の検索対象条件を維持する。
+
+### タグ検索queryとRPC
+
+`my_diary_private.my_diary_normalize_tag_search_query(raw_query text)`は、tag name
+normalizerと同じNFKC、前後ASCII space、先頭`#`、連続space、ASCII caseの規則を
+検索queryへ適用する。`raw_query`は正規化前のprivate helper入力であり、公開RPCの
+`search_query`とは別の引数名である。
+`IMMUTABLE`、`STRICT`、`PARALLEL SAFE`、`SECURITY INVOKER`、owner=`postgres`、
+`search_path = ''`とし、一般application roleへEXECUTEを付与しない。
+
+公開RPCは次のexact signatureとする。
+
+```sql
+public.my_diary_search_tags(
+  search_query text,
+  after_normalized_name text
+) returns table (
+  id uuid,
+  name text,
+  normalized_name text
+)
+```
+
+RPCは`STABLE`、`SECURITY INVOKER`、owner=`postgres`、`search_path = ''`とし、
+`authenticated`だけにEXECUTEを付与する。`auth.uid()`がない呼び出しを拒否し、静的SQLで
+`public.tags`を検索するため、既存tags SELECT RLSが最終的な可視性を決める。
+`normalized_name ASC`、cursorより大きい値、最大21件を返し、applicationは20件を表示して
+21件目を次ページ有無の判定だけに使う。queryとcursorは同じcanonical規則で検証し、
+`\\`、`%`、`_`は部分一致条件でliteralとして扱う。
+
+UI cursorはcategory、canonical query、最後の`normalized_name`だけをbase64url JSONへ
+格納する。余分・不足field、別category、query不一致、非canonical encoding、過長値を
+DB query前に拒否する。category切替時はcanonical queryを維持し、cursorは破棄する。
+
+### Phase B2b-3a migrationの安全条件
+
+preflightでは既存ユーザー検索RPCのexact catalog、return shape、ACL、必要schema・table・
+Supabase role、tags RLSとpolicyを確認する。postconditionでは両RPCの引数名とreturn型、
+両RPCとhelperのoverload数、signature、言語、volatility、parallel属性、owner、security属性、
+固定search_path、ACL、tags RLSを再検証し、不一致ならtransaction全体をrollbackする。
+
+### Phase B2b-3aのリモート適用結果
+
+リモート開発DBへは`20260804000100_extend_user_and_tag_search.sql`だけを通常適用した。
+適用後のpg-delta catalog比較とmigration postconditionにより、ユーザー検索RPCの
+`search_query`、private helperの`raw_query`、公開タグ検索RPCの`search_query`と
+`after_normalized_name`、return shape、owner、volatility、security属性、固定search_path、
+ACLを確認した。`public.tags`はRLS有効、FORCE RLS無効、既存SELECT policy 1件、
+`authenticated`のtable権限はSELECTのみ、`anon`はSELECT不可の状態を維持している。
+
+適用後のcatalog cache生成では、一時CA証明書を参照できないpg-deltaの補助warningが
+発生した。migration SQLは終了コード0で完了し、remote履歴に`20260804000100`が記録され、
+再dry-runがup to date、linked schema diffが空であることを確認したため、migrationの
+再適用やrepairは行っていない。リモートfixtureとユーザーデータ操作は行わず、
+Service Roleも使用していない。
+
 ## インデックス
 
 - `my_diary_posts_user_created_at_idx`: ユーザープロフィール、本人の日記、
