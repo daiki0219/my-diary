@@ -4,9 +4,14 @@ import { redirect } from "next/navigation";
 
 import { SearchCategoryNav } from "@/components/search/search-category-nav";
 import { SearchForm } from "@/components/search/search-form";
+import { PostSearchResults } from "@/components/search/post-search-results";
 import { TagSearchResults } from "@/components/search/tag-search-results";
 import { UserSearchResults } from "@/components/search/user-search-results";
-import { decodeTagSearchCursor } from "@/lib/search-cursor";
+import { searchPosts } from "@/lib/post-search-data";
+import {
+  decodePostSearchCursor,
+  decodeTagSearchCursor,
+} from "@/lib/search-cursor";
 import {
   buildSearchUrl,
   isSearchCategory,
@@ -62,7 +67,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       category = categoryParam.value;
     } else {
       pageError =
-        "検索カテゴリを確認できませんでした。ユーザーまたはタグを選んでください。";
+        "検索カテゴリを確認できませんでした。ユーザー、タグ、投稿のいずれかを選んでください。";
     }
   } else if (!pageError && categoryParam.status === "missing") {
     category = "users";
@@ -74,6 +79,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const canonicalQuery = queryValidation.query;
   const rawCursor = cursorParam.status === "valid" ? cursorParam.value : null;
   let tagCursor: ReturnType<typeof decodeTagSearchCursor> = null;
+  let postCursor: ReturnType<typeof decodePostSearchCursor> = null;
 
   if (!pageError && category === "users" && rawCursor !== null) {
     pageError = "ユーザー検索ではページ情報を使用できません。";
@@ -88,6 +94,18 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     if (!tagCursor) {
       pageError =
         "タグ検索のページ情報を確認できませんでした。最初から検索してください。";
+    }
+  }
+
+  if (!pageError && category === "posts" && rawCursor !== null) {
+    postCursor =
+      queryValidation.error === null && !queryValidation.isEmpty
+        ? decodePostSearchCursor(rawCursor, canonicalQuery)
+        : null;
+
+    if (!postCursor) {
+      pageError =
+        "投稿検索のページ情報を確認できませんでした。最初から検索してください。";
     }
   }
 
@@ -126,6 +144,16 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           tagCursor?.afterNormalizedName ?? null,
         )
       : null;
+  const postResult =
+    canSearch && category === "posts"
+      ? await searchPosts(
+          supabase,
+          canonicalQuery,
+          postCursor?.beforeCreatedAt ?? null,
+          postCursor?.beforeId ?? null,
+          currentUserId,
+        )
+      : null;
   const navigationQuery =
     queryValidation.error === null ? canonicalQuery : "";
 
@@ -147,7 +175,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             検索
           </h1>
           <p className="mt-3 text-sm leading-6 text-stone-600">
-            ユーザー名や、閲覧できる日記で使われているタグを探せます。
+            ユーザー名、タグ、閲覧できる日記のタイトル・本文を探せます。
           </p>
         </div>
 
@@ -193,7 +221,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <h2 className="text-lg font-bold text-stone-800">
                 {category === "tags"
                   ? "タグ名を入力して検索してください"
-                  : "ユーザー名を入力して検索してください"}
+                  : category === "posts"
+                    ? "投稿タイトル・本文を入力して検索してください"
+                    : "ユーザー名を入力して検索してください"}
               </h2>
             </div>
           ) : userResult?.status === "error" ? (
@@ -221,6 +251,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               nextCursor={tagResult.nextCursor}
               query={canonicalQuery}
               tags={tagResult.data}
+            />
+          ) : postResult?.error ? (
+            <p
+              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+              role="alert"
+            >
+              投稿を検索できませんでした。時間をおいてもう一度お試しください。
+            </p>
+          ) : postResult?.data ? (
+            <PostSearchResults
+              cursor={rawCursor}
+              nextCursor={postResult.nextCursor}
+              posts={postResult.data}
+              query={canonicalQuery}
             />
           ) : null}
         </div>

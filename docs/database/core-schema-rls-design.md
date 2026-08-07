@@ -10,8 +10,9 @@
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` には4テーブルの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaとPhase B1までのSQLはmigrationとして管理し、リンク済みのリモート開発
-Supabaseへ適用済みである。Phase B2a migrationはローカル検証済み・リモート未適用である。
+初回schemaから検索Phase B2b-3aまでのSQLはmigrationとして管理し、リンク済みの
+リモート開発Supabaseへ適用済みである。投稿検索Phase B2b-3b migrationは
+ローカル検証済み・リモート未適用である。
 
 ## データモデル
 
@@ -469,6 +470,62 @@ ACLを確認した。`public.tags`はRLS有効、FORCE RLS無効、既存SELECT 
 再適用やrepairは行っていない。リモートfixtureとユーザーデータ操作は行わず、
 Service Roleも使用していない。
 
+## 投稿検索Phase B2b-3b設計
+
+`20260806000100_add_post_search.sql`は、viewerが閲覧できる投稿だけをtitle・bodyから
+検索する公開RPCを追加する。既存posts table、RLS policy、ACL、indexは変更せず、
+ローカルreset、pgTAP、catalog、schema diff、認証済みブラウザで検証した。
+このmigrationはリモート未適用である。
+
+公開RPCのexact signatureは次のとおりで、overloadとdefault引数は作らない。
+
+```sql
+public.my_diary_search_posts(
+  search_query text,
+  before_created_at timestamptz,
+  before_id uuid
+) returns table (
+  id uuid,
+  created_at timestamptz
+)
+```
+
+RPCは`plpgsql`、`STABLE`、`SECURITY INVOKER`、owner=`postgres`、
+`search_path = ''`とし、`authenticated`だけにEXECUTEを付与する。`auth.uid()`が
+存在しない呼び出しを拒否し、静的SQLで`public.posts`を検索するため、本人、
+public、followers、private、soft delete、author / viewerのactive状態は既存posts
+SELECT RLSが最終的に決定する。RPC内へvisibilityやfollow条件を複製しない。
+
+`search_query`はNULL、NFKC後の制御文字、trim後の空文字、51 codepoint以上を拒否する。
+query、title、bodyをNFKC化してcase-insensitiveに比較し、`\\`、`%`、`_`をescapeして
+literalとして扱う。titleまたはbodyのいずれかへ部分一致すれば1投稿を返す静的な
+OR条件であり、利用者入力をPostgRESTの`.or()`や`.ilike()`へ連結しない。
+
+並び順は`created_at DESC, id DESC`、cursorは`before_created_at`と`before_id`の
+両方NULLまたは両方非NULLだけを許可し、境界より古い行を最大21件返す。applicationは
+先頭20件だけを表示し、21件目の存在を次ページ判定に使う。次cursorはRPC結果の
+20件目から作成し、category、canonical query、元の`created_at`文字列、lowercase UUIDを
+base64url JSONへ格納する。PostgRESTが返したtimestampを`Date`や`toISOString()`へ
+変換せず、小数秒精度とoffset表現をそのまま次RPCの`before_created_at`へ渡す。
+
+RPCは表示候補のIDとtimestampだけを返す。applicationはそのIDだけを通常のposts SELECTで
+一括再取得し、再取得時点のRLSを再評価する。再取得できないID、RPCとtimestampが一致しない
+IDは表示から除外し、権限変更やsoft deleteの競合時に古いpayloadを表示しない。取得できた
+投稿はRPC順へ復元し、既存`attachPostTags`、`hydrateTimelinePosts`、`TimelinePostCard`を
+再利用する。権限変更で20件未満になっても、RPCの表示候補外から補完しない。
+
+Phase B2b-3bでは投稿検索専用indexを追加していない。NFKC化したtitle / bodyの先頭・末尾
+wildcard部分一致は既存btree indexを直接利用できないため、RLS適用後のscan性能を大規模
+データで再評価し、必要性が実測で確認された後に別migrationとして検討する。
+
+新規pgTAP `0012_post_search.test.sql`は52 assertionで、exact catalog・ACL、認証identity、
+入力境界、NFKC、case、literal wildcard、title / body OR、public / followers / private、
+follow解除・再follow、visibility変更、soft delete、suspended author / viewer、21件上限、
+`created_at DESC, id DESC`、cursor重複・欠落・境界を検証する。ローカルでは新規
+`52 / 52`、全12ファイル`528 / 528`がPASSし、`public,my_diary_private`のlocal schema diffは
+空、catalogはRPC属性・authenticated専用ACL・overload 1と既存posts RLS / policy / ACL /
+indexの維持を示した。
+
 ## インデックス
 
 - `my_diary_posts_user_created_at_idx`: ユーザープロフィール、本人の日記、
@@ -487,6 +544,8 @@ Service Roleも使用していない。
   準備
 - `my_diary_tags_normalized_name_key`: canonical tag nameの重複防止と検索準備
 - `my_diary_post_tags_tag_post_idx`: tagから可視post relationを逆引きするため
+
+投稿検索Phase B2b-3bでは新しいindexを追加しない。
 
 部分インデックスでは `deleted_at is null` を条件にし、通常の取得対象だけを
 小さく保つ。
@@ -562,6 +621,8 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
 - tagのNULL / 空配列 / 非空配列、差分更新、unchanged relationの`created_at`
 - relation段階の強制例外でpost・tag master・relationが一括rollbackすること
 - 補助2-session検証で同一tag UNIQUE競合と同一post row lockを実際に待機させること
+- 投稿検索RPCのexact signature・ACL・SECURITY INVOKER、NFKC・literal wildcard、
+  title / body OR、既存posts RLSへの委任、21件・複合cursor境界
 
 ## リモート適用後のAuth確認
 

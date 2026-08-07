@@ -8,6 +8,7 @@ import {
 const categoryLabels: Record<SearchCategory, string> = {
   users: "ユーザー",
   tags: "タグ",
+  posts: "投稿",
 };
 
 export function SearchCategoryNav({
@@ -20,7 +21,7 @@ export function SearchCategoryNav({
   return (
     <nav
       aria-label="検索カテゴリ"
-      className="grid min-w-0 grid-cols-2 gap-1 rounded-2xl bg-stone-100 p-1"
+      className="grid min-w-0 grid-cols-3 gap-1 rounded-2xl bg-stone-100 p-1"
     >
       {(Object.keys(categoryLabels) as SearchCategory[]).map((category) => (
         <Link

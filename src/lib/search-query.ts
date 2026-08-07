@@ -1,10 +1,11 @@
-export const SEARCH_CATEGORIES = ["users", "tags"] as const;
+export const SEARCH_CATEGORIES = ["users", "tags", "posts"] as const;
 
 export type SearchCategory = (typeof SEARCH_CATEGORIES)[number];
 
 export const SEARCH_QUERY_MAX_LENGTH: Record<SearchCategory, number> = {
   users: 50,
   tags: 30,
+  posts: 50,
 };
 
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
@@ -88,10 +89,23 @@ export function validateSearchQuery(
     };
   }
 
+  const normalizedQuery = rawQuery.normalize("NFKC");
+
+  if (
+    category === "posts" &&
+    CONTROL_CHARACTER_PATTERN.test(normalizedQuery)
+  ) {
+    return {
+      query: normalizedQuery,
+      error: "検索語に改行、タブ、制御文字は使用できません。",
+      isEmpty: false,
+    };
+  }
+
   const query =
     category === "tags"
       ? normalizeTagSearchQuery(rawQuery)
-      : rawQuery.normalize("NFKC").trim();
+      : normalizedQuery.trim();
 
   if (query.length === 0) {
     return { query: "", error: null, isEmpty: true };

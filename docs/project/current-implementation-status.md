@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-06
 - 調査時branch: `main`
-- 作業開始時HEAD: `1b73043e6262aa410c4f7d593fb36ae9c612ee52`
-- 作業開始時HEADのmessage: `feat: add tag browsing pages`
+- 作業開始時HEAD: `be79d85eee60ba08ca8bdc698ee66b77756c4c46`
+- 作業開始時HEADのmessage: `feat: add user and tag search`
 
 ### 更新ルール
 
@@ -42,18 +42,18 @@
 
 | 状態 | 件数 |
 | --- | ---: |
-| 実装済み | 20 |
+| 実装済み | 21 |
 | 一部実装済み | 8 |
-| 未実装 | 13 |
+| 未実装 | 12 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
 | 合計 | 58 |
 
-現在は、メールアドレスとパスワードによる認証、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索まで実装されている。
+現在は、メールアドレスとパスワードによる認証、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`の8 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。自由タグはNFKCによるcanonical name、SELECT専用RLS、投稿とタグを同一transactionで作成・更新するatomic RPC、一般アプリ経路での1投稿最大5個保証に加え、チップ入力、作成・編集、投稿上のUUIDリンク、閲覧可能タグの一覧・詳細・部分一致検索まで実装済みである。タグ一覧は50件、タグ詳細と検索は20件のforward cursor paginationを使用する。pgTAPは11ファイル、plan合計476 assertionで、認証後の権限境界、soft delete、visibility変更、suspended状態、follow一覧、タグ名漏えい防止、ユーザー・タグ検索、atomic mutationとrollback、RLS自動有効化とACLを対象としている。
+DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`の8 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。自由タグはNFKCによるcanonical name、SELECT専用RLS、投稿とタグを同一transactionで作成・更新するatomic RPC、一般アプリ経路での1投稿最大5個保証に加え、チップ入力、作成・編集、投稿上のUUIDリンク、閲覧可能タグの一覧・詳細・部分一致検索まで実装済みである。タグ一覧は50件、タグ詳細と検索は20件のforward cursor paginationを使用する。投稿検索は`SECURITY INVOKER` RPCと既存posts RLSを使い、title / body OR検索、literal wildcard、`created_at DESC, id DESC`の20件cursor pagination、ID再取得後の二重RLS評価を行う。pgTAPは12ファイル、plan合計528 assertionで、認証後の権限境界、soft delete、visibility変更、suspended状態、follow一覧、タグ名漏えい防止、ユーザー・タグ・投稿検索、atomic mutationとrollback、RLS自動有効化とACLを対象としている。
 
-MVP完了条件との差分は、画像、場所入力UI、タイムラインのページネーション、コメント返信、通知、投稿検索、カレンダー、設定である。パスワードリセットとOAuth、avatarも未完成である。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分は、画像、場所入力UI、タイムラインのページネーション、コメント返信、通知、カレンダー、設定である。パスワードリセットとOAuth、avatarも未完成である。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
 ## 3. 技術・リポジトリ状態
 
@@ -64,12 +64,12 @@ MVP完了条件との差分は、画像、場所入力UI、タイムラインの
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/proxy.ts` |
-| migration | 11ファイル | `supabase/migrations/*.sql` |
+| migration | 12ファイル | `supabase/migrations/*.sql` |
 | DB table | 8 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags` |
-| pgTAP | 11ファイル、plan合計476 | `supabase/tests/database/*.sql` |
+| pgTAP | 12ファイル、plan合計528 | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 最新commit | `1b73043e6262aa410c4f7d593fb36ae9c612ee52` | `feat: add tag browsing pages`。Phase B2b-3aはcommit前 |
+| 最新commit | `be79d85eee60ba08ca8bdc698ee66b77756c4c46` | `feat: add user and tag search`。Phase B2b-3bはcommit前のローカル検証済み差分 |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -165,10 +165,10 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | --- | --- | --- | --- |
 | ユーザー名検索 | 実装済み | `/search?category=users`とhardened RPC。NFKC、1〜50 codepoint、前後空白除去、case-insensitive部分一致、`\\`・`%`・`_`をliteral扱い、activeユーザー、最大20件 | paginationなし |
 | タグ検索 | 実装済み | `/search?category=tags`。入力をtag規則でNFKC canonical化し、`\\`・`%`・`_`をliteral扱い、RLS上閲覧可能なタグだけを`normalized_name`順に20件ずつ表示 | 大量データ時の部分一致性能は別途評価が必要 |
-| 投稿title・body検索 | 未実装 | query、RPC、route、UIなし | RLSで閲覧可能投稿だけに限定する |
-| 検索category切替・paging | 一部実装済み | users / tagsをリンク型navigationで切り替え、queryを維持してcursorを破棄する。タグはquery紐付きのopaque forward cursorを使用 | posts categoryと投稿検索pagingは未実装 |
+| 投稿title・body検索 | 実装済み | `/search?category=posts`、NFKC・1〜50 codepoint・literal wildcardのhardened RPC、既存posts RLS、title / body OR、20件cursor pagination、ID再取得と共通hydrate・`TimelinePostCard`を使用 | 専用indexは追加せず、大量データ時の部分一致性能は別途評価が必要 |
+| 検索category切替・paging | 一部実装済み | users / tags / postsをリンク型navigationで切り替え、canonical queryを維持してcursorを破棄する。タグと投稿はquery紐付きのopaque forward cursorを使用 | ユーザー検索のpaginationは未実装 |
 
-関連コードは`src/app/(protected)/search/page.tsx`、`src/components/search/**`、`src/lib/search-query.ts`、`src/lib/search-cursor.ts`、`src/lib/user-search-data.ts`、`src/lib/tag-search-data.ts`である。関連migrationとテストは`20260726000500_secure_user_search_and_follows.sql`、`20260804000100_extend_user_and_tag_search.sql`、`0004_user_search_and_follows.test.sql`、`0011_user_and_tag_search.test.sql`である。
+関連コードは`src/app/(protected)/search/page.tsx`、`src/components/search/**`、`src/lib/search-query.ts`、`src/lib/search-cursor.ts`、`src/lib/user-search-data.ts`、`src/lib/tag-search-data.ts`、`src/lib/post-search-data.ts`である。関連migrationとテストは`20260726000500_secure_user_search_and_follows.sql`、`20260804000100_extend_user_and_tag_search.sql`、`20260806000100_add_post_search.sql`、`0004_user_search_and_follows.test.sql`、`0011_user_and_tag_search.test.sql`、`0012_post_search.test.sql`である。
 
 ### 4.9 その他のMVP・Phase 2機能
 
@@ -214,6 +214,7 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 - `my_diary_create_post_with_tags`と`my_diary_update_post_with_tags`は投稿本体とtag relationを同一transactionで処理し、後者はpost row lockと差分更新を使用する。
 - `my_diary_search_profiles`はauthenticated identity、NFKC、入力長、literal wildcard、active対象、20件上限を関数内で検証する。
 - `my_diary_search_tags`は`SECURITY INVOKER`で既存tags RLSを通し、authenticated identity、NFKC canonical query、literal wildcard、cursor、21件取得を検証する。21件目はUIの次ページ判定だけに使用する。
+- `my_diary_search_posts`は`SECURITY INVOKER`で既存posts RLSを通し、authenticated identity、NFKC、1〜50 codepoint、literal wildcard、title / body OR、`created_at DESC, id DESC`のcursor、最大21件を検証する。UIは20件を表示し、RPCのIDだけを通常SELECTで再取得して現在のRLSを再評価する。
 - `SECURITY DEFINER`関数はownerを`postgres`へ固定し、空の`search_path`または`pg_catalog`固定を使用する。
 - table・column・functionの権限は既定権限をREVOKEして必要なauthenticated権限だけをGRANTする。
 - `rls_auto_enable()`はevent trigger `ensure_rls`からpublic schemaの新規table、partitioned table、CTAS、SELECT INTOへRLSを有効化する。policyやFORCE RLSは作成しない。
@@ -264,7 +265,7 @@ MVP対象で未作成なのは`post_images`と`notifications`である。`tags`�
 | `/users/[userId]` | dynamic page | 他ユーザーのプロフィールと閲覧可能投稿 |
 | `/users/[userId]/following` | dynamic page | 他ユーザーのfollowing一覧 |
 | `/users/[userId]/followers` | dynamic page | 他ユーザーのfollowers一覧 |
-| `/search` | page | users / tags category切替、NFKC canonical query、ユーザー・タグ部分一致検索、タグcursor pagination |
+| `/search` | page | users / tags / posts category切替、NFKC canonical query、ユーザー・タグ・投稿title/body部分一致検索、タグ・投稿cursor pagination |
 | `/api/health/supabase` | route handler | Supabase Auth healthの安全な状態応答 |
 
 `not-found.tsx`はpost詳細、profile系、tag詳細に存在する。タグrouteには共通`loading.tsx`がある。専用のprotected layoutと`error.tsx`は存在せず、各pageが認証redirectとerror UIを担当している。
@@ -284,8 +285,11 @@ MVP対象で未作成なのは`post_images`と`notifications`である。`tags`�
 | `20260802000100` | `20260802000100_create_tags.sql` | tag normalizer、tags・post_tags、canonical制約、index、可視post連動SELECT RLS、read-only ACL |
 | `20260802000200` | `20260802000200_create_atomic_post_tag_mutation.sql` | atomic post/tag作成・更新RPC、最大5個検証、row lock、差分更新、posts直接INSERT/UPDATE grant取消、RPC ACL |
 | `20260804000100` | `20260804000100_extend_user_and_tag_search.sql` | ユーザー検索のNFKC化、タグ検索query normalizer、RLSを通すタグ検索RPC、literal wildcard、cursor、ACLとcatalog検証 |
+| `20260806000100` | `20260806000100_add_post_search.sql` | RLSを通す投稿title/body検索RPC、NFKC、literal wildcard、`created_at DESC, id DESC` cursor、ACLとcatalog検証 |
 
 Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_user_and_tag_search.sql`を1件追加した。ローカルresetで11件すべてをfresh適用した後、この1件だけをリンク済みのリモート開発DBへ通常適用した。local / remote履歴は11件で一致し、適用後の再dry-runはup to date、pg-deltaによる`public,my_diary_private`のlinked schema diffは空だった。migration transaction内のpostconditionと空のcatalog diffを組み合わせ、両検索RPCとprivate helperのsignature、引数名、return shape、owner、volatility、security属性、固定search path、ACL、および既存tags RLS・policy・table ACLの維持を確認した。適用後のcatalog cache生成では一時CA証明書を参照できない補助warningが発生したが、migration適用は終了コード0で完了し、remote履歴と再dry-runで成功を確認したため再適用していない。リモートfixture・ユーザーデータ操作・Service Roleは使用せず、Git stage・commit・pushも実施していない。
+
+Phase B2b-3bでは既存11 migrationを変更せず、`20260806000100_add_post_search.sql`を1件追加した。ローカルresetで12件をfresh適用し、新規pgTAP `52 / 52`、全pgTAP `528 / 528`、`public,my_diary_private`のlocal schema diff 0件、local catalog一致を確認した。新規migrationはリモート未適用で、remote dry-run・remote catalog・linked schema diffはこのPhaseでは実施していない。
 
 ## 9. テスト状況
 
@@ -304,10 +308,15 @@ Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_use
 | `0009_tags_rls.test.sql` | 71 | normalizer、schema、制約、ACL、public/followers/private/soft delete/suspended、visibility変更、RLS非再帰、cascade |
 | `0010_post_tag_mutation_rpc.test.sql` | 68 | RPC catalog/ACL、direct grant閉鎖、作成・更新、tag validation、最大5個、NULL/空配列、差分更新、rollback |
 | `0011_user_and_tag_search.test.sql` | 70 | user NFKC・literal検索、tag query canonical化、RPC catalog/ACL、RLS可視境界、cursor、20+1件、visibility・follow・soft delete変化 |
-| 合計 | 476 | 11ファイル |
+| `0012_post_search.test.sql` | 52 | 投稿検索RPC catalog/ACL、NFKC・literal検索、title/body OR、RLS可視境界、follow・visibility・soft delete・suspended、21件・cursor順序 |
+| 合計 | 528 | 12ファイル |
 
 ### 9.2 実行結果の区別
 
+- Phase B2b-3bではローカルDB resetで12 migrationをfresh適用し、新規pgTAP `52 / 52`、全pgTAP 12ファイル・`528 / 528`が成功した。local catalogで投稿検索RPCのexact signature、引数名、return shape、`STABLE`、`SECURITY INVOKER`、owner、固定search path、authenticated専用ACL、overload 1を確認し、posts RLS・SELECT policy・table ACL・既存indexの維持も確認した。`public,my_diary_private`のlocal schema diffは空だった。`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`も成功した。
+- Phase B2b-3bの認証済みブラウザ検証では、通常sign-upとauthenticated経路だけで3 userと33 postの一時fixtureを作成した。users / tags / posts切替、canonical redirect、title / body / OR、NFKC、ASCII case、literal wildcard、空・50 / 51 codepoint・control文字、17種の不正parameterのfail-closed表示を確認した。不正入力2画面の前後で`pg_stat_statements`上の投稿検索RPC呼出回数が増えず、DB query前に拒否されたことも確認した。
+- 投稿検索のRLSは、本人のpublic / followers / private、follower、non-follower、follow解除・再follow、`public → followers → private → public`、soft deleteを次回検索で確認した。paginationは23件を`20 / 3`件で表示し、重複・欠落なし、戻る・進む・再読み込み・cursor URL直接アクセスを確認した。1ページ目後のfollow解除では保存済み2ページ目が0件となり、別の権限外投稿を補完しなかった。実cursorのtimestampは`+00:00`表現・小数6桁で、元文字列のbase64url JSON round-tripを維持した。
+- 320 / 360 / 375 / 390 / 1280pxで3カテゴリnavigation、検索form、投稿一覧、pagination、長いtitle・body・改行・連続半角文字列、長いusername、30 codepoint tagを確認し、横scrollはなかった。label関連、`aria-current`、`aria-invalid`、`aria-describedby`、`role="alert"`、`ul / li / article`、focus表示用style、button送信を確認し、console error / warning、React warning、hydration errorはなかった。自動ブラウザのTab / Enter key injectionはfocus・submitを再現できず未実施、suspended境界は通常利用者UIがないためpgTAPのみとした。
 - 直前作業までの確認済み結果として、全pgTAP `267 / 267`、最新追加分`29 / 29`、`npm run lint`、`npm run typecheck`、`npm run build`成功が作業依頼に記録されている。
 - Phase A1では`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`を再実行し、すべて成功した。migrationは8件のまま、`supabase/migrations`、`package.json`、`package-lock.json`に差分がないことも確認した。
 - Phase A1では全pgTAP `267 / 267`が成功した。今回の文書記録更新では、直前の全件成功を根拠としてpgTAPを再実行していない。
@@ -343,6 +352,7 @@ Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_use
 10. profile件数、timeline補助data、comment件数は複数queryを使う。投稿単位のN+1は避けているが、規模拡大時はRPC、view、集計方式を再評価する必要がある。
 11. root-level `loading.tsx`、`error.tsx`、protected layoutがなく、認証・error handlingがpageごとに重複している。
 12. 自由タグは入力・投稿リンク・一覧・詳細・検索まで実装済みである。入力順を保存するcolumnはなく、投稿上はcode point順、タグ一覧・検索はDBの`normalized_name`順で表示する。検索の部分一致は現時点で専用indexを追加せず、RLS適用後のscan性能は大規模データで再評価が必要である。最大5個はauthenticatedのRPC経路で保証し、特権roleの直接SQLを禁止するconstraint triggerは置いていない。認証済みブラウザ回帰は完了したが、同一`created_at`の実データ、suspended author、瞬間的loading、実キーボードによるTab / Enterは未確認である。
+13. 投稿検索はNFKC化したtitle / bodyへの部分一致で、専用indexを追加していない。大規模データでRLS適用後のscan性能を再評価する必要がある。cursorはPostgRESTのtimestamp文字列をDateへ変換せず保持する。suspended author / viewerはpgTAPで確認し、通常UIによるブラウザ再現は未実施である。自動ブラウザのTab / Enter key injectionも再現できず、実キーボード確認が残る。
 
 ## 11. 次Phase候補
 
@@ -356,13 +366,13 @@ Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_use
 - 主な影響範囲: `src/app/(protected)/home`、`src/lib/post-data.ts`、投稿card、必要な回帰テスト。
 - 推奨理由: 正式仕様の性能要件と一覧可読性を満たし、現在の最大50件固定を解消できる。
 
-### 候補B: 投稿検索（Phase B2b-3b）
+### 候補B: パスワードリセットとOAuth認証
 
-- 目的: viewerが閲覧できる投稿だけをtitle・bodyから安全に検索できるようにする。
-- 現在の不足: users / tagsの検索基盤とcategory切替は実装済みだが、posts category、投稿検索query、安定したpaginationがない。
-- 前提: 既存posts SELECT RLSを最終認可とし、private・権限外followers・soft delete・suspended投稿を結果へ混入させない。
-- 主な影響範囲: `/search`、post検索data queryまたはRPC、検索結果card、cursor、必要な回帰テスト。
-- 推奨理由: 今回の検索UI基盤を再利用して、残る検索MVP差分を独立した小Phaseで実装できる。
+- 目的: email/password認証を補完し、正式仕様のpassword reset、Google、Appleログインへ進む。
+- 現在の不足: reset request・callback・password更新、OAuth action・provider UIがない。
+- 前提: provider設定、callback URL、account linking、認証エラー、秘密情報管理を小Phaseへ分ける。
+- 主な影響範囲: auth route、Server Action、login / sign-up UI、Supabase Auth設定、認証済みブラウザ検証。
+- 推奨理由: 投稿検索完了後も残るMVP認証差分であり、データ機能から独立して検証できる。
 
 ### 候補C: 画像投稿とavatarの共通Storage基盤
 
@@ -392,6 +402,7 @@ Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_use
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-06 | commit前。基準HEAD `be79d85eee60ba08ca8bdc698ee66b77756c4c46` | Phase B2b-3bとして投稿title / body検索、既存posts RLSへ委任する`SECURITY INVOKER` RPC、NFKC・literal wildcard、20件cursor pagination、ID再取得と共通hydrate・`TimelinePostCard`再利用を実装。ローカル12 migration fresh適用、新規pgTAP 52件・全528件、local catalog/schema diff、npm検証、認証済みブラウザ・5幅responsive検証を完了。新migrationはremote未適用。remote操作、Git stage・commit・pushは未実施 |
 | 2026-08-06 | commit前。基準HEAD `1b73043e6262aa410c4f7d593fb36ae9c612ee52` | Phase B2b-3aの`20260804000100`だけをリモート開発DBへ通常適用。local / remote履歴11件一致、再dry-runはup to date、remote catalog属性・ACL・tags RLS前提の一致、`public,my_diary_private`のlinked schema diffが空であることを確認。適用後のcatalog cache生成warningはSQL成功と切り分け、リモートfixture・ユーザーデータ操作、Git stage・commit・pushは未実施 |
 | 2026-08-04 | commit前。基準HEAD `1b73043e6262aa410c4f7d593fb36ae9c612ee52` | Phase B2b-3aとしてusers / tags検索UI基盤、ユーザー検索NFKC対応、RLSを通すタグ部分一致検索、20件forward cursor pagination、厳格なquery/cursor検証を実装。新migration・pgTAPを各1件追加し、ローカルreset後に全pgTAP 476件、npm検証、認証済みブラウザ・レスポンシブ検証を完了。リモートDB操作、既存migration/test変更、Git stage・commit・pushは未実施 |
 | 2026-08-03 | commit前。基準HEAD `37b055ea9b18c19ec04fb040e3851ff579534938` | Phase B2b-2としてRLS上閲覧可能なタグ一覧・タグ詳細、UUID canonical route、50件・20件のforward cursor pagination、投稿タグのUUIDリンク、home導線、404・空状態・loadingを実装。通常のauthenticated経路だけで認証済みブラウザ、PostgREST実response、RLS、responsiveを検証し、fixtureをローカルDB resetで清掃後に全pgTAP 406件とnpm検証を完了。DB・migration・pgTAP定義は変更なし |

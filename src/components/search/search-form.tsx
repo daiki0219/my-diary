@@ -17,6 +17,11 @@ const formContent: Record<
     description: "タグ名の一部を入力してください。先頭の#は省略できます。",
     placeholder: "タグ名を入力",
   },
+  posts: {
+    label: "投稿タイトル・本文",
+    description: "閲覧できる日記のタイトルまたは本文の一部を入力してください。",
+    placeholder: "タイトル・本文を入力",
+  },
 };
 
 export function SearchForm({
