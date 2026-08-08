@@ -3,15 +3,27 @@
 ## 対象と前提
 
 この設計案は、最初のデータベース単位として `accounts`、`profiles`、
-`posts`、`follows` を対象とした。投稿画像、リアクション、コメント、通知、
-通報、Storageは初回単位に含めない。自由タグの後続Phase B1設計は本書の
-「自由タグPhase B1追加設計」と「自由タグPhase B2a atomic mutation設計」に追記する。
+`posts`、`follows` から開始した。その後、リアクション、コメント、自由タグ、
+投稿画像とStorageを後続migrationで追加し、投稿画像はPhase B3a〜B3dまで完了した。
+通知と通報は現在も未作成である。自由タグの後続Phase B1設計は本書の
+「自由タグPhase B1追加設計」と「自由タグPhase B2a atomic mutation設計」に記録する。
 
-全体公開投稿を含めて閲覧はログイン必須とする。`anon` には4テーブルの
+全体公開投稿を含めて閲覧はログイン必須とする。`anon` にはpublic application tableの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaから画像upload統合Phase B3bまでのSQLはmigrationとして管理し、
-リンク済みのリモート開発Supabaseへ適用済みである。
+初回schemaから投稿画像編集Phase B3dまでのSQLは15件のmigrationとして管理し、
+リンク済みのリモート開発Supabaseへ適用済みである。local / remote migration履歴は
+15件で一致し、latestは`20260808000300_integrate_post_image_edits.sql`である。
+
+### 投稿画像基盤の現在状態
+
+- Phase B3a: private `post-images` bucket、`post_images`、RLS、Storage SELECT、最大10枚のDB保証
+- Phase B3b: JPEG / PNG / WebP、1枚6 MiB、Storage INSERT、未参照orphan DELETE、`my_diary_create_post_with_images`によるatomic create
+- Phase B3c: same-origin authenticated delivery、post_images RLSとStorage SELECT RLSの取得ごとの再評価、private no-store、raw `storage_path`のserver内限定
+- Phase B3d: `my_diary_update_post_with_images`、最終manifest、post rowの`FOR UPDATE`、保持image identity、`sort_order`更新、post / tag / imageのatomic edit、DB commit後のold object cleanup
+
+長期orphanの定期回収、soft delete画像のphysical delete、保持期間後のphysical deleteは
+未実装であり、後続のmaintenance / 保持方針として扱う。
 
 ## データモデル
 
@@ -123,6 +135,17 @@ Phase B2a以降、`authenticated`にはpostsの直接INSERT / UPDATE列権限を
 - UPDATE: 本人だけ
 - INSERT / DELETE: 一般ユーザーには許可しない
 
+### C1a / C1b開始前の既知security残差
+
+現行実装ではsuspended userもSupabase Auth sessionを取得でき、application session gateは
+未実装である。posts SELECTのowner分岐はactive状態を要求しないため、suspended viewerも
+own postを閲覧でき、そのpostに紐づく画像もpost_images / Storage SELECTのRLS連鎖を通して
+取得できる。profiles SELECTは全authenticatedへ許可されている。
+
+これらは現在の期待値であって望ましい最終状態ではない。Phase C1aでDB / RLSを
+fail-closed化し、後続のPhase C1bでapplication session gateを追加する。どちらも本書の
+現行実装にはまだ含まれない。
+
 ### follows
 
 - SELECT: 閲覧者、`follower_id`、`following_id`の3者がすべてactiveの場合のみ
@@ -154,7 +177,8 @@ Phase B3bのpathは`{auth.uid()}/{postId}/{imageId}`の3 UUID segmentとし、�
 だけを評価する。private / followers / public、follow解除、visibility変更、
 soft delete、suspended accountの条件を重複実装しない。authenticatedには
 SELECTだけを付与し、INSERT / UPDATE / DELETEのtable権限とpolicyは付与しない。
-metadata mutationはuploadとの整合を保つ後続の限定RPCで設計する。
+metadata mutationはuploadとの整合を保つ限定RPC
+`my_diary_create_post_with_images`と`my_diary_update_post_with_images`だけで行う。
 
 ### 投稿画像Storage（Phase B3a / B3b）
 
@@ -541,7 +565,8 @@ Service Roleも使用していない。
 `20260806000100_add_post_search.sql`は、viewerが閲覧できる投稿だけをtitle・bodyから
 検索する公開RPCを追加する。既存posts table、RLS policy、ACL、indexは変更せず、
 ローカルreset、pgTAP、catalog、schema diff、認証済みブラウザで検証した。
-このmigrationはリモート未適用である。
+Phase B2b-3b終了時点ではリモート未適用だったが、後続Phaseで適用済みである。
+現在のlocal / remote migration履歴はB3dまでの15件で一致している。
 
 公開RPCのexact signatureは次のとおりで、overloadとdefault引数は作らない。
 

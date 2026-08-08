@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-08
 - 調査時branch: `main`
-- 作業開始時HEAD: `d202e8db4cea5c8e2d7d3c3b3b4c6f29a1412f5d`
-- 作業開始時HEADのmessage: `feat: add secure post image uploads`
+- 調査基準HEAD: `d0ef062d9090af8574d4215c21a67f7a5230a431`
+- 調査基準HEADのmessage: `feat: add post image editing`
 
 ### 更新ルール
 
@@ -42,18 +42,29 @@
 
 | 状態 | 件数 |
 | --- | ---: |
-| 実装済み | 21 |
-| 一部実装済み | 8 |
+| 実装済み | 22 |
+| 一部実装済み | 7 |
 | 未実装 | 12 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
 | 合計 | 58 |
 
-現在は、メールアドレスとパスワードによる認証、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿uploadと認証付き表示、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
+現在は、メールアドレスとパスワードによる認証、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`の9 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。自由タグはNFKCによるcanonical name、SELECT専用RLS、投稿とタグを同一transactionで作成・更新するatomic RPC、一般アプリ経路での1投稿最大5個保証に加え、チップ入力、作成・編集、投稿上のUUIDリンク、閲覧可能タグの一覧・詳細・部分一致検索まで実装済みである。タグ一覧は50件、タグ詳細と検索は20件のforward cursor paginationを使用する。投稿検索は`SECURITY INVOKER` RPCと既存posts RLSを使い、title / body OR検索、literal wildcard、`created_at DESC, id DESC`の20件cursor pagination、ID再取得後の二重RLS評価を行う。投稿画像はprivate bucket、JPEG / PNG / WebP、1枚6 MiB、最大10枚、`userId/postId/imageId` path、選択順preview、通常Storage upload、post・tag・画像metadataのatomic確定、失敗時orphan cleanupまで新規投稿へ統合済みである。表示時は`post_images` metadataを投稿集合単位でbatch取得し、raw `storage_path`をclientへ渡さず、同一originの`/post-images/[imageId]`がcookie session、post_images RLS、Storage RLSを取得ごとに再評価する。応答はprivate no-storeで、一覧・詳細は`Image unoptimized`を使う。pgTAPは14ファイル、plan合計650 assertionで、認証後の権限境界、soft delete、visibility変更、suspended状態、follow一覧、タグ名・画像object漏えい防止、ユーザー・タグ・投稿検索、atomic mutationとrollback、Storage operation境界、RLS自動有効化とACLを対象としている。
+DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`の9 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。自由タグはNFKCによるcanonical name、SELECT専用RLS、投稿とタグを同一transactionで作成・更新するatomic RPC、一般アプリ経路での1投稿最大5個保証に加え、チップ入力、作成・編集、投稿上のUUIDリンク、閲覧可能タグの一覧・詳細・部分一致検索まで実装済みである。タグ一覧は50件、タグ詳細と検索は20件のforward cursor paginationを使用する。投稿検索は`SECURITY INVOKER` RPCと既存posts RLSを使い、title / body OR検索、literal wildcard、`created_at DESC, id DESC`の20件cursor pagination、ID再取得後の二重RLS評価を行う。投稿画像はprivate bucket、JPEG / PNG / WebP、1枚6 MiB、最大10枚、`userId/postId/imageId` path、選択順preview、通常Storage upload、post・tag・画像metadataのatomic作成・更新へ統合済みである。編集では保持画像のidentityを維持し、追加・削除・並び替え、既知DB失敗時のnew object cleanup、DB commit後のold object cleanupを行う。表示時は`post_images` metadataを投稿集合単位でbatch取得し、raw `storage_path`をclientへ渡さず、同一originの`/post-images/[imageId]`がcookie session、post_images RLS、Storage RLSを取得ごとに再評価する。応答はprivate no-storeで、一覧・詳細は`Image unoptimized`を使う。pgTAPは15ファイル、plan合計686 assertionで、認証後の権限境界、soft delete、visibility変更、suspended状態、follow一覧、タグ名・画像object漏えい防止、ユーザー・タグ・投稿検索、atomic mutationとrollback、Storage operation境界、RLS自動有効化とACLを対象としている。
 
-MVP完了条件との差分は、投稿画像の編集、場所入力UI、タイムラインのページネーション、コメント返信、通知、カレンダー、設定である。パスワードリセットとOAuth、avatarも未完成である。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分には、停止中アカウントのfail-closed化、場所入力UI、タイムラインのページネーション、コメント返信、通知、カレンダー、設定がある。パスワードリセットとOAuth、avatarも未完成である。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+
+### 2.1 MVP残差と実装優先順位
+
+正式仕様上のMVP分類と、公開前の実装優先順位は別に管理する。
+
+- 公開前に重要: 停止中アカウントのfail-closed化、comment reply、notifications、timeline pagination / infinite scroll、timezone settings、calendar
+- 強く推奨: password reset、`location_name`のUI接続、timeline本文省略、follow / profile / user検索等の固定件数改善、comment削除直後のUI更新
+- MVP対象だが後順位: Google login、Apple login、avatar、timezone以外のsettings、profile / follow list等のpagination
+- MVP後またはmaintenanceへ延期可能: 長期orphan cleanup、soft-deleted画像のphysical delete、保持期間後のphysical delete、正式仕様のPhase 2以降の機能
+
+この優先順位は正式仕様のMVP対象をMVP後へ変更するものではない。投稿画像の主要利用者要件は実装済みだが、物理削除と長期orphan回収は運用・保持方針を伴う後続maintenanceとして残る。
 
 ## 3. 技術・リポジトリ状態
 
@@ -64,12 +75,12 @@ MVP完了条件との差分は、投稿画像の編集、場所入力UI、タイ
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/proxy.ts` |
-| migration | 14ファイル | `supabase/migrations/*.sql` |
+| migration | 15ファイル。latestは`20260808000300_integrate_post_image_edits.sql` | `supabase/migrations/*.sql` |
 | DB table | 9 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images` |
-| pgTAP | 14ファイル、plan合計650 | `supabase/tests/database/*.sql` |
+| pgTAP | 15ファイル、plan合計686。直前実行結果`686 / 686 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 最新commit | `d202e8db4cea5c8e2d7d3c3b3b4c6f29a1412f5d` | `feat: add secure post image uploads`。Phase B3cはcommit前のローカル実装・検証済み差分 |
+| 調査基準commit | `d0ef062d9090af8574d4215c21a67f7a5230a431` | `feat: add post image editing`。Phase B3a〜B3dを含む |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -84,7 +95,7 @@ Server Componentがpageとデータ取得を担当し、入力フォーム、フ
 | パスワードリセット | 未実装 | 対応route、action、UIなし | reset request、callback、password更新を実装する |
 | Googleログイン | 未実装 | OAuth actionとUIなし | provider設定と通常OAuth導線が必要 |
 | Appleログイン | 未実装 | OAuth actionとUIなし | provider設定と通常OAuth導線が必要 |
-| suspended account制御 | 一部実装済み | RLSとServer Actionはactive状態をmutation条件に使用し、他者投稿・follow関係も制限 | Auth login自体は`accounts.status`を検査せず、suspendedユーザーもsessionを取得できる。直接の他ユーザープロフィール表示もactive対象だけには限定されていない |
+| suspended account制御 | 一部実装済み | RLSとServer Actionはactive状態をmutation条件に使用し、他者投稿・follow関係も制限 | Auth login自体は`accounts.status`を検査せず、suspendedユーザーもsessionを取得できる。現行posts SELECTのowner分岐ではown postとその画像へアクセスでき、`profiles` SELECTと直接の他ユーザープロフィール表示もactive対象だけには限定されていない。application session gateも未実装 |
 
 主な関連コードは`src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/server.ts`、`src/lib/supabase/proxy.ts`である。主な関連テストは`0001_core_rls.test.sql`、`0004_user_search_and_follows.test.sql`、`0006_user_profile_posts_rls.test.sql`、`0007_follow_lists_rls.test.sql`である。
 
@@ -109,12 +120,12 @@ Server Componentがpageとデータ取得を担当し、入力フォーム、フ
 | title・body・入力検証 | 実装済み | titleは任意120文字、bodyは1〜10,000文字。ClientとServer Action、DB CHECKで検証 | なし |
 | 気分 | 実装済み | 6種類と未設定を作成・編集・一覧・詳細で扱う。DB CHECKあり | なし |
 | 公開範囲 | 実装済み | `private`、`followers`、`public`。作成・編集可能で、RLSが閲覧を制御 | 未認証public閲覧は対象外の運用 |
-| 画像 | 一部実装済み | privateな`post-images` bucketへJPEG / PNG / WebPを1枚6 MiB・最大10枚で逐次uploadし、`userId/postId/imageId` path、preview、atomic post/tag/image RPCを実装。編集は既存identityを維持した追加・削除・前後移動、DB失敗時new cleanup、DB commit後old cleanupに対応。表示はraw path非露出の同一origin routeとRLS再評価を使い、0 / 1 / 複数 / 最大10枚の共通galleryを詳細・timeline・profile・tag・検索へ統合 | session失効・browser終了・cleanup失敗で残る長期orphan回収、保持期間後の物理削除、magic-byte / virus scanは未実装 |
+| 画像 | 実装済み | privateな`post-images` bucketへJPEG / PNG / WebPを1枚6 MiB・最大10枚で逐次uploadし、`userId/postId/imageId` path、preview、atomic post/tag/image作成・更新RPCを実装。編集は既存identityを維持した追加・削除・並び替え、DB失敗時new cleanup、DB commit後old cleanupに対応。表示はraw path非露出の同一origin routeとRLS再評価を使い、0 / 1 / 複数 / 最大10枚の共通galleryを詳細・timeline・profile・tag・検索へ統合 | 長期orphan回収、soft delete画像と保持期間後の物理削除は後続maintenance。magic-byte / virus scanは未実装 |
 | 自由タグ | 実装済み | `tags`、`post_tags`、NFKC canonical name、文字数・文字種制約、重複防止、可視post連動SELECT RLS、atomic作成・差分更新RPC、一般アプリ経路の最大5個保証を実装。作成・編集のチップ入力、投稿詳細・following・latest・自他プロフィール投稿一覧のUUIDリンク、`/tags`、`/tags/[tagId]`、部分一致検索、forward cursor paginationまで接続済み。直接mutation権限なし | なし |
 | 場所名 | 一部実装済み | `posts.location_name`と100文字CHECKは存在。Phase B2a RPCには含めず、作成時NULL・更新時既存値維持 | form、Server Actionの入力・保存、表示がない |
 | カテゴリー・推し・ぬい・イベント・アルバム関連 | MVP後 | 正式仕様でPhase 3以降 | MVP完了条件には含めない |
 
-投稿の関連コードは`src/app/(protected)/posts/actions.ts`、`src/lib/post-data.ts`、`src/lib/tag-data.ts`、`src/lib/post-image-data.ts`、`src/components/posts/**`である。`0001_core_rls.test.sql`、`0005_post_edit_rls.test.sql`、`0006_user_profile_posts_rls.test.sql`、`0009_tags_rls.test.sql`、`0010_post_tag_mutation_rpc.test.sql`、`0013_post_images_storage_rls.test.sql`、`0014_post_image_upload_mutation.test.sql`が主要なDB回帰を担う。
+投稿の関連コードは`src/app/(protected)/posts/actions.ts`、`src/lib/post-data.ts`、`src/lib/tag-data.ts`、`src/lib/post-image-data.ts`、`src/components/posts/**`である。`0001_core_rls.test.sql`、`0005_post_edit_rls.test.sql`、`0006_user_profile_posts_rls.test.sql`、`0009_tags_rls.test.sql`、`0010_post_tag_mutation_rpc.test.sql`、`0013_post_images_storage_rls.test.sql`、`0014_post_image_upload_mutation.test.sql`、`0015_post_image_edit_mutation.test.sql`が主要なDB回帰を担う。
 
 ### 4.4 タイムライン
 
@@ -198,7 +209,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | `comments` | 一部実装済み | `id`、`post_id`、`user_id`、`body`、`created_at`、`updated_at`、`deleted_at` | post/accountへのcascade FK、body/deleted_at CHECK、未削除post/newest partial index、可視post連動RLS、soft-delete RPC。返信用columnは未作成 |
 | `tags` | 実装済み | `id`、`name`、`normalized_name`、`created_at` | NFKC canonical name、30 codepoint上限、文字種制約、UNIQUE、可視post連動SELECT。master mutationはatomic RPC内部だけで、入力・投稿表示・一覧・詳細・検索UIを実装済み |
 | `post_tags` | 一部実装済み | `post_id`、`tag_id`、`created_at` | 複合PK、cascade FK、逆引きindex、可視post連動SELECT RLS。RPC内の最大5個検証、post row lock、差分更新を実装 |
-| `post_images` | 一部実装済み | `id`、`post_id`、`storage_path`、`sort_order`、`created_at` | post物理削除へのcascade FK、`sort_order` 0〜9 CHECK、投稿×順序UNIQUE、path UNIQUE、可視post連動SELECT RLS。authenticatedの直接mutationはなく、新規投稿RPCだけがStorage object確認後にmetadataを確定。同一origin routeがRLS下でpathを解決して配信し、clientへはidと順序だけを渡す |
+| `post_images` | 実装済み | `id`、`post_id`、`storage_path`、`sort_order`、`created_at` | post物理削除へのcascade FK、`sort_order` 0〜9 CHECK、投稿×順序のdeferrable UNIQUE、path UNIQUE、可視post連動SELECT RLS。authenticatedの直接mutationはなく、作成・編集RPCがStorage object確認後にmetadataをatomic確定・更新。同一origin routeがRLS下でpathを解決して配信し、clientへはidと順序だけを渡す |
 
 Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reaction_type`をtextとCHECK制約で管理している。主要FKはuser削除またはpost削除に対するcascadeを設定している。物理DELETEは一般ユーザーへ付与せず、postとcommentは専用RPCでsoft deleteする。
 
@@ -226,7 +237,7 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 
 ### 5.3 未作成の主要table
 
-MVP対象で未作成なのは`notifications`である。`post_images`はDB・private Storage・新規投稿時のupload / preview / atomic metadata確定 / 失敗cleanup、一覧・詳細への認証付き配信と表示まで作成済みだが、編集mutationは未実装である。`tags`と`post_tags`はDB読み取り・mutation基盤、利用者向け入力・投稿リンク、タグ一覧・詳細・検索まで作成済みである。Phase 2の`reports`、Phase 3以降のcategories、favorites、communities、plushies、events、albumsと各紐付けtableも未作成である。
+MVP対象で未作成なのは`notifications`である。`post_images`はDB・private Storage・新規投稿時のupload / preview / atomic metadata確定 / 失敗cleanup、一覧・詳細への認証付き配信と表示、既存投稿での追加・削除・並び替え、保持identity、atomic更新、DB commit後の旧object cleanupまで作成済みである。長期orphan回収、soft delete画像と保持期間後の物理削除は未実装である。`tags`と`post_tags`はDB読み取り・mutation基盤、利用者向け入力・投稿リンク、タグ一覧・詳細・検索まで作成済みである。Phase 2の`reports`、Phase 3以降のcategories、favorites、communities、plushies、events、albumsと各紐付けtableも未作成である。
 
 ## 6. MVP後の機能
 
@@ -295,7 +306,7 @@ MVP対象で未作成なのは`notifications`である。`post_images`はDB・pr
 
 Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_user_and_tag_search.sql`を1件追加した。ローカルresetで11件すべてをfresh適用した後、この1件だけをリンク済みのリモート開発DBへ通常適用した。local / remote履歴は11件で一致し、適用後の再dry-runはup to date、pg-deltaによる`public,my_diary_private`のlinked schema diffは空だった。migration transaction内のpostconditionと空のcatalog diffを組み合わせ、両検索RPCとprivate helperのsignature、引数名、return shape、owner、volatility、security属性、固定search path、ACL、および既存tags RLS・policy・table ACLの維持を確認した。適用後のcatalog cache生成では一時CA証明書を参照できない補助warningが発生したが、migration適用は終了コード0で完了し、remote履歴と再dry-runで成功を確認したため再適用していない。リモートfixture・ユーザーデータ操作・Service Roleは使用せず、Git stage・commit・pushも実施していない。
 
-Phase B2b-3bでは既存11 migrationを変更せず、`20260806000100_add_post_search.sql`を1件追加した。ローカルresetで12件をfresh適用し、新規pgTAP `52 / 52`、全pgTAP `528 / 528`、`public,my_diary_private`のlocal schema diff 0件、local catalog一致を確認した。新規migrationはリモート未適用で、remote dry-run・remote catalog・linked schema diffはこのPhaseでは実施していない。
+Phase B2b-3bでは既存11 migrationを変更せず、`20260806000100_add_post_search.sql`を1件追加した。ローカルresetで12件をfresh適用し、新規pgTAP `52 / 52`、全pgTAP `528 / 528`、`public,my_diary_private`のlocal schema diff 0件、local catalog一致を確認した。Phase終了時点では新規migrationはリモート未適用で、remote dry-run・remote catalog・linked schema diffも未実施だったが、後続Phaseで適用され、現在のlocal / remote migration履歴は15件で一致している。
 
 Phase B3aでは既存12 migrationを変更せず、`20260808000100_create_post_images_storage.sql`を1件追加した。ローカルresetで13件をfresh適用し、新規pgTAP `75 / 75`、全pgTAP `603 / 603`、`public,storage,my_diary_private`のlocal schema diff 0件を確認した。新規migrationだけをリンク済みのリモート開発DBへ通常適用し、local / remote履歴13件一致、再dry-run up to date、remote catalogのbucket・table・constraint・RLS・ACL・Storage policy一致、linked schema diff 0件を確認した。適用後のpg-delta catalog cache生成warningはmigration SQL成功後の後処理warningと切り分け、repairや再適用は行っていない。
 
@@ -362,8 +373,8 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 1. `rls_auto_enable()`はRLS有効化失敗をlogへ記録して元DDLを成功させるfail-openである。policyも自動作成しないため、各migrationで明示的なRLSとpolicyが引き続き必須である。
 2. event triggerとfunction ACLは一般的なschema diffだけでは完全に検出できないため、migrationのpreflight/postconditionとpgTAPを維持する必要がある。
-3. suspended accountはRLSでmutationと他者投稿・follow関係を制限するが、Supabase Authへのlogin自体は拒否していない。
-4. `profiles` SELECT policyはauthenticated全体に許可され、直接の他ユーザープロフィールrouteは対象accountのactive状態を検証していない。
+3. suspended accountはRLSでmutationと他者投稿・follow関係を制限するが、Supabase Authへのlogin自体は拒否していない。application session gateも未実装である。
+4. 現行posts SELECTのowner分岐ではsuspended viewerもown postを閲覧でき、post_images / Storage SELECTのRLS連鎖によりown postの画像も取得できる。`profiles` SELECT policyはauthenticated全体に許可され、直接の他ユーザープロフィールrouteは対象accountのactive状態を検証していない。これらはC1a / C1bでfail-closed化する既知残差であり、現時点では未対応である。
 5. timelineは最大50件、他者投稿とfollow一覧は最新20件、comment一覧は古い順100件で打ち切り、継続取得を実装していない。
 6. timelineはフォロー中と最新投稿に分離済みだが、一覧本文を省略しない。フォロー中feedのauthor filterは`.in(...)`を使用するため、大量follow時のURL長・query性能を実データで評価する必要がある。
 7. avatar_pathとlocation_nameはDB基盤だけで、UIから利用できない。
@@ -376,53 +387,34 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 ## 11. 次Phase候補
 
-次の候補は確定順ではない。正式仕様のMVP完了条件と、現在の実装差分から選定した。
+### 次Phase: Phase C1a 停止中アカウントのDB / RLS fail-closed化
 
-### 候補A: timelineの継続取得と長文省略
+- 目的: suspended viewerのDBアクセスをfail-closed化し、画面実装だけに依存しない最終認可を作る。
+- 現在の不足: suspended userはAuth sessionを取得でき、現行posts SELECTのowner分岐ではown postと画像へアクセスできる。`profiles` SELECTも全authenticatedへ開放されている。
+- 主な影響範囲: profiles / postsと依存RLS、ユーザー検索RPC、既存suspended期待値を含むpgTAP。application session gateはこのPhaseへ含めない。
+- 推奨理由: 公開前に閉じるべき現行のsecurity / correctness残差であり、次に最も推奨するPhaseとして確定している。
 
-- 目的: 分離済みの2種類のtimelineへ安定した継続取得を追加し、一覧の長文を読みやすくする。
-- 現在の不足: `/home`は各feed最大50件固定で、cursor pagination、無限スクロール、長文省略がない。
-- 前提: 現行post visibility RLSとfollow RLSを維持する。
-- 主な影響範囲: `src/app/(protected)/home`、`src/lib/post-data.ts`、投稿card、必要な回帰テスト。
-- 推奨理由: 正式仕様の性能要件と一覧可読性を満たし、現在の最大50件固定を解消できる。
+### 後続Phase: Phase C1b application session gate
 
-### 候補B: パスワードリセットとOAuth認証
+- 目的: password login、認証callback、既存session、画像Route Handlerを含むapplication入口で非active accountを拒否する。
+- 前提: C1aのDB / RLS fail-closedを最終認可として先に完了する。
+- 主な影響範囲: auth action / callback、protected共通境界、画像Route Handler、active / suspended双方のブラウザ回帰。
 
-- 目的: email/password認証を補完し、正式仕様のpassword reset、Google、Appleログインへ進む。
-- 現在の不足: reset request・callback・password更新、OAuth action・provider UIがない。
-- 前提: provider設定、callback URL、account linking、認証エラー、秘密情報管理を小Phaseへ分ける。
-- 主な影響範囲: auth route、Server Action、login / sign-up UI、Supabase Auth設定、認証済みブラウザ検証。
-- 推奨理由: 投稿検索完了後も残るMVP認証差分であり、データ機能から独立して検証できる。
+### C1完了後の主な候補
 
-### 候補C: 投稿画像の編集とobject lifecycle（Phase B3d）
+1. comment replyとnotifications基盤を安全な小Phaseへ分割する。
+2. timelineへcursor pagination / infinite scrollを追加し、本文省略を改善する。
+3. timezone settingsを先に整備し、その後calendarを実装する。
+4. password resetを追加し、Google / Apple OAuthはprovider設定を含む別Phaseで扱う。
+5. `location_name`のform・Server Action・表示を既存atomic投稿更新へ接続する。
 
-- 目的: 既存投稿で画像を追加・削除・並び替えし、metadataとStorage objectの寿命を整合させる。
-- 現在の不足: 編集mutation、soft delete後の物理削除、長期orphan回収がない。
-- 前提: B3cの同一origin認証付き配信、private no-store、post_images / Storage双方のRLS再評価と、B3bのupload / cleanup境界を維持する。
-- 主な影響範囲: 編集RPC、Storage mutation policy、post edit Server Action / UI、補償削除、pgTAPと認可検証。avatarやlightboxは別Phaseに分ける。
-- 推奨理由: 新規作成と閲覧がそろった画像機能に、残るMVP編集要件を追加できる。
-
-### 候補D: コメント返信と通知基盤
-
-- 目的: 1階層返信とfollow/reaction/comment/reply通知を提供する。
-- 現在の不足: parent_comment_id、notifications、返信UI、既読管理、自己通知除外がない。
-- 前提: 通知targetの削除・soft delete時の扱い、recipientだけが読めるRLSを決める。
-- 主な影響範囲: migration、comment action/UI、通知route、各mutation action、pgTAP。
-- 推奨理由: 現在の交流機能をMVP仕様までつなげられる。ただし安全な通知data modelを小Phaseへ分割するべきである。
-
-### 候補E: カレンダーと場所名
-
-- 目的: 自分の日記を日付で振り返り、任意の場所名を記録できるようにする。
-- 現在の不足: calendar route/query、timezone境界、location form/action/displayがない。
-- 前提: `accounts.timezone`の設定方法と日付境界を先に確定する。
-- 主な影響範囲: calendar route、post form/action、post display、query/test。
-- 推奨理由: 既存`posts.location_name`と`accounts.timezone`を活用でき、比較的小さな単位に分割しやすい。
+Phase B3dの投稿画像追加・削除・並び替えは完了済みであり、次Phase候補ではない。長期orphan回収、soft delete画像と保持期間後の物理削除は後続maintenanceとして別に扱う。
 
 ## 12. 更新履歴
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
-| 2026-08-08 | commit前。基準HEAD `85823b745016aee63b97e3bb6a3e954bae751dbd` | Phase B3dとして既存投稿の画像追加・削除・並び替え、atomic post / tag / image更新RPC、保持identity、DB結果別Storage cleanup、mixed preview UIを実装。ローカル15 migration、新規pgTAP 36件・全686件、実Storage API、ブラウザ、5幅responsive、npm検証を完了。B3d migrationだけをリモート開発DBへ通常適用し、履歴15件一致、remote catalog / ACL / Storage境界、再dry-run、3 schemaのlinked diff 0件を確認。remote実update / Storage lifecycleは安全な既存認証情報がないため未実施。Service Role、Auth Admin API、remote fixtureは使用していない |
+| 2026-08-08 | `d0ef062d9090af8574d4215c21a67f7a5230a431` | Phase B3dとして既存投稿の画像追加・削除・並び替え、atomic post / tag / image更新RPC、保持identity、DB結果別Storage cleanup、mixed preview UIを実装して`feat: add post image editing`として完了。ローカル15 migration、新規pgTAP 36件・全686件、実Storage API、ブラウザ、5幅responsive、npm検証を完了。B3d migrationだけをリモート開発DBへ通常適用し、履歴15件一致、remote catalog / ACL / Storage境界、再dry-run、3 schemaのlinked diff 0件を確認。remote実update / Storage lifecycleは安全な既存認証情報がないため未実施。Service Role、Auth Admin API、remote fixtureは使用していない |
 | 2026-08-08 | commit前。基準HEAD `d202e8db4cea5c8e2d7d3c3b3b4c6f29a1412f5d` | Phase B3cとしてsigned URLを採用せず、cookie認証付き`/post-images/[imageId]`、post_images / Storage RLSの取得ごとの再評価、private no-store、raw path非露出、bounded metadata batch、共通galleryを詳細・timeline・profile・tag・検索へ統合。follow解除、visibility変更、soft delete、未認証、不正 / 不存在UUID、5幅responsive、0 / 1 / 2 / 3 / 10枚、pagination、consoleを通常認証fixtureで確認。ローカル14 migration fresh適用、全pgTAP 650件、npm検証を完了し、fixture残数0を確認。migration・pgTAP定義・packageは変更せず、remote操作、Service Role、Auth Admin API、stage・commit・pushは未実施 |
 | 2026-08-08 | commit前。基準HEAD `7ea2b85c4db023d4195316acd898c5a6b0493d8f` | Phase B3bとしてJPEG / PNG / WebP・1枚6 MiB・最大10枚の新規投稿画像upload、選択順preview・削除、strict UUID path、operation-aware Storage RLS、atomic post/tag/image RPC、途中失敗とDB失敗cleanupを実装。Storage object row lockで確定直前の並行cleanupを直列化。ローカル14 migration fresh適用、新規pgTAP 47件・全650件、実Storage API、画像なし投稿、5幅responsive、npm検証を完了。B3b migrationだけをリモート開発DBへ通常適用し、履歴14件一致、remote catalog、再dry-run、linked schema diffを確認。remote実upload / RPC mutationは未実施。Service Role、Auth Admin API、remote fixture・ユーザーデータ・Storage objectの作成や変更は行っていない |
 | 2026-08-08 | commit前。基準HEAD `2a7107ca3a95d05d8792aae89b17b20d80ea0d9e` | Phase B3aとしてprivate post画像bucket、post_images、最大10枚・順序・path制約、既存posts RLSへ委任するmetadata SELECT、Storage SELECT allowとRESTRICTIVE guard、最小ACLを実装。ローカル13 migration fresh適用、新規pgTAP 75件・全603件、local schema diff、npm検証を完了。B3a migration 1件をリモート開発DBへ通常適用し、履歴13件一致、remote catalog、再dry-run、linked schema diffを確認。適用後のpg-delta catalog cache warningはSQL成功後の後処理warningと切り分けた。UI変更なし。Git stage・commit・pushは未実施 |
