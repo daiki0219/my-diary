@@ -10,9 +10,8 @@
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` には4テーブルの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaから検索Phase B2b-3aまでのSQLはmigrationとして管理し、リンク済みの
-リモート開発Supabaseへ適用済みである。投稿検索Phase B2b-3b migrationは
-ローカル検証済み・リモート未適用である。
+初回schemaから画像基盤Phase B3aまでのSQLはmigrationとして管理し、リンク済みの
+リモート開発Supabaseへ適用済みである。
 
 ## データモデル
 
@@ -132,6 +131,51 @@ Phase B2a以降、`authenticated`にはpostsの直接INSERT / UPDATE列権限を
 
 停止中のユーザーを含む既存関係は削除せずSELECT結果から除外する。両者が
 activeへ戻り、関係行が残っている場合は一覧と件数へ再表示される。
+
+### post_images（Phase B3a）
+
+- `id`: UUID主キー
+- `post_id`: `posts.id`への外部キー。親postの物理削除時はCASCADE
+- `storage_path`: private `post-images` bucket内のobject path。全行で一意
+- `sort_order`: 0〜9。`post_id`との組み合わせで一意
+- `created_at`: `TIMESTAMPTZ`
+
+`sort_order`の有限な10 slotと`UNIQUE(post_id, sort_order)`を組み合わせ、
+件数を数えるtriggerを使わず、同時INSERTでも1投稿最大10枚をDBで保証する。
+順序UNIQUEは`DEFERRABLE INITIALLY IMMEDIATE`とし、通常は即時検査しつつ、
+後続の並び替えRPCだけがtransaction終端まで遅延してrow identityを保ったswapを
+行えるようにする。このUNIQUE indexは投稿単位の安定した並び順取得にも使う。`storage_path`の
+UNIQUE indexはpath衝突を防ぎ、Storage policyから対応metadataを検索する。
+具体的なpath形式、MIME type、1枚容量はuploadを実装するPhase B3bで決定する。
+
+`post_images`のSELECT policyは対応する`posts`行が既存posts RLS経由で見えるか
+だけを評価する。private / followers / public、follow解除、visibility変更、
+soft delete、suspended accountの条件を重複実装しない。authenticatedには
+SELECTだけを付与し、INSERT / UPDATE / DELETEのtable権限とpolicyは付与しない。
+metadata mutationはuploadとの整合を保つ後続の限定RPCで設計する。
+
+### 投稿画像Storage（Phase B3a）
+
+`post-images` bucketはprivateとし、public URLを前提にしない。bucket固有の
+MIME typeとfile size limitは未設定である。`storage.objects`のSELECT policyは
+bucketを`post-images`に限定し、`objects.name = post_images.storage_path`の
+対応metadataがviewerから見える場合だけ許可する。このため認可評価は
+`storage.objects → post_images → posts`の一方向となり、pathを知るだけでは
+取得できない。authenticatedとanonには別途RESTRICTIVE SELECT guardを設け、
+将来別bucket用のPERMISSIVE policyが増えてもOR合成で`post-images`の認可を
+迂回できないようにする。
+
+Supabase標準の`storage.buckets` / `storage.objects`のowner、ACL、owner列は
+変更しない。Phase B3aではStorage INSERT / UPDATE / DELETE policy、upload、
+URL生成、download helper、object削除を追加しない。postのsoft deleteでは
+metadataとobjectを残してposts RLS連鎖で即時に隠す。将来の物理削除では
+post_images metadataだけがCASCADEされるため、object cleanupは後続Phaseで
+補償処理またはoutboxを含めて設計する。
+
+配信方式は、認証付きdownloadならrequestごとにRLSを再評価できる一方、通常の
+画像要素へAuthorization headerを付ける配信経路が必要になる。短寿命signed URLは
+表示へ接続しやすいが、発行後は期限までfollow解除やvisibility変更を再評価しない。
+B3bで即時失効要件、TTL、server帯域、キャッシュを比較して確定する。
 
 ### accounts
 
