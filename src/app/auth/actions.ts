@@ -3,6 +3,10 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import {
+  endCurrentAuthSession,
+  getAccountSessionState,
+} from "@/lib/supabase/account-session";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthActionState = {
@@ -85,6 +89,20 @@ export async function login(
     return { error: getAuthErrorMessage(error.code) };
   }
 
+  const accountState = await getAccountSessionState(supabase);
+
+  if (accountState.kind !== "active") {
+    await endCurrentAuthSession(supabase);
+
+    return {
+      error:
+        accountState.kind === "non-active" ||
+        accountState.kind === "account-missing"
+          ? "このアカウントは現在利用できません。"
+          : "ログイン状態を安全に確認できませんでした。時間をおいてもう一度お試しください。",
+    };
+  }
+
   redirect("/home");
 }
 
@@ -120,6 +138,20 @@ export async function signUp(
   }
 
   if (data.session) {
+    const accountState = await getAccountSessionState(supabase);
+
+    if (accountState.kind !== "active") {
+      await endCurrentAuthSession(supabase);
+
+      return {
+        error:
+          accountState.kind === "non-active" ||
+          accountState.kind === "account-missing"
+            ? "このアカウントは現在利用できません。"
+            : "登録後のログイン状態を安全に確認できませんでした。時間をおいてもう一度お試しください。",
+      };
+    }
+
     redirect("/home");
   }
 

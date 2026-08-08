@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-08
 - 調査時branch: `main`
-- 調査基準HEAD: `d0ef062d9090af8574d4215c21a67f7a5230a431`
-- 調査基準HEADのmessage: `feat: add post image editing`
+- 調査基準HEAD: `98b047c439385ee1963d77eaa4ab37e45126e702`
+- 調査基準HEADのmessage: `feat: fail close non-active accounts`
 
 ### 更新ルール
 
@@ -42,24 +42,24 @@
 
 | 状態 | 件数 |
 | --- | ---: |
-| 実装済み | 22 |
-| 一部実装済み | 7 |
+| 実装済み | 24 |
+| 一部実装済み | 5 |
 | 未実装 | 12 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
 | 合計 | 58 |
 
-現在は、メールアドレスとパスワードによる認証、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
+現在は、メールアドレスとパスワードによる認証、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`の9 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは16ファイル、plan合計765 assertionで、active回帰、suspended / deactivated viewer、non-active target、accounts status最小経路、Storage operation境界を含むDB認可を対象としている。
+DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`の9 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは16ファイル、plan合計765 assertionで、active回帰、suspended / deactivated viewer、non-active target、accounts status最小経路、Storage operation境界を含むDB認可を対象としている。
 
-MVP完了条件との差分には、停止中アカウントのapplication session gate、場所入力UI、タイムラインのページネーション、コメント返信、通知、カレンダー、設定がある。パスワードリセットとOAuth、avatarも未完成である。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分には、場所入力UI、タイムラインのページネーション、コメント返信、通知、カレンダー、設定がある。パスワードリセットとOAuth、avatarも未完成である。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
 ### 2.1 MVP残差と実装優先順位
 
 正式仕様上のMVP分類と、公開前の実装優先順位は別に管理する。
 
-- 公開前に重要: 停止中アカウントのapplication session gate、comment reply、notifications、timeline pagination / infinite scroll、timezone settings、calendar
+- 公開前に重要: comment reply、notifications、timeline pagination / infinite scroll、timezone settings、calendar
 - 強く推奨: password reset、`location_name`のUI接続、timeline本文省略、follow / profile / user検索等の固定件数改善、comment削除直後のUI更新
 - MVP対象だが後順位: Google login、Apple login、avatar、timezone以外のsettings、profile / follow list等のpagination
 - MVP後またはmaintenanceへ延期可能: 長期orphan cleanup、soft-deleted画像のphysical delete、保持期間後のphysical delete、正式仕様のPhase 2以降の機能
@@ -74,13 +74,13 @@ MVP完了条件との差分には、停止中アカウントのapplication sessi
 | language | TypeScript 5、React 19.2.4 | `package.json`、`tsconfig.json` |
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
-| 認証方式 | email/password、SSR cookie session、認証callback | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/proxy.ts` |
+| 認証方式 | email/password、SSR cookie session、認証callback、request-scoped account status gate | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/account-session.ts`、`src/proxy.ts` |
 | migration | repository / local / remoteは16件で一致。latestは`20260808000400_fail_close_non_active_accounts.sql`。C1aはremote適用済み | `supabase/migrations/*.sql`、local / linked migration list |
 | DB table | 9 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images` |
 | pgTAP | 16ファイル、plan合計765。直前実行結果`765 / 765 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 調査基準commit | `d0ef062d9090af8574d4215c21a67f7a5230a431` | `feat: add post image editing`。Phase B3a〜B3dを含む |
+| 調査基準commit | `98b047c439385ee1963d77eaa4ab37e45126e702` | `feat: fail close non-active accounts`。Phase C1aまでを含む |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -95,7 +95,7 @@ Server Componentがpageとデータ取得を担当し、入力フォーム、フ
 | パスワードリセット | 未実装 | 対応route、action、UIなし | reset request、callback、password更新を実装する |
 | Googleログイン | 未実装 | OAuth actionとUIなし | provider設定と通常OAuth導線が必要 |
 | Appleログイン | 未実装 | OAuth actionとUIなし | provider設定と通常OAuth導線が必要 |
-| suspended account制御 | 一部実装済み | Phase C1aでDB / RLSをfail-closed化し、non-active viewerのprofiles、posts、tags、images、Storage、reaction、comment、follow、検索、mutationを拒否。本人accounts status SELECTだけはC1b用に維持。C1a migrationはremote適用済み | Auth login / callback / protected layoutでのapplication session gateは未実装 |
+| suspended account制御 | 実装済み | Phase C1aでDB / RLSをfail-closed化し、Phase C1bでlogin・即時session付きsign-up・callback・protected request・画像request・Server Action requestへ共通status gateを追加。本人accounts statusだけを取得し、`active`以外・row欠損・query失敗はfail-closedでcurrent sessionを終了し、固定codeのgeneric messageへ誘導する | ローカル統合回帰と実ブラウザ主要シナリオを確認済み。320〜390pxはBrowser viewport overrideが反映されず未確認 |
 
 主な関連コードは`src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/server.ts`、`src/lib/supabase/proxy.ts`である。主な関連テストは`0001_core_rls.test.sql`、`0004_user_search_and_follows.test.sql`、`0006_user_profile_posts_rls.test.sql`、`0007_follow_lists_rls.test.sql`である。
 
@@ -107,7 +107,7 @@ Server Componentがpageとデータ取得を担当し、入力フォーム、フ
 | 他ユーザープロフィール | 実装済み | `/users/[userId]`。UUID検証、本人UUIDの`/profile`正規化、follow操作、閲覧可能な最新20投稿を表示 | 続きを読むページングは別項目 |
 | follow/follower件数と一覧導線 | 実装済み | 自分・他者それぞれのfollowing/followers route、安定順、最新20件、follow操作 | 続きを読むページングは未実装 |
 | avatar | 一部実装済み | `profiles.avatar_path`と長さ制約、更新権限は存在 | upload、Storage policy、表示・編集UIはなく、現在はユーザー名の頭文字を表示 |
-| suspendedプロフィールの扱い | 一部実装済み | C1aのprofiles RLSとprofile検索RPCはactive viewer / active targetだけを許可し、直接取得もDBで拒否 | non-active sessionをapplication入口でsign-out / redirectするC1bは未実装 |
+| suspendedプロフィールの扱い | 実装済み | C1aのprofiles RLSとprofile検索RPCはactive viewer / active targetだけを許可し、直接取得もDBで拒否。C1bのrequest gateはnon-active sessionをプロフィール取得前に終了してloginへ誘導する | なし |
 | 興味タグ・推し一覧 | MVP後 | 正式仕様のPhase 3、Phase 4以降 | 対応table・route・UIなし |
 
 関連コードは`src/lib/profile-data.ts`、`src/lib/follow-data.ts`、`src/components/profile/**`である。関連migrationはコアschemaと`20260801000100_secure_follow_lists.sql`、関連テストは`0001`、`0004`、`0006`、`0007`である。
@@ -282,7 +282,7 @@ MVP対象で未作成なのは`notifications`である。`post_images`はDB・pr
 | `/search` | page | users / tags / posts category切替、NFKC canonical query、ユーザー・タグ・投稿title/body部分一致検索、タグ・投稿cursor pagination |
 | `/api/health/supabase` | route handler | Supabase Auth healthの安全な状態応答 |
 
-`not-found.tsx`はpost詳細、profile系、tag詳細に存在する。タグrouteには共通`loading.tsx`がある。専用のprotected layoutと`error.tsx`は存在せず、各pageが認証redirectとerror UIを担当している。
+`not-found.tsx`はpost詳細、profile系、tag詳細に存在する。タグrouteには共通`loading.tsx`がある。専用のprotected layoutと`error.tsx`は存在しない。未認証時のpage-level redirectは各pageに残し、non-active accountのstatus確認・session終了はrequestごとに再評価されるProxyと共通helperへ集約している。
 
 ## 8. migration一覧
 
@@ -338,6 +338,8 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 ### 9.2 実行結果の区別
 
+- Phase C1bではDB schema・RLS・migration・pgTAP定義を変更せず、通常authenticated clientで本人`accounts.status`だけを取得する共通helperと、login・即時session付きsign-up・callback・Proxyへのapplication session gateを実装した。ローカル公開Auth clientとSSR cookieによる統合回帰でactive userの`/home`、`/profile`、`/posts/new`、`/tags`を通常表示し、suspended後の主要GETをloginへ307、画像requestをsession削除Cookie付き404へfail-closed化した。実ブラウザではactive / suspended / deactivated login、stale refresh、back / forward、5つのprotected URL同時再読込、logout、active復帰、generic errorとlabel / alertを確認した。stale Server Actionへ通常303を返すとNext.js clientが応答を解釈できずpendingのままになる問題を検出し、`next-action` requestにはcookie削除と`x-action-redirect`を返すよう修正して、login退避、mutation 0件、追加console errorなしを再確認した。suspended / deactivatedの正しいcredentialはAuthで受理されてもhelperが`non-active`としてsessionを終了し、active復帰後の再loginは成功した。account row欠損とstatus query errorはmock境界でそれぞれ`account-missing` / `query-error`へ分類した。最初の全pgTAPはactiveなローカルfixtureがprofile SELECT期待へ1行混入して`764 / 765`となったが、fixtureを削除せず明示許可されたstatus変更でdeactivatedへ戻した後、16ファイル`765 / 765 PASS`を確認した。`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`も成功した。Browserのviewport overrideは実画面へ反映されず、1280px以外のresponsive、信頼できるTab / Enter injection、実callback、実画像bytesのnon-active browser表示は未実施である。
+
 - Phase C1aでは既存15 migrationを変更せず、`20260808000400_fail_close_non_active_accounts.sql`を1件追加した。ローカルDB resetで16件をfresh適用し、新規pgTAP `79 / 79`、全pgTAP 16ファイル・`765 / 765`、`npm run lint`、`npm run typecheck`、`npm run build`が成功した。既存のsuspended owner期待値は`0001`、`0004`、`0009`、`0011`、`0012`、`0013`で新しいfail-closed仕様へ更新した。JWT claimを保持するnon-active viewerとしてDB accessが閉じることを検証した。C1a migrationだけをリンク済みのリモート開発DBへ通常適用し、local / remote履歴16件一致、再dry-run up to date、remote catalogのfunction属性・ACL、accounts最小status read、profiles / posts / Storageのactive境界、既存RLS・RPC回帰、`public,storage,my_diary_private`のlinked schema diff 0件を確認した。SQL成功後のcatalog cache生成で一時CAファイルwarningが発生したが、repairや再適用は行っていない。remote実ユーザーテストは安全な既存認証情報がないため未実施で、Service Role、Auth Admin API、remote fixture・ユーザーデータ・Storage objectは使用していない。application sign-out / callback / protected route gateはC1b対象で未実装である。
 
 - Phase B3dでは既存14 migrationを変更せず、`20260808000300_integrate_post_image_edits.sql`を1件追加した。新規pgTAP `36 / 36`、全pgTAP 15ファイル・`686 / 686`がローカルで成功した。通常sign-upとpublishable clientだけのStorage統合で、mixed追加・削除・並び替え、保持identity、既知DB失敗時new cleanup、DB成功後old cleanup、session失効時private orphanと再ログイン後cleanup、重複retry拒否を確認した。ブラウザでは画像なし、既存2枚、mixed編集、10枚、11枚拒否、MIME・0-byte・6 MiB超過、保存中disabled、詳細・プロフィール反映、320 / 360 / 375 / 390 / 1280pxの横scrollなしを確認した。soft deleteはmetadata / objectを保持する既存方針を変えず、postと画像routeの取得を拒否する。B3d migration 1件だけをリモート開発DBへ通常適用し、local / remote履歴15件一致、再dry-run up to date、remote catalogの新RPC属性 / ACL、deferrable UNIQUE、`post_images` ACL、既存Storage policy・既存RPC・soft delete・標準Storage ownerの維持、`public,storage,my_diary_private`のlinked schema diff 0件を確認した。SQL成功後のcatalog cache生成で一時CAファイルwarningが発生したが、repairや再適用は行っていない。安全な既存remote認証情報がないためremote実update / Storage lifecycleは未実施で、Service Role、Auth Admin API、remote fixture・ユーザーデータ・Storage objectの作成や変更は行っていない。
@@ -376,30 +378,24 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 1. `rls_auto_enable()`はRLS有効化失敗をlogへ記録して元DDLを成功させるfail-openである。policyも自動作成しないため、各migrationで明示的なRLSとpolicyが引き続き必須である。
 2. event triggerとfunction ACLは一般的なschema diffだけでは完全に検出できないため、migrationのpreflight/postconditionとpgTAPを維持する必要がある。
-3. Phase C1aのlocal / remote DB・RLSはnon-active sessionをfail-closed化したが、Supabase Authへのlogin自体は拒否していない。application session gateは未実装であり、C1bでsign-out / callback / protected route境界を追加する。
+3. Supabase Authはnon-active accountの正しいcredential自体を受理し得る。Phase C1bはAuth確立直後と次のapplication requestでstatusを確認してcurrent sessionを終了する。最終認可はPhase C1aのDB / RLSであり、application gateだけへ依存しない。
 4. timelineは最大50件、他者投稿とfollow一覧は最新20件、comment一覧は古い順100件で打ち切り、継続取得を実装していない。
 5. timelineはフォロー中と最新投稿に分離済みだが、一覧本文を省略しない。フォロー中feedのauthor filterは`.in(...)`を使用するため、大量follow時のURL長・query性能を実データで評価する必要がある。
 6. avatar_pathとlocation_nameはDB基盤だけで、UIから利用できない。
 7. comment返信用`parent_comment_id`がなく、通知・通報を含む関連tableも未作成である。
 8. unit、component、E2E、accessibility、viewport別responsiveの自動回帰がない。
 9. profile件数、timeline補助data、comment件数は複数queryを使う。投稿単位のN+1は避けているが、規模拡大時はRPC、view、集計方式を再評価する必要がある。
-10. root-level `loading.tsx`、`error.tsx`、protected layoutがなく、認証・error handlingがpageごとに重複している。
+10. root-level `loading.tsx`と`error.tsx`はなく、未認証redirectと一般error handlingはpageごとに一部重複している。non-active status gateはProxyと共通helperへ集約済みで、protected layoutはClient navigation、Server Action、画像Route Handlerを単独では覆えないため追加していない。
 11. 自由タグは入力・投稿リンク・一覧・詳細・検索まで実装済みである。入力順を保存するcolumnはなく、投稿上はcode point順、タグ一覧・検索はDBの`normalized_name`順で表示する。検索の部分一致は現時点で専用indexを追加せず、RLS適用後のscan性能は大規模データで再評価が必要である。最大5個はauthenticatedのRPC経路で保証し、特権roleの直接SQLを禁止するconstraint triggerは置いていない。認証済みブラウザ回帰は完了したが、同一`created_at`の実データ、suspended author、瞬間的loading、実キーボードによるTab / Enterは未確認である。
 12. 投稿検索はNFKC化したtitle / bodyへの部分一致で、専用indexを追加していない。大規模データでRLS適用後のscan性能を再評価する必要がある。cursorはPostgRESTのtimestamp文字列をDateへ変換せず保持する。suspended author / viewerはpgTAPで確認し、通常UIによるブラウザ再現は未実施である。自動ブラウザのTab / Enter key injectionも再現できず、実キーボード確認が残る。
 
 ## 11. 次Phase候補
 
-### C1a DB / RLS完了状態
+### C1 DB / RLS・application完了状態
 
 - local DB / RLS: 実装・検証済み。repository / localは16 migration、全pgTAP `765 / 765 PASS`。
 - remote DB: C1a migration適用済み。local / remote履歴16件一致、再dry-run up to date、remote catalog / ACLと3 schemaのlinked diff確認済み。
-- application: C1b session gateは未実装。
-
-### 次Phase: Phase C1b application session gate
-
-- 目的: password login、認証callback、既存session、画像Route Handlerを含むapplication入口で非active accountを拒否する。
-- 前提: C1aのDB / RLS fail-closedを最終認可として先に完了する。
-- 主な影響範囲: auth action / callback、protected共通境界、画像Route Handler、active / suspended双方のブラウザ回帰。
+- application: C1b session gateをローカル実装・統合検証し、主要実ブラウザシナリオも確認済み。remote DB変更はない。320〜390px、信頼できるTab / Enter、実Auth callback、実画像bytesのnon-active browser表示は未実施。
 
 ### C1完了後の主な候補
 
@@ -415,6 +411,7 @@ Phase B3dの投稿画像追加・削除・並び替えは完了済みであり�
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-08 | commit前。基準HEAD `98b047c439385ee1963d77eaa4ab37e45126e702` | Phase C1bとして本人accounts status最小readを使うrequest-scoped session gateを実装。login・即時session付きsign-up・callback・protected request・画像request・Server Action requestで`active`以外、row欠損、query errorをfail-closed化し、local scope sign-out、固定message code、画像404、redirect loop回避を追加。ローカル公開Auth clientとSSR cookieでactive / suspended / deactivated / stale request / direct URL / image / stale POST / active復帰を統合確認し、実ブラウザでも主要login・stale session・protected URL・logout・generic errorを確認した。stale Server Actionの通常303がNext.js clientでpendingになる問題を検出し、`next-action`へ`x-action-redirect`を返す最小修正後、login退避・mutation 0件・追加console errorなしを再確認した。全pgTAP 765件、lint、typecheck、build、diff checkが成功。320〜390px、信頼できるTab / Enter、実callback、実画像bytesのnon-active browser表示は未実施。migration・package・remote DB / Storage、Service Role、Auth Admin API、stage・commit・pushは変更・使用なし |
 | 2026-08-08 | commit前。基準HEAD `16a93b3aaebe00082a782828a6300d2f86ed88ca` | Phase C1aとしてnon-active accountのDB / RLSをfail-closed化し、本人accounts status readだけをC1b用に維持。ローカル16 migration fresh適用、新規pgTAP 79件・全765件、npm検証を完了。C1a migration 1件だけをリモート開発DBへ通常適用し、履歴16件一致、再dry-run up to date、remote catalog / ACL / RLS回帰、3 schemaのlinked diff 0件を確認。catalog cacheの一時CA warningはSQL成功後の補助warningと切り分け、repair・再適用なし。remote fixture・ユーザーデータ・Storage object、Service Role、Auth Admin APIは使用していない。C1b application session gateは未実装 |
 | 2026-08-08 | `d0ef062d9090af8574d4215c21a67f7a5230a431` | Phase B3dとして既存投稿の画像追加・削除・並び替え、atomic post / tag / image更新RPC、保持identity、DB結果別Storage cleanup、mixed preview UIを実装して`feat: add post image editing`として完了。ローカル15 migration、新規pgTAP 36件・全686件、実Storage API、ブラウザ、5幅responsive、npm検証を完了。B3d migrationだけをリモート開発DBへ通常適用し、履歴15件一致、remote catalog / ACL / Storage境界、再dry-run、3 schemaのlinked diff 0件を確認。remote実update / Storage lifecycleは安全な既存認証情報がないため未実施。Service Role、Auth Admin API、remote fixtureは使用していない |
 | 2026-08-08 | commit前。基準HEAD `d202e8db4cea5c8e2d7d3c3b3b4c6f29a1412f5d` | Phase B3cとしてsigned URLを採用せず、cookie認証付き`/post-images/[imageId]`、post_images / Storage RLSの取得ごとの再評価、private no-store、raw path非露出、bounded metadata batch、共通galleryを詳細・timeline・profile・tag・検索へ統合。follow解除、visibility変更、soft delete、未認証、不正 / 不存在UUID、5幅responsive、0 / 1 / 2 / 3 / 10枚、pagination、consoleを通常認証fixtureで確認。ローカル14 migration fresh適用、全pgTAP 650件、npm検証を完了し、fixture残数0を確認。migration・pgTAP定義・packageは変更せず、remote操作、Service Role、Auth Admin API、stage・commit・pushは未実施 |

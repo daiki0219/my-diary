@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 
+import {
+  endCurrentAuthSession,
+  getAccountGateError,
+  getAccountSessionState,
+} from "@/lib/supabase/account-session";
 import { createClient } from "@/lib/supabase/server";
 
 function getSafeNextPath(value: string | null) {
@@ -20,7 +25,20 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      return NextResponse.redirect(new URL(nextPath, requestUrl.origin));
+      const accountState = await getAccountSessionState(supabase);
+
+      if (accountState.kind === "active") {
+        return NextResponse.redirect(new URL(nextPath, requestUrl.origin));
+      }
+
+      await endCurrentAuthSession(supabase);
+
+      return NextResponse.redirect(
+        new URL(
+          `/login?error=${getAccountGateError(accountState)}`,
+          requestUrl.origin,
+        ),
+      );
     }
   }
 

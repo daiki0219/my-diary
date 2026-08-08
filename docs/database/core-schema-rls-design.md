@@ -145,8 +145,8 @@ post_images、reactions、comments、tag / post検索は既存のposts RLS委任
 
 non-active本人の`accounts` row SELECTは、C1bが`status`を読んでsign-out / redirectを判断する
 最小経路として維持する。他人のaccountsは読めず、non-active本人のtimezone UPDATEも既存の
-active条件で拒否する。Auth login / callback / protected layoutのapplication session gateは
-未実装であり、Phase C1bの対象である。
+active条件で拒否する。Phase C1bはこの最小readを通常authenticated clientから使用し、
+DB / RLSを最終認可として維持したままapplication session lifecycleをfail-closed化する。
 
 C1a migrationはリンク済みのリモート開発DBへ通常適用済みである。local / remote履歴は
 16件で一致し、再dry-runはup to date、remote catalogで変更対象functionのexact signature・
@@ -156,6 +156,32 @@ profiles / posts / Storageのactive境界、既存RLS・RPC回帰を確認した
 一時CAファイルwarningが発生したが、履歴・catalog・再dry-run・schema diffで適用成功と切り分け、
 repairや再適用は行っていない。remote fixture、ユーザーデータ、Storage objectは操作せず、
 Service RoleとAuth Admin APIも使用していない。
+
+### Phase C1b application session gate
+
+Phase C1bはDB schema、RLS、migrationを変更しない。server側の共通helperは`getClaims()`で
+現在のviewer identityを確認した後、そのauthenticated Supabase clientで本人accounts rowの
+`status`だけを取得する。clientからuser IDやstatusを受け取らず、shared cacheも使用しない。
+`status = 'active'`だけを通常利用へ通し、それ以外の文字列は将来statusを含めてnon-activeとして
+扱う。accounts row欠損とquery errorもactiveへ丸めず、それぞれ整合異常・確認失敗として
+fail-closedにする。
+
+Auth確立直後はpassword login、即時sessionを返すsign-up、`/auth/callback`で同じhelperを使う。
+既存sessionはNext.js Proxyでprotected requestごとに再評価する。Proxyはcookie更新可能な既存の
+Supabase SSR境界であるため、non-active検出時はSupabase Authのlocal scope sign-outでcurrent
+sessionを終了し、通常pageは固定error code付きloginへ誘導する。画像requestはresource存在や
+内部statusを区別しないprivate no-store 404を返す。`next-action` headerを持つServer Action
+requestは、通常303ではなくNext.js clientが解釈できる`x-action-redirect` responseでloginへ
+退避する。それ以外のnon-GET requestは303を使用する。
+login自体で同じerror codeを再評価した場合は、cookieを削除したrequestをそのまま通して
+redirect loopを避ける。固定codeだけをUI messageへ変換し、query由来の任意文字列やDB status値を
+表示しない。
+
+protected layout単独はClient navigationで再評価されない場合があり、Server Actionと画像Route
+Handlerも単独では覆えないため採用しない。Proxyのstatus queryはauthenticated viewerの
+protected/auth entry requestに限定し、root、callback確立前、health、static assetでは実行しない。
+raceでProxy判定後にstatusが変わった場合も、C1aのRLS / RPC active検証が最終的に通常データの
+SELECT / mutationを拒否する。
 
 ### follows
 

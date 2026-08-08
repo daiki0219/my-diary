@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 
 import { login } from "@/app/auth/actions";
 import { AuthForm } from "@/components/auth/auth-form";
+import {
+  ACCOUNT_CHECK_FAILED_ERROR,
+  ACCOUNT_UNAVAILABLE_ERROR,
+} from "@/lib/supabase/account-session";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -25,11 +29,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   const params = await searchParams;
-  const message =
+  const statusMessage =
     params.status === "signed-out"
       ? "ログアウトしました。"
       : params.error === "confirmation-failed"
         ? "メール確認を完了できませんでした。確認メールのリンクをもう一度お試しください。"
+        : null;
+  const errorMessage =
+    params.error === ACCOUNT_UNAVAILABLE_ERROR
+      ? "このアカウントは現在利用できません。"
+      : params.error === ACCOUNT_CHECK_FAILED_ERROR
+        ? "ログイン状態を安全に確認できませんでした。時間をおいてもう一度お試しください。"
         : null;
 
   return (
@@ -43,12 +53,21 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           日記を続けるために、登録したメールアドレスでログインしてください。
         </p>
 
-        {message && (
+        {statusMessage && (
           <p
             aria-live="polite"
             className="mt-5 rounded-2xl bg-stone-100 px-4 py-3 text-sm leading-6 text-stone-700"
           >
-            {message}
+            {statusMessage}
+          </p>
+        )}
+
+        {errorMessage && (
+          <p
+            className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+            role="alert"
+          >
+            {errorMessage}
           </p>
         )}
 
