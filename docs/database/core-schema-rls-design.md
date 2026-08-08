@@ -10,8 +10,8 @@
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` には4テーブルの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaから画像基盤Phase B3aまでのSQLはmigrationとして管理し、リンク済みの
-リモート開発Supabaseへ適用済みである。
+初回schemaから画像upload統合Phase B3bまでのSQLはmigrationとして管理し、
+リンク済みのリモート開発Supabaseへ適用済みである。
 
 ## データモデル
 
@@ -146,7 +146,9 @@ activeへ戻り、関係行が残っている場合は一覧と件数へ再表�
 後続の並び替えRPCだけがtransaction終端まで遅延してrow identityを保ったswapを
 行えるようにする。このUNIQUE indexは投稿単位の安定した並び順取得にも使う。`storage_path`の
 UNIQUE indexはpath衝突を防ぎ、Storage policyから対応metadataを検索する。
-具体的なpath形式、MIME type、1枚容量はuploadを実装するPhase B3bで決定する。
+Phase B3bのpathは`{auth.uid()}/{postId}/{imageId}`の3 UUID segmentとし、元の
+ファイル名や拡張子を含めない。JPEG / PNG / WebPだけを許可し、1枚6 MiB以下、
+1投稿最大10枚とする。作成時の配列順を`sort_order` 0〜9へ保存する。
 
 `post_images`のSELECT policyは対応する`posts`行が既存posts RLS経由で見えるか
 だけを評価する。private / followers / public、follow解除、visibility変更、
@@ -154,10 +156,10 @@ soft delete、suspended accountの条件を重複実装しない。authenticated
 SELECTだけを付与し、INSERT / UPDATE / DELETEのtable権限とpolicyは付与しない。
 metadata mutationはuploadとの整合を保つ後続の限定RPCで設計する。
 
-### 投稿画像Storage（Phase B3a）
+### 投稿画像Storage（Phase B3a / B3b）
 
-`post-images` bucketはprivateとし、public URLを前提にしない。bucket固有の
-MIME typeとfile size limitは未設定である。`storage.objects`のSELECT policyは
+`post-images` bucketはprivateとし、public URLを前提にしない。Phase B3bでbucketへ
+JPEG / PNG / WebPと6 MiBの上限を設定した。`storage.objects`のSELECT policyは
 bucketを`post-images`に限定し、`objects.name = post_images.storage_path`の
 対応metadataがviewerから見える場合だけ許可する。このため認可評価は
 `storage.objects → post_images → posts`の一方向となり、pathを知るだけでは
@@ -166,16 +168,28 @@ bucketを`post-images`に限定し、`objects.name = post_images.storage_path`�
 迂回できないようにする。
 
 Supabase標準の`storage.buckets` / `storage.objects`のowner、ACL、owner列は
-変更しない。Phase B3aではStorage INSERT / UPDATE / DELETE policy、upload、
-URL生成、download helper、object削除を追加しない。postのsoft deleteでは
-metadataとobjectを残してposts RLS連鎖で即時に隠す。将来の物理削除では
-post_images metadataだけがCASCADEされるため、object cleanupは後続Phaseで
-補償処理またはoutboxを含めて設計する。
+変更しない。B3bのINSERTはStorage APIのupload operation、activeな本人、owner_id、
+strict pathをPERMISSIVE / RESTRICTIVE双方で検証する。DELETEはStorage APIの
+delete-many operationかつ同じowner / pathの未参照orphanだけに限定する。UPDATE
+policyは作成せず、upsert・overwrite・moveを拒否する。参照判定はprivateな
+`SECURITY DEFINER` helperで全post_imagesを確認するため、private・soft delete済み
+metadataもorphanとして誤認しない。
+
+新規作成はbrowserから逐次uploadした後、`my_diary_create_post_with_images`が
+Storage objectのowner・MIME・sizeを検証して行を`FOR UPDATE`でlockし、post・tag・
+post_imagesを同一transactionで確定する。明示的なupload / validation / RPC失敗では
+本人のorphanだけを補償削除する。Server Actionの`getClaims()`がRPC開始前に失敗した
+場合も、browserへ補償削除を要求し、同じauthenticated clientから今回uploadしたpath
+だけを削除する。削除は既存のowner・strict path・未参照orphan境界を通し、権限を
+広げない。通信断でRPC結果が不明な場合はcommit済みobjectを誤削除しないため削除せず、
+自分の日記一覧で確定結果を確認する。browser側のsessionも失効している場合、browser
+終了、cleanup失敗による長期orphanの定期回収は後続Phaseとする。postのsoft deleteでは
+metadataとobjectを残してposts RLS連鎖で即時に隠す。
 
 配信方式は、認証付きdownloadならrequestごとにRLSを再評価できる一方、通常の
 画像要素へAuthorization headerを付ける配信経路が必要になる。短寿命signed URLは
 表示へ接続しやすいが、発行後は期限までfollow解除やvisibility変更を再評価しない。
-B3bで即時失効要件、TTL、server帯域、キャッシュを比較して確定する。
+B3cで即時失効要件、TTL、server帯域、キャッシュを比較して確定する。
 
 ### accounts
 
@@ -570,6 +584,37 @@ follow解除・再follow、visibility変更、soft delete、suspended author / v
 空、catalogはRPC属性・authenticated専用ACL・overload 1と既存posts RLS / policy / ACL /
 indexの維持を示した。
 
+## 投稿画像upload Phase B3b設計
+
+`20260808000200_integrate_post_image_uploads.sql`は既存13 migrationを変更せず、
+bucket制限、Storage mutation policy、private参照helper、successor作成RPCを追加する。
+Storage policyは`storage.allow_only_operation` / `allow_any_operation`を使い、通常の
+uploadとdelete-many以外のraw metadata mutationを拒否する。これによりData APIから
+実体のない`storage.objects`行だけを偽造してRPCを通す経路を閉じる。
+
+successor RPCは`auth.uid()`とactive状態を関数内で確定し、client由来のuser IDを
+受け取らない。post / tag validationは従来作成RPCと同じ境界を維持し、画像は0〜10件、
+重複なし、本人・同一post IDのstrict pathだけを受け付ける。対応objectのowner_id、
+MIME、1〜6 MiBを確認し、対象行をtransaction終了までlockして並行orphan cleanupを
+直列化した後、post、tag master / relation、post_imagesをatomicに保存する。RPCは
+`SECURITY DEFINER`、owner=`postgres`、`search_path=''`、authenticated専用EXECUTEとする。
+
+新規pgTAP `0014_post_image_upload_mutation.test.sql`は47 assertionで、RPC catalog / ACL、
+bucket上限、policy構成、raw mutation拒否、owner / path / active境界、0 / 10 / 11枚、
+配列順、object存在、post / tag validation、atomic rollbackを検証する。ローカルでは
+画像関連`122 / 122`、全14ファイル`650 / 650`がPASSした。通常の認証ユーザーと
+publishable clientによる実Storage APIでもupload、orphan remove、参照済みremove拒否、
+途中・DB失敗cleanup、upsert、MIME / size境界、10枚順序を確認した。
+
+新規migrationだけをリンク済みのリモート開発DBへ通常適用し、local / remote履歴14件一致、
+再dry-run up to date、remote catalogのprivate bucket・MIME / size・Storage policy・RPC属性 / ACL、
+既存RLS / RPC / 標準Storage ownerの維持、`public,storage,my_diary_private`のlinked schema diff
+0件を確認した。migration SQL本体は成功し、その後のpg-delta catalog cache生成で一時CA
+参照warningが発生したが、履歴・catalog・再dry-run・linked schema diffで切り分け、repairや
+再適用は行っていない。安全な既存remote認証情報がないためremote実upload / RPC mutationは
+未実施であり、remote fixture・ユーザーデータ・Storage objectの作成や変更、Service Role、
+Auth Admin APIは使用していない。
+
 ## インデックス
 
 - `my_diary_posts_user_created_at_idx`: ユーザープロフィール、本人の日記、
@@ -667,6 +712,10 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
 - 補助2-session検証で同一tag UNIQUE競合と同一post row lockを実際に待機させること
 - 投稿検索RPCのexact signature・ACL・SECURITY INVOKER、NFKC・literal wildcard、
   title / body OR、既存posts RLSへの委任、21件・複合cursor境界
+- 投稿画像RPCのexact signature・ACL・active owner、0 / 10 / 11枚、strict path、
+  Storage object owner・MIME・size、呼出順のsort_order、post / tag / image rollback
+- Storage mutationのoperation context、owner_id、本人UUID namespace、UPDATE拒否、
+  未参照orphanだけのcleanup、参照済み・soft-delete済みmetadataの削除拒否
 
 ## リモート適用後のAuth確認
 

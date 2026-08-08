@@ -27,11 +27,16 @@ select is(
 
 select ok(
   (
-    select file_size_limit is null and allowed_mime_types is null
+    select file_size_limit = 6291456
+      and allowed_mime_types = array[
+        'image/jpeg',
+        'image/png',
+        'image/webp'
+      ]::text[]
     from storage.buckets
     where id = 'post-images'
   ),
-  'Phase B3a does not invent bucket-specific size or MIME limits'
+  'The post-images bucket limits uploads to supported images of 6 MiB'
 );
 
 select has_table('public', 'post_images', 'post_images table exists');
@@ -273,17 +278,19 @@ select ok(
   'Storage has the post-image allow policy and restrictive guards'
 );
 
-select is(
+select ok(
   (
-    select count(*)
+    select count(*) = 4
+      and pg_catalog.count(*) filter (where cmd = 'INSERT') = 2
+      and pg_catalog.count(*) filter (where cmd = 'DELETE') = 2
+      and pg_catalog.count(*) filter (where cmd in ('ALL', 'UPDATE')) = 0
     from pg_catalog.pg_policies
     where schemaname = 'storage'
       and tablename = 'objects'
       and policyname like 'my_diary_post_images_storage_%'
       and cmd in ('ALL', 'INSERT', 'UPDATE', 'DELETE')
   ),
-  0::bigint,
-  'Phase B3a adds no post-image Storage mutation policy'
+  'Storage mutation policies allow guarded INSERT and orphan DELETE only'
 );
 
 select ok(

@@ -8,6 +8,11 @@ import {
   isPostMood,
   isPostVisibility,
 } from "@/lib/post-data";
+import {
+  isPostImageStoragePathFor,
+  POST_IMAGE_BUCKET,
+  POST_IMAGE_MAX_COUNT,
+} from "@/lib/post-image-data";
 import { isUuid } from "@/lib/profile-data";
 import {
   isReactionType,
@@ -18,12 +23,16 @@ import { validateTagInputValues } from "@/lib/tag-data";
 
 export type CreatePostActionState = {
   error: string | null;
+  createdPostId?: string;
+  imageErrorRevision?: number;
+  shouldCleanupImageUploads?: boolean;
   fieldErrors: {
     title?: string;
     body?: string;
     mood?: string;
     visibility?: string;
     tags?: string;
+    images?: string;
   };
   submittedTagValues: string[] | null;
   revision: number;
@@ -84,6 +93,50 @@ function inputErrorState(
   };
 }
 
+async function cleanupPostImageUploads(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  imagePaths: readonly string[],
+) {
+  if (imagePaths.length === 0) {
+    return true;
+  }
+
+  try {
+    const { error } = await supabase.storage
+      .from(POST_IMAGE_BUCKET)
+      .remove([...imagePaths]);
+
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function createPostErrorState(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  imagePaths: readonly string[],
+  previousState: CreatePostActionState,
+  submittedTagValues: string[],
+  options: {
+    error: string;
+    fieldErrors?: CreatePostActionState["fieldErrors"];
+  },
+): Promise<CreatePostActionState> {
+  const cleanupSucceeded = await cleanupPostImageUploads(
+    supabase,
+    imagePaths,
+  );
+
+  return {
+    error: cleanupSucceeded
+      ? options.error
+      : "投稿に失敗し、画像の後処理も完了できませんでした。時間をおいてもう一度お試しください。",
+    fieldErrors: options.fieldErrors ?? {},
+    submittedTagValues,
+    revision: previousState.revision + 1,
+  };
+}
+
 export async function createPost(
   previousState: CreatePostActionState,
   formData: FormData,
@@ -92,6 +145,11 @@ export async function createPost(
   const bodyValue = formData.get("body");
   const moodValue = formData.get("mood");
   const visibilityValue = formData.get("visibility");
+  const postIdValue = formData.get("postId");
+  const imagePathEntries = formData.getAll("imagePaths");
+  const imagePaths = imagePathEntries.filter(
+    (entry): entry is string => typeof entry === "string",
+  );
   const fieldErrors: CreatePostActionState["fieldErrors"] = {};
   const tagsResult = getValidatedTags(formData);
 
@@ -115,23 +173,31 @@ export async function createPost(
     fieldErrors.tags = tagsResult.error;
   }
 
-  if (Object.keys(fieldErrors).length > 0) {
-    return inputErrorState(
-      previousState,
-      fieldErrors,
-      tagsResult.submittedTagValues,
-    );
+  if (typeof postIdValue !== "string" || !isUuid(postIdValue)) {
+    fieldErrors.images = "投稿画像を確認できませんでした。";
+  }
+
+  if (
+    imagePathEntries.length !== imagePaths.length ||
+    imagePaths.length > POST_IMAGE_MAX_COUNT
+  ) {
+    fieldErrors.images = `画像は最大${POST_IMAGE_MAX_COUNT}枚まで選択できます。`;
   }
 
   const normalizedTitle =
     typeof titleValue === "string" ? titleValue.trim() : "";
   const title = normalizedTitle || null;
-  const body = (bodyValue as string).trim();
+  const body = typeof bodyValue === "string" ? bodyValue.trim() : "";
   const mood =
     typeof moodValue === "string" && moodValue !== ""
       ? moodValue
       : null;
-  const visibility = visibilityValue as string;
+  const visibility =
+    typeof visibilityValue === "string" ? visibilityValue : "";
+  const postId =
+    typeof postIdValue === "string" && isUuid(postIdValue)
+      ? postIdValue
+      : null;
 
   if (title !== null && characterCount(title) > 120) {
     fieldErrors.title = "タイトルは120文字以下で入力してください。";
@@ -151,66 +217,94 @@ export async function createPost(
     fieldErrors.visibility = "選択された公開範囲は使用できません。";
   }
 
-  if (Object.keys(fieldErrors).length > 0) {
-    return inputErrorState(
-      previousState,
-      fieldErrors,
-      tagsResult.submittedTagValues,
-    );
-  }
-
   const supabase = await createClient();
-  const { data: claimsData, error: claimsError } =
-    await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub;
+  const claimsResult = await supabase.auth.getClaims().catch(() => null);
+  const userId = claimsResult?.data?.claims?.sub;
 
-  if (claimsError || !userId) {
+  if (!claimsResult || claimsResult.error || !userId) {
     return {
       error: "ログイン状態を確認できませんでした。もう一度ログインしてください。",
       fieldErrors: {},
+      shouldCleanupImageUploads: imagePaths.length > 0,
       submittedTagValues: tagsResult.submittedTagValues,
       revision: previousState.revision + 1,
     };
   }
 
+  const ownedImagePaths = postId
+    ? imagePaths.filter((path) =>
+        isPostImageStoragePathFor(path, userId, postId),
+      )
+    : [];
+
+  if (ownedImagePaths.length !== imagePaths.length) {
+    fieldErrors.images = "投稿画像を確認できませんでした。";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return createPostErrorState(
+      supabase,
+      ownedImagePaths,
+      previousState,
+      tagsResult.submittedTagValues,
+      {
+        error: "入力内容を確認してください。",
+        fieldErrors,
+      },
+    );
+  }
+
   const { data, error } = await supabase.rpc(
-    "my_diary_create_post_with_tags",
+    "my_diary_create_post_with_images",
     {
+      p_post_id: postId as string,
       p_title: title,
       p_body: body,
       p_mood: mood,
       p_visibility: visibility,
       p_tags: tagsResult.data,
+      p_image_paths: imagePaths,
     },
   );
 
   if (error || typeof data !== "string" || !isUuid(data)) {
     if (error?.code === "22023") {
-      return {
-        error:
-          "タグを保存できませんでした。時間をおいてもう一度お試しください。",
-        fieldErrors: { tags: "タグの入力内容を確認してください。" },
-        submittedTagValues: tagsResult.submittedTagValues,
-        revision: previousState.revision + 1,
-      };
+      return createPostErrorState(
+        supabase,
+        imagePaths,
+        previousState,
+        tagsResult.submittedTagValues,
+        {
+          error: "投稿内容を保存できませんでした。入力内容を確認してください。",
+        },
+      );
     }
 
-    return {
-      error:
-        error?.code === "42501"
-          ? "投稿を作成する権限がありません。アカウントの状態を確認してください。"
-          : "投稿に失敗しました。時間をおいてもう一度お試しください。",
-      fieldErrors: {},
-      submittedTagValues: tagsResult.submittedTagValues,
-      revision: previousState.revision + 1,
-    };
+    return createPostErrorState(
+      supabase,
+      imagePaths,
+      previousState,
+      tagsResult.submittedTagValues,
+      {
+        error:
+          error?.code === "42501"
+            ? "投稿を作成する権限がありません。アカウントの状態を確認してください。"
+            : "投稿に失敗しました。時間をおいてもう一度お試しください。",
+      },
+    );
   }
 
   revalidatePath("/home");
   revalidatePath("/profile");
   revalidatePath("/profile/posts");
   revalidatePath(`/users/${userId}`);
-  redirect("/profile/posts?status=created");
+  return {
+    error: null,
+    createdPostId: data,
+    fieldErrors: {},
+    submittedTagValues: tagsResult.submittedTagValues,
+    revision: previousState.revision + 1,
+  };
 }
 
 export async function updatePost(
