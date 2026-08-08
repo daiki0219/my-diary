@@ -772,8 +772,8 @@ set local role authenticated;
 
 select results_eq(
   $$select id from public.posts where id = '10000000-0000-4000-8000-000000000002'$$,
-  $$values ('10000000-0000-4000-8000-000000000002'::uuid)$$,
-  'Suspended A can still read own non-deleted post'
+  $$select null::uuid where false$$,
+  'Suspended A cannot read an own non-deleted post'
 );
 
 select throws_ok(

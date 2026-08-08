@@ -294,16 +294,18 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 
-select results_eq(
+select throws_ok(
   $$select user_id from public.my_diary_search_profiles('Search Alice')$$,
-  $$values ('a1000000-0000-4000-8000-000000000001'::uuid)$$,
-  'A suspended current user can still find their own existing profile'
+  '42501',
+  null,
+  'A suspended current user cannot search their own existing profile'
 );
 
-select results_eq(
+select throws_ok(
   $$select username from public.my_diary_search_profiles('Diary')$$,
-  $$values ('diary friend'::text), ('Diary Friend'::text)$$,
-  'A suspended current user can search active profiles without status leakage'
+  '42501',
+  null,
+  'A suspended current user cannot search active profiles'
 );
 
 select throws_ok(

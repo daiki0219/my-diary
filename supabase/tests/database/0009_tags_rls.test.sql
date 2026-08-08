@@ -949,8 +949,8 @@ select results_eq(
 
 select results_eq(
   $$select name from public.tags where name = 'own-tag'$$,
-  $$values ('own-tag'::text)$$,
-  'A suspended viewer retains the existing own-post visibility behavior'
+  $$select null::text where false$$,
+  'A suspended viewer cannot see an own-post tag'
 );
 
 reset role;

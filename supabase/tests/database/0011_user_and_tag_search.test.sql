@@ -987,8 +987,8 @@ select results_eq(
 -- 70
 select results_eq(
   $$select normalized_name from public.my_diary_search_tags('own-tag', null)$$,
-  $$values ('own-tag'::text)$$,
-  'A suspended viewer retains the existing own-post tag visibility'
+  $$select null::text where false$$,
+  'A suspended viewer cannot search an own-post tag'
 );
 
 reset role;

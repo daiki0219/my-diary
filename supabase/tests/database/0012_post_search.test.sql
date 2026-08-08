@@ -619,10 +619,9 @@ select is_empty(
 );
 
 -- 42
-select results_eq(
+select is_empty(
   $$select id from public.my_diary_search_posts('own private', null, null)$$,
-  $$values ('62222222-2222-4222-8222-000000000013'::uuid)$$,
-  'A suspended viewer retains existing own-post visibility'
+  'A suspended viewer cannot search an own post'
 );
 
 reset role;

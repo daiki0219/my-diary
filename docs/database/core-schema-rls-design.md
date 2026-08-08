@@ -11,9 +11,9 @@
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` にはpublic application tableの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaから投稿画像編集Phase B3dまでのSQLは15件のmigrationとして管理し、
-リンク済みのリモート開発Supabaseへ適用済みである。local / remote migration履歴は
-15件で一致し、latestは`20260808000300_integrate_post_image_edits.sql`である。
+初回schemaからPhase C1aまでのSQLは16件のmigrationとして管理する。C1aの
+`20260808000400_fail_close_non_active_accounts.sql`を含む全16件は、localと
+リンク済みのリモート開発Supabaseへ適用済みである。
 
 ### 投稿画像基盤の現在状態
 
@@ -47,8 +47,8 @@
 - `avatar_path`: 任意。将来の非公開Storage内のオブジェクトパス
 - `created_at` / `updated_at`: `TIMESTAMPTZ`
 
-MVPではプロフィール自体に機密情報を置かず、ログイン済みユーザー全員が
-閲覧できる。更新は本人だけに許可する。`username` は表示名として扱うため
+MVPではプロフィール自体に機密情報を置かないが、Phase C1a以降は閲覧者と対象者の
+双方がactiveの場合だけ閲覧できる。更新はactiveな本人だけに許可する。`username` は表示名として扱うため
 重複を許可する。ログインIDとして使う場合は、別の一意なhandle列が必要になる。
 
 ### posts
@@ -103,17 +103,17 @@ TypeScriptの文字列unionとして生成・管理する予定とする。
 
 ### posts SELECT
 
-`deleted_at is null` を前提に、次のいずれかだけを許可する。
+`deleted_at is null` と閲覧者がactiveであることを前提に、次のいずれかだけを許可する。
 
-1. `posts.user_id = auth.uid()`（投稿者本人）
-2. 閲覧者と投稿者の両方が `active` で `visibility = 'public'`
-3. 閲覧者と投稿者の両方が `active` で `visibility = 'followers'` かつ、
+1. `posts.user_id = auth.uid()`（activeな投稿者本人）
+2. 投稿者も `active` で `visibility = 'public'`
+3. 投稿者も `active` で `visibility = 'followers'` かつ、
    `follows` に `(auth.uid(), posts.user_id)` が存在する
 
 `anon` にはテーブル権限もポリシーも付与しないため、公開投稿もログイン必須。
 フォロー解除で `follows` 行がなくなると、次のSELECTから即時に閲覧不可になる。
-投稿者が `suspended` の場合、投稿者本人だけは自分の未削除投稿を閲覧できるが、
-他ユーザーからはpublic投稿を含めて非表示になる。
+投稿者または閲覧者が`suspended` / `deactivated`の場合、本人所有を含む通常投稿は
+すべて非表示になる。statusをactiveへ戻すと、未削除データは通常RLSで再表示される。
 
 ### posts作成 / 更新 / ソフトデリート
 
@@ -131,20 +131,31 @@ Phase B2a以降、`authenticated`にはpostsの直接INSERT / UPDATE列権限を
 
 ### profiles
 
-- SELECT: ログイン済みユーザー
-- UPDATE: 本人だけ
+- SELECT: 閲覧者と対象者がともにactive
+- UPDATE: activeな本人だけ
 - INSERT / DELETE: 一般ユーザーには許可しない
 
-### C1a / C1b開始前の既知security残差
+### Phase C1a DB / RLS fail-closed境界
 
-現行実装ではsuspended userもSupabase Auth sessionを取得でき、application session gateは
-未実装である。posts SELECTのowner分岐はactive状態を要求しないため、suspended viewerも
-own postを閲覧でき、そのpostに紐づく画像もpost_images / Storage SELECTのRLS連鎖を通して
-取得できる。profiles SELECTは全authenticatedへ許可されている。
+`20260808000400_fail_close_non_active_accounts.sql`は、non-activeをstatus値の列挙ではなく
+`my_diary_is_account_active(...) = false`として扱い、将来statusが増えてもfail-openしない。
+posts visibility helperのowner例外、profiles SELECT、SECURITY DEFINER profile検索、
+post-images Storageのowned-orphan SELECT / DELETEをactive必須へ変更する。post_tags、tags、
+post_images、reactions、comments、tag / post検索は既存のposts RLS委任により閉じる。
 
-これらは現在の期待値であって望ましい最終状態ではない。Phase C1aでDB / RLSを
-fail-closed化し、後続のPhase C1bでapplication session gateを追加する。どちらも本書の
-現行実装にはまだ含まれない。
+non-active本人の`accounts` row SELECTは、C1bが`status`を読んでsign-out / redirectを判断する
+最小経路として維持する。他人のaccountsは読めず、non-active本人のtimezone UPDATEも既存の
+active条件で拒否する。Auth login / callback / protected layoutのapplication session gateは
+未実装であり、Phase C1bの対象である。
+
+C1a migrationはリンク済みのリモート開発DBへ通常適用済みである。local / remote履歴は
+16件で一致し、再dry-runはup to date、remote catalogで変更対象functionのexact signature・
+owner・security・volatility・空search path・authenticated専用ACL、accountsの最小status read、
+profiles / posts / Storageのactive境界、既存RLS・RPC回帰を確認した。
+`public,storage,my_diary_private`のlinked schema diffは空だった。SQL成功後のcatalog cache生成で
+一時CAファイルwarningが発生したが、履歴・catalog・再dry-run・schema diffで適用成功と切り分け、
+repairや再適用は行っていない。remote fixture、ユーザーデータ、Storage objectは操作せず、
+Service RoleとAuth Admin APIも使用していない。
 
 ### follows
 
@@ -193,7 +204,8 @@ bucketを`post-images`に限定し、`objects.name = post_images.storage_path`�
 
 Supabase標準の`storage.buckets` / `storage.objects`のowner、ACL、owner列は
 変更しない。B3bのINSERTはStorage APIのupload operation、activeな本人、owner_id、
-strict pathをPERMISSIVE / RESTRICTIVE双方で検証する。DELETEはStorage APIの
+strict pathをPERMISSIVE / RESTRICTIVE双方で検証する。Phase C1a以降、owned-orphanの
+SELECTとDELETEもactiveな本人だけに限定する。DELETEはStorage APIの
 delete-many operationかつ同じowner / pathの未参照orphanだけに限定する。UPDATE
 policyは作成せず、upsert・overwrite・moveを拒否する。参照判定はprivateな
 `SECURITY DEFINER` helperで全post_imagesを確認するため、private・soft delete済み
@@ -225,8 +237,8 @@ responseは`Cache-Control: private, no-store, max-age=0`、`X-Content-Type-Optio
 
 ### accounts
 
-- SELECT: 本人の行だけ
-- UPDATE: 本人の `timezone` 列だけ
+- SELECT: statusがnon-activeでも本人の行だけ。C1bのstatus判定経路として維持する
+- UPDATE: activeな本人の `timezone` 列だけ
 - INSERT / DELETE: 一般ユーザーには許可しない
 
 ## プロジェクト固有名と既存オブジェクトの保護
@@ -499,11 +511,11 @@ postconditionで検証し、不一致ならtransaction全体をrollbackする。
 
 ### ユーザー検索
 
-既存の`public.my_diary_search_profiles(text)`はsignature、return列、並び順、20件上限、
+`public.my_diary_search_profiles(text)`はsignature、return列、並び順、20件上限、
 `SECURITY DEFINER`、owner=`postgres`、`search_path = ''`、authenticated専用ACLを
-維持する。入力と`profiles.username`をNFKC化してから前後空白を除き、ASCII小文字化
-した部分一致を行う。`\\`、`%`、`_`はescapeしてliteralとして扱い、active accountと
-本人を含む既存の検索対象条件を維持する。
+維持する。Phase C1a以降はviewer自身がactiveでなければ`42501`で拒否し、targetも
+active accountだけに限定する。入力と`profiles.username`をNFKC化してから前後空白を除き、
+ASCII小文字化した部分一致を行い、`\\`、`%`、`_`はescapeしてliteralとして扱う。
 
 ### タグ検索queryとRPC
 
@@ -566,7 +578,7 @@ Service Roleも使用していない。
 検索する公開RPCを追加する。既存posts table、RLS policy、ACL、indexは変更せず、
 ローカルreset、pgTAP、catalog、schema diff、認証済みブラウザで検証した。
 Phase B2b-3b終了時点ではリモート未適用だったが、後続Phaseで適用済みである。
-現在のlocal / remote migration履歴はB3dまでの15件で一致している。
+現在のlocal / remote migration履歴はC1aまでの16件で一致している。
 
 公開RPCのexact signatureは次のとおりで、overloadとdefault引数は作らない。
 
@@ -773,14 +785,15 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
 - フォロー解除直後のアクセス喪失
 - 投稿の本人名義作成、本人だけの更新・ソフトデリート
 - 一般ユーザーによる物理DELETEの拒否
-- suspended投稿者の投稿を本人以外から非表示
-- suspendedユーザーの投稿作成・更新・ソフトデリート拒否
+- suspended / deactivated viewerは本人所有を含む通常投稿・profile・tag・image・reaction・commentを取得不可
+- suspended / deactivated targetのprofile・投稿・関連tag・imageをactive viewerから非表示
+- suspended / deactivatedユーザーの投稿作成・更新・ソフトデリート拒否
 - 自己フォロー、重複、他人名義のフォロー操作
 - `accounts.role` / `accounts.status` の更新拒否
 - 他ユーザーのaccountsを閲覧できないこと
-- ログイン済みユーザーによるprofiles閲覧
-- 本人だけのプロフィール更新
-- 本人だけのタイムゾーン更新
+- active viewerによるactive profiles閲覧とnon-active targetの拒否
+- activeな本人だけのプロフィール更新
+- non-active本人のaccounts status SELECT維持と、activeな本人だけのタイムゾーン更新
 - Authユーザー作成時のaccounts / profiles自動作成
 - プロジェクト固有Authトリガーと一般名トリガーの共存
 - SECURITY DEFINER関数の所有者、`search_path`、EXECUTE権限
@@ -799,7 +812,7 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
 - 投稿画像RPCのexact signature・ACL・active owner、0 / 10 / 11枚、strict path、
   Storage object owner・MIME・size、呼出順のsort_order、post / tag / image rollback
 - Storage mutationのoperation context、owner_id、本人UUID namespace、UPDATE拒否、
-  未参照orphanだけのcleanup、参照済み・soft-delete済みmetadataの削除拒否
+  active ownerだけの未参照orphan SELECT / cleanup、参照済み・soft-delete済みmetadataの削除拒否
 
 ## リモート適用後のAuth確認
 

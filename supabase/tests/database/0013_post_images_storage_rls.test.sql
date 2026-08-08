@@ -1145,8 +1145,8 @@ select results_eq(
 
 select results_eq(
   $$select storage_path from public.post_images where storage_path = 'a/private.jpg'$$,
-  $$values ('a/private.jpg'::text)$$,
-  'A suspended viewer retains existing own-post metadata visibility'
+  $$select null::text where false$$,
+  'A suspended viewer cannot read own-post image metadata'
 );
 
 select results_eq(
@@ -1156,8 +1156,8 @@ select results_eq(
     where bucket_id = 'post-images'
       and name = 'a/private.jpg'
   $$,
-  $$values ('a/private.jpg'::text)$$,
-  'A suspended viewer retains existing own-post object visibility'
+  $$select null::text where false$$,
+  'A suspended viewer cannot read an own-post image object'
 );
 
 reset role;
