@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CommentCount } from "@/components/posts/comment-count";
 import { DeletePostButton } from "@/components/posts/delete-post-button";
+import { PostImageGallery } from "@/components/posts/post-image-gallery";
 import { ReactionControls } from "@/components/posts/reaction-controls";
 import { TagList } from "@/components/posts/tag-list";
 import {
@@ -58,6 +59,8 @@ export function PostCard({
       <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
         {post.body}
       </p>
+
+      <PostImageGallery images={post.images} />
 
       <ReactionControls postId={post.id} summary={post.reactions} />
       <CommentCount count={post.commentCount} />

@@ -186,10 +186,18 @@ post_imagesを同一transactionで確定する。明示的なupload / validation
 終了、cleanup失敗による長期orphanの定期回収は後続Phaseとする。postのsoft deleteでは
 metadataとobjectを残してposts RLS連鎖で即時に隠す。
 
-配信方式は、認証付きdownloadならrequestごとにRLSを再評価できる一方、通常の
-画像要素へAuthorization headerを付ける配信経路が必要になる。短寿命signed URLは
-表示へ接続しやすいが、発行後は期限までfollow解除やvisibility変更を再評価しない。
-B3cで即時失効要件、TTL、server帯域、キャッシュを比較して確定する。
+Phase B3cの配信はsigned URLを使わず、extensionlessな同一origin
+`/post-images/[imageId]` Route Handlerを採用する。Route Handlerはcookie session由来の
+通常authenticated clientで`post_images`をSELECTし、同じclientでStorage downloadを
+実行する。これによりpost_imagesとStorageの両RLSをrequestごとに再評価し、follow解除、
+visibility変更、soft delete、suspended状態を次回取得へ反映する。invalid UUID、不存在、
+RLS拒否、Storage拒否はresource存在を区別しない空bodyの404へfail-closedする。
+
+responseは`Cache-Control: private, no-store, max-age=0`、`X-Content-Type-Options: nosniff`、
+`Cross-Origin-Resource-Policy: same-origin`とし、JPEG / PNG / WebPおよび1〜6 MiBを配信時にも
+再検証する。clientへ渡すmetadataは画像IDと順序だけで、raw `storage_path`はRoute Handler内に
+閉じる。Next.js image optimizerは認証header転送とviewer別cache境界を保証しないため、
+表示は同一origin URLを`Image unoptimized`で直接取得し、shared optimizer cacheを通さない。
 
 ### accounts
 
@@ -614,6 +622,27 @@ publishable clientによる実Storage APIでもupload、orphan remove、参照�
 再適用は行っていない。安全な既存remote認証情報がないためremote実upload / RPC mutationは
 未実施であり、remote fixture・ユーザーデータ・Storage objectの作成や変更、Service Role、
 Auth Admin APIは使用していない。
+
+## 投稿画像配信・表示 Phase B3c設計
+
+Phase B3cは既存14 migration、policy、pgTAP定義を変更しない。既存の
+`post_images → posts`と`storage.objects → post_images → posts`のRLS連鎖だけで
+metadata取得とbytes取得を二段階に認可できるため、表示専用RPCや
+`SECURITY DEFINER` helperは追加しない。
+
+投稿一覧のmetadataは、表示対象post IDを50件ずつのbounded batchへ分け、各batchを
+exact count付きrange paginationで取得する。ローカルのPostgREST `max_rows = 1000`や
+URL長の影響で結果が黙って欠落しないようにし、取得後はUUID、要求post ID、
+`sort_order` 0〜9、画像ID・順序の重複、投稿ごとの最大10枚をapplicationでも検証して
+順序を確定する。queryまたはshapeが不正な場合は公開URLや別経路で補完せず、
+投稿取得自体を失敗させる。`storage_path`はこのbatch queryでSELECTしない。
+
+詳細、following / latest、自己・他者プロフィール、タグ詳細、投稿検索は共通の
+post data hydrationを利用し、各pageにつきmetadata queryを投稿単位のN+1にしない。
+画像bytesごとの同一origin requestは取得時認可のsecurity boundaryであり、metadata
+hydrationとは分ける。共通galleryは0枚では何も描画せず、1枚は4:3、2枚は2列、
+3〜10枚はmobile 2列・`sm`以上3列で`sort_order`を維持する。画像は非interactiveで、
+位置情報だけのaltを付け、取得失敗時は同じaspectの一般的なplaceholderへ置き換える。
 
 ## インデックス
 

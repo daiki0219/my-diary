@@ -28,7 +28,7 @@ type PostSearchRpcRow = {
 
 type RawPostSearchPost = Omit<
   TimelinePost,
-  "author" | "reactions" | "commentCount" | "tags"
+  "author" | "images" | "reactions" | "commentCount" | "tags"
 > &
   RawTagRelations;
 

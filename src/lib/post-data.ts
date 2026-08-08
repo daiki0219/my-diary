@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getCommentCounts } from "@/lib/comment-data";
 import {
+  getPostImagesByPostIds,
+  type PostImageReference,
+} from "@/lib/post-image-data";
+import {
   getReactionSummaries,
   type ReactionSummary,
 } from "@/lib/reaction-data";
@@ -59,6 +63,7 @@ export type Post = {
   mood: PostMood | null;
   visibility: PostVisibility;
   created_at: string;
+  images: PostImageReference[];
   tags: PostTag[];
   reactions: ReactionSummary | null;
   commentCount: number | null;
@@ -159,7 +164,8 @@ export async function getOwnPosts(
     .order("created_at", { ascending: false })
     .returns<
       Array<
-        Omit<Post, "reactions" | "commentCount" | "tags"> & RawTagRelations
+        Omit<Post, "images" | "reactions" | "commentCount" | "tags"> &
+          RawTagRelations
       >
     >();
 
@@ -184,14 +190,25 @@ export async function getOwnPosts(
   }
 
   const postIds = posts.map((post) => post.id);
-  const [reactionsResult, commentsResult] = await Promise.all([
+  const [reactionsResult, commentsResult, imagesResult] = await Promise.all([
     getReactionSummaries(supabase, postIds, userId),
     getCommentCounts(supabase, postIds),
+    getPostImagesByPostIds(supabase, postIds),
   ]);
+
+  if (imagesResult.error || !imagesResult.data) {
+    return {
+      data: null,
+      error: imagesResult.error,
+      reactionsError: reactionsResult.error,
+      commentsError: commentsResult.error,
+    };
+  }
 
   return {
     data: posts.map((post) => ({
       ...post,
+      images: imagesResult.data?.get(post.id) ?? [],
       reactions: reactionsResult.data?.get(post.id) ?? null,
       commentCount: commentsResult.data?.get(post.id) ?? null,
     })),
@@ -218,7 +235,8 @@ export async function getVisiblePostsByUser(
     .limit(USER_PROFILE_POST_LIMIT + 1)
     .returns<
       Array<
-        Omit<Post, "reactions" | "commentCount" | "tags"> & RawTagRelations
+        Omit<Post, "images" | "reactions" | "commentCount" | "tags"> &
+          RawTagRelations
       >
     >();
 
@@ -246,14 +264,26 @@ export async function getVisiblePostsByUser(
 
   const posts = loadedPosts.slice(0, USER_PROFILE_POST_LIMIT);
   const postIds = posts.map((post) => post.id);
-  const [reactionsResult, commentsResult] = await Promise.all([
+  const [reactionsResult, commentsResult, imagesResult] = await Promise.all([
     getReactionSummaries(supabase, postIds, currentUserId),
     getCommentCounts(supabase, postIds),
+    getPostImagesByPostIds(supabase, postIds),
   ]);
+
+  if (imagesResult.error || !imagesResult.data) {
+    return {
+      data: null,
+      hasMore: false,
+      error: imagesResult.error,
+      reactionsError: reactionsResult.error,
+      commentsError: commentsResult.error,
+    };
+  }
 
   return {
     data: posts.map((post) => ({
       ...post,
+      images: imagesResult.data?.get(post.id) ?? [],
       reactions: reactionsResult.data?.get(post.id) ?? null,
       commentCount: commentsResult.data?.get(post.id) ?? null,
     })),
@@ -311,7 +341,7 @@ export async function getTimelinePosts(
       Array<
         Omit<
           TimelinePost,
-          "author" | "reactions" | "commentCount" | "tags"
+          "author" | "images" | "reactions" | "commentCount" | "tags"
         > &
           RawTagRelations
       >
@@ -349,27 +379,35 @@ export async function getTimelinePosts(
 export async function hydrateTimelinePosts(
   supabase: SupabaseClient,
   posts: ReadonlyArray<
-    Omit<TimelinePost, "author" | "reactions" | "commentCount">
+    Omit<TimelinePost, "author" | "images" | "reactions" | "commentCount">
   >,
   currentUserId: string,
 ) {
   const authorIds = [...new Set(posts.map((post) => post.user_id))];
   const postIds = posts.map((post) => post.id);
-  const [profilesResult, reactionsResult, commentsResult] = await Promise.all([
-    authorIds.length > 0
-      ? supabase
-          .from("profiles")
-          .select("user_id, username")
-          .in("user_id", authorIds)
-          .returns<Array<{ user_id: string; username: string }>>()
-      : Promise.resolve({ data: [], error: null }),
-    getReactionSummaries(
-      supabase,
-      postIds,
-      currentUserId,
-    ),
-    getCommentCounts(supabase, postIds),
-  ]);
+  const [profilesResult, reactionsResult, commentsResult, imagesResult] =
+    await Promise.all([
+      authorIds.length > 0
+        ? supabase
+            .from("profiles")
+            .select("user_id, username")
+            .in("user_id", authorIds)
+            .returns<Array<{ user_id: string; username: string }>>()
+        : Promise.resolve({ data: [], error: null }),
+      getReactionSummaries(supabase, postIds, currentUserId),
+      getCommentCounts(supabase, postIds),
+      getPostImagesByPostIds(supabase, postIds),
+    ]);
+
+  if (imagesResult.error || !imagesResult.data) {
+    return {
+      data: null,
+      error: imagesResult.error,
+      reactionsError: reactionsResult.error,
+      commentsError: commentsResult.error,
+    };
+  }
+
   const profilesByUserId = new Map(
     (profilesResult.data ?? []).map((profile) => [
       profile.user_id,
@@ -381,6 +419,7 @@ export async function hydrateTimelinePosts(
     data: posts.map((post) => ({
       ...post,
       author: profilesByUserId.get(post.user_id) ?? null,
+      images: imagesResult.data?.get(post.id) ?? [],
       reactions: reactionsResult.data?.get(post.id) ?? null,
       commentCount: commentsResult.data?.get(post.id) ?? null,
     })),
@@ -405,7 +444,8 @@ export async function getPostDetail(
     .limit(1)
     .returns<
       Array<
-        Omit<PostDetail, "author" | "reactions" | "tags"> & RawTagRelations
+        Omit<PostDetail, "author" | "images" | "reactions" | "tags"> &
+          RawTagRelations
       >
     >();
 
@@ -425,7 +465,7 @@ export async function getPostDetail(
     return { status: "error" };
   }
 
-  const [profileResult, reactionsResult] = await Promise.all([
+  const [profileResult, reactionsResult, imagesResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("username")
@@ -433,7 +473,12 @@ export async function getPostDetail(
       .limit(1)
       .returns<Array<{ username: string }>>(),
     getReactionSummaries(supabase, [post.id], currentUserId),
+    getPostImagesByPostIds(supabase, [post.id]),
   ]);
+
+  if (imagesResult.error || !imagesResult.data) {
+    return { status: "error" };
+  }
 
   return {
     status: "found",
@@ -443,6 +488,7 @@ export async function getPostDetail(
         profileResult.error || !profileResult.data?.[0]
           ? null
           : { username: profileResult.data[0].username },
+      images: imagesResult.data?.get(post.id) ?? [],
       reactions: reactionsResult.data?.get(post.id) ?? null,
     },
   };

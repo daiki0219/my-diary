@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PostImageGallery } from "@/components/posts/post-image-gallery";
 import { ReactionControls } from "@/components/posts/reaction-controls";
 import { TagList } from "@/components/posts/tag-list";
 import {
@@ -76,6 +77,8 @@ export function PostDetail({
         <p className="mt-6 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
           {post.body}
         </p>
+
+        <PostImageGallery eagerFirst images={post.images} />
       </div>
 
       <ReactionControls postId={post.id} summary={post.reactions} />
