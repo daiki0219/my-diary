@@ -80,7 +80,7 @@ export type PostDetail = Omit<TimelinePost, "commentCount">;
 
 export type EditablePost = Pick<
   PostDetail,
-  "id" | "title" | "body" | "mood" | "visibility" | "tags"
+  "id" | "title" | "body" | "mood" | "visibility" | "tags" | "images"
 >;
 
 export type PostDetailResult =
@@ -507,7 +507,7 @@ export async function getEditablePost(
     .is("deleted_at", null)
     .limit(1)
     .maybeSingle<
-      Omit<EditablePost, "tags"> & RawTagRelations
+      Omit<EditablePost, "tags" | "images"> & RawTagRelations
     >();
 
   if (result.error || !result.data) {
@@ -520,7 +520,19 @@ export async function getEditablePost(
     return { data: null, error: TAG_RELATION_LOAD_ERROR };
   }
 
-  return { data: post, error: null };
+  const imagesResult = await getPostImagesByPostIds(supabase, [post.id]);
+
+  if (imagesResult.error || !imagesResult.data) {
+    return { data: null, error: imagesResult.error };
+  }
+
+  return {
+    data: {
+      ...post,
+      images: imagesResult.data.get(post.id) ?? [],
+    },
+    error: null,
+  };
 }
 
 export function isPostMood(value: string): value is PostMood {

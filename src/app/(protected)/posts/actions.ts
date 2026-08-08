@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { COMMENT_MAX_LENGTH } from "@/lib/comment-data";
 import {
@@ -38,7 +37,20 @@ export type CreatePostActionState = {
   revision: number;
 };
 
-export type UpdatePostActionState = CreatePostActionState;
+export type UpdatePostActionState = CreatePostActionState & {
+  cleanupWarning?: boolean;
+  outcomeUnknown?: boolean;
+  updatedPostId?: string;
+};
+
+type PostImageManifestItem =
+  | { existingId: string }
+  | { newPath: string };
+
+type UpdatePostRpcResult = {
+  postId: string;
+  removedImagePaths: string[];
+};
 
 export type DeletePostActionState = {
   error: string | null;
@@ -93,6 +105,109 @@ function inputErrorState(
   };
 }
 
+function parsePostImageManifest(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") {
+    return { data: null, error: "投稿画像を確認できませんでした。" };
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return { data: null, error: "投稿画像を確認できませんでした。" };
+  }
+
+  if (!Array.isArray(parsed) || parsed.length > POST_IMAGE_MAX_COUNT) {
+    return {
+      data: null,
+      error: `画像は最大${POST_IMAGE_MAX_COUNT}枚まで選択できます。`,
+    };
+  }
+
+  const manifest: PostImageManifestItem[] = [];
+  const existingIds = new Set<string>();
+  const newPaths = new Set<string>();
+
+  for (const item of parsed) {
+    if (typeof item !== "object" || item === null) {
+      return { data: null, error: "投稿画像を確認できませんでした。" };
+    }
+
+    const keys = Object.keys(item);
+
+    if (keys.length !== 1) {
+      return { data: null, error: "投稿画像を確認できませんでした。" };
+    }
+
+    if (
+      keys[0] === "existingId" &&
+      "existingId" in item &&
+      typeof item.existingId === "string" &&
+      isUuid(item.existingId) &&
+      !existingIds.has(item.existingId)
+    ) {
+      existingIds.add(item.existingId);
+      manifest.push({ existingId: item.existingId });
+      continue;
+    }
+
+    if (
+      keys[0] === "newPath" &&
+      "newPath" in item &&
+      typeof item.newPath === "string" &&
+      !newPaths.has(item.newPath)
+    ) {
+      newPaths.add(item.newPath);
+      manifest.push({ newPath: item.newPath });
+      continue;
+    }
+
+    return { data: null, error: "投稿画像を確認できませんでした。" };
+  }
+
+  return { data: manifest, error: null };
+}
+
+function parseUpdatePostRpcResult(
+  value: unknown,
+  expectedPostId: string,
+  expectedUserId: string,
+): UpdatePostRpcResult | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const keys = Object.keys(value);
+
+  if (
+    keys.length !== 2 ||
+    !keys.includes("postId") ||
+    !keys.includes("removedImagePaths") ||
+    !("postId" in value) ||
+    value.postId !== expectedPostId ||
+    !("removedImagePaths" in value) ||
+    !Array.isArray(value.removedImagePaths)
+  ) {
+    return null;
+  }
+
+  const removedImagePaths = value.removedImagePaths.filter(
+    (path): path is string =>
+      typeof path === "string" &&
+      isPostImageStoragePathFor(path, expectedUserId, expectedPostId),
+  );
+
+  if (
+    removedImagePaths.length !== value.removedImagePaths.length ||
+    new Set(removedImagePaths).size !== removedImagePaths.length
+  ) {
+    return null;
+  }
+
+  return { postId: expectedPostId, removedImagePaths };
+}
+
 async function cleanupPostImageUploads(
   supabase: Awaited<ReturnType<typeof createClient>>,
   imagePaths: readonly string[],
@@ -131,6 +246,31 @@ async function createPostErrorState(
     error: cleanupSucceeded
       ? options.error
       : "投稿に失敗し、画像の後処理も完了できませんでした。時間をおいてもう一度お試しください。",
+    fieldErrors: options.fieldErrors ?? {},
+    submittedTagValues,
+    revision: previousState.revision + 1,
+  };
+}
+
+async function updatePostErrorState(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  newImagePaths: readonly string[],
+  previousState: UpdatePostActionState,
+  submittedTagValues: string[],
+  options: {
+    error: string;
+    fieldErrors?: UpdatePostActionState["fieldErrors"];
+  },
+): Promise<UpdatePostActionState> {
+  const cleanupSucceeded = await cleanupPostImageUploads(
+    supabase,
+    newImagePaths,
+  );
+
+  return {
+    error: cleanupSucceeded
+      ? options.error
+      : "投稿を更新できず、新しい画像の後処理も完了できませんでした。時間をおいてもう一度お試しください。",
     fieldErrors: options.fieldErrors ?? {},
     submittedTagValues,
     revision: previousState.revision + 1,
@@ -316,6 +456,13 @@ export async function updatePost(
   const bodyValue = formData.get("body");
   const moodValue = formData.get("mood");
   const visibilityValue = formData.get("visibility");
+  const imageManifestResult = parsePostImageManifest(
+    formData.get("imageManifest"),
+  );
+  const newImagePaths =
+    imageManifestResult.data?.flatMap((item) =>
+      "newPath" in item ? [item.newPath] : [],
+    ) ?? [];
   const fieldErrors: UpdatePostActionState["fieldErrors"] = {};
   const tagsResult = getValidatedTags(formData);
 
@@ -348,12 +495,19 @@ export async function updatePost(
     fieldErrors.tags = tagsResult.error;
   }
 
+  if (imageManifestResult.error) {
+    fieldErrors.images = imageManifestResult.error;
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
-    return inputErrorState(
-      previousState,
-      fieldErrors,
-      tagsResult.submittedTagValues,
-    );
+    return {
+      ...inputErrorState(
+        previousState,
+        fieldErrors,
+        tagsResult.submittedTagValues,
+      ),
+      shouldCleanupImageUploads: newImagePaths.length > 0,
+    };
   }
 
   const normalizedTitle =
@@ -385,11 +539,14 @@ export async function updatePost(
   }
 
   if (Object.keys(fieldErrors).length > 0) {
-    return inputErrorState(
-      previousState,
-      fieldErrors,
-      tagsResult.submittedTagValues,
-    );
+    return {
+      ...inputErrorState(
+        previousState,
+        fieldErrors,
+        tagsResult.submittedTagValues,
+      ),
+      shouldCleanupImageUploads: newImagePaths.length > 0,
+    };
   }
 
   const supabase = await createClient();
@@ -401,42 +558,90 @@ export async function updatePost(
     return {
       error: "ログイン状態を確認できませんでした。もう一度ログインしてください。",
       fieldErrors: {},
+      shouldCleanupImageUploads: newImagePaths.length > 0,
       submittedTagValues: tagsResult.submittedTagValues,
       revision: previousState.revision + 1,
     };
   }
 
-  const { data, error } = await supabase.rpc(
-    "my_diary_update_post_with_tags",
-    {
+  const ownedNewImagePaths = newImagePaths.filter((path) =>
+    isPostImageStoragePathFor(path, userId, postIdValue),
+  );
+
+  if (ownedNewImagePaths.length !== newImagePaths.length) {
+    return {
+      error: "入力内容を確認してください。",
+      fieldErrors: { images: "投稿画像を確認できませんでした。" },
+      shouldCleanupImageUploads: newImagePaths.length > 0,
+      submittedTagValues: tagsResult.submittedTagValues,
+      revision: previousState.revision + 1,
+    };
+  }
+
+  let rpcResult: Awaited<ReturnType<typeof supabase.rpc>>;
+
+  try {
+    rpcResult = await supabase.rpc("my_diary_update_post_with_images", {
       p_post_id: postIdValue,
       p_title: title,
       p_body: body,
       p_mood: mood,
       p_visibility: visibility,
       p_tags: tagsResult.data,
-    },
-  );
-
-  if (error || typeof data !== "string" || !isUuid(data)) {
-    if (error?.code === "22023") {
-      return {
-        error:
-          "タグを保存できませんでした。時間をおいてもう一度お試しください。",
-        fieldErrors: { tags: "タグの入力内容を確認してください。" },
-        submittedTagValues: tagsResult.submittedTagValues,
-        revision: previousState.revision + 1,
-      };
-    }
-
+      p_image_manifest: imageManifestResult.data,
+    });
+  } catch {
     return {
       error:
-        "投稿を更新できませんでした。投稿またはアカウントの状態を確認してください。",
+        "通信が途切れ、更新結果を確認できませんでした。画像は削除していません。投稿の詳細を確認してから、必要に応じてもう一度お試しください。",
       fieldErrors: {},
+      outcomeUnknown: true,
       submittedTagValues: tagsResult.submittedTagValues,
       revision: previousState.revision + 1,
     };
   }
+
+  const { data, error } = rpcResult;
+
+  if (error) {
+    if (error?.code === "22023") {
+      return updatePostErrorState(
+        supabase,
+        newImagePaths,
+        previousState,
+        tagsResult.submittedTagValues,
+        {
+          error: "投稿内容を保存できませんでした。入力内容を確認してください。",
+          fieldErrors: {
+            images: "画像の選択内容が最新の投稿状態と一致しません。",
+          },
+        },
+      );
+    }
+
+    return updatePostErrorState(
+      supabase,
+      newImagePaths,
+      previousState,
+      tagsResult.submittedTagValues,
+      {
+        error:
+          "投稿を更新できませんでした。投稿またはアカウントの状態を確認してください。",
+      },
+    );
+  }
+
+  const updateResult = parseUpdatePostRpcResult(
+    data,
+    postIdValue,
+    userId,
+  );
+  const cleanupSucceeded = updateResult
+    ? await cleanupPostImageUploads(
+        supabase,
+        updateResult.removedImagePaths,
+      )
+    : false;
 
   revalidatePath("/home");
   revalidatePath("/profile");
@@ -444,7 +649,15 @@ export async function updatePost(
   revalidatePath(`/posts/${postIdValue}`);
   revalidatePath(`/posts/${postIdValue}/edit`);
   revalidatePath(`/users/${userId}`);
-  redirect(`/posts/${postIdValue}?status=updated`);
+
+  return {
+    cleanupWarning: !cleanupSucceeded,
+    error: null,
+    fieldErrors: {},
+    submittedTagValues: tagsResult.submittedTagValues,
+    revision: previousState.revision + 1,
+    updatedPostId: postIdValue,
+  };
 }
 
 export async function deletePost(

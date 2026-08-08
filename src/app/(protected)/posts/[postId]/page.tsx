@@ -18,6 +18,7 @@ type PostDetailPageProps = {
     postId: string;
   }>;
   searchParams: Promise<{
+    imageCleanup?: string;
     status?: string;
   }>;
 };
@@ -86,6 +87,14 @@ export default async function PostDetailPage({
             role="status"
           >
             投稿を更新しました。
+          </p>
+        )}
+        {query.status === "updated" && query.imageCleanup === "partial" && (
+          <p
+            className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"
+            role="status"
+          >
+            投稿内容は保存済みですが、不要になった一部の画像を整理できませんでした。
           </p>
         )}
         <PostDetail

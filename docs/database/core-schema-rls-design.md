@@ -644,6 +644,36 @@ hydrationとは分ける。共通galleryは0枚では何も描画せず、1枚�
 3〜10枚はmobile 2列・`sm`以上3列で`sort_order`を維持する。画像は非interactiveで、
 位置情報だけのaltを付け、取得失敗時は同じaspectの一般的なplaceholderへ置き換える。
 
+## 投稿画像編集 Phase B3d設計
+
+`my_diary_update_post_with_images`はpost・tagと最終画像manifestを同一transactionで
+更新する。manifestは最大10件のJSONB配列で、各要素を保持する`existingId`または
+追加する`newPath`のどちらか1つに限定する。RPCは本人所有かつ未削除のpost行を
+`FOR UPDATE`でlockし、保持IDの所属・重複、新規pathの本人namespace・post ID・
+Storage object owner / MIME / size・未参照性をDB側で検証する。一般authenticatedへ
+`post_images`の直接mutation権限やStorage UPDATE policyは追加しない。
+
+保持画像は`id`、`storage_path`、`created_at`を維持し、deferrableな
+`my_diary_post_images_post_sort_key`をtransaction内だけdeferして`sort_order`を更新する。
+最終manifestから外れたmetadataはDB transaction内で削除し、その旧pathだけをRPC結果で
+Server Actionへ返す。新規uploadはDB確定前のorphanとして扱い、既知のDB失敗時だけ補償削除する。
+DB成功後に旧objectをStorage APIで削除し、cleanup失敗時も投稿更新は保存済みとして扱う。
+この場合、旧objectはmetadataのないprivate orphanとなり、画像routeからは取得できない。
+
+RPC結果不明時はcommit済みの新規objectを壊さないよう補償削除せず、フォームを停止して
+投稿状態の確認を求める。soft deleteでは`post_images` metadataとStorage objectを保持し、
+既存RLS連鎖で次回取得を404へfail-closedする。session失効、browser終了、cleanup通信失敗で
+残る長期orphanの定期回収と、保持期間後の物理削除は後続Phaseとする。
+
+`20260808000300_integrate_post_image_edits.sql`だけをリンク済みのリモート開発DBへ通常適用した。
+local / remote履歴は15件で一致し、再dry-runはup to date、remote catalogでRPCのexact signature・
+owner・volatility・`SECURITY DEFINER`・空search path・authenticated専用ACL、deferrable UNIQUE、
+`post_images`のread-only ACL、既存8件のStorage policyと標準Storage ownerの維持を確認した。
+`public,storage,my_diary_private`のlinked schema diffは空だった。SQL成功後のcatalog cache生成で
+一時CAファイルwarningが発生したが、履歴・catalog・再dry-run・schema diffで適用成功と切り分け、
+repairや再適用は行っていない。安全な既存remote認証情報がないため、remote実updateとStorage
+lifecycle操作は未実施である。Service Role、Auth Admin API、remote fixtureは使用していない。
+
 ## インデックス
 
 - `my_diary_posts_user_created_at_idx`: ユーザープロフィール、本人の日記、
