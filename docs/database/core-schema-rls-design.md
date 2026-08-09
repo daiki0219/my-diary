@@ -11,9 +11,9 @@
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` にはpublic application tableの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaからPhase C1aまでのSQLは16件のmigrationとして管理する。C1aの
-`20260808000400_fail_close_non_active_accounts.sql`を含む全16件は、localと
-リンク済みのリモート開発Supabaseへ適用済みである。
+初回schemaからPhase C2aまでのSQLは17件のmigrationとして管理し、localと
+リンク済みのリモート開発Supabaseへ適用済みである。Phase C2aでは
+`20260809000100_add_comment_replies.sql`を17件目として追加した。
 
 ### 投稿画像基盤の現在状態
 
@@ -182,6 +182,39 @@ Handlerも単独では覆えないため採用しない。Proxyのstatus query�
 protected/auth entry requestに限定し、root、callback確立前、health、static assetでは実行しない。
 raceでProxy判定後にstatusが変わった場合も、C1aのRLS / RPC active検証が最終的に通常データの
 SELECT / mutationを拒否する。
+
+### Phase C2a comment reply DB基盤
+
+`comments.parent_comment_id uuid nullable`を追加し、`NULL`をtop-level、非`NULL`をreplyとする。
+既存行はcolumn追加後もすべてtop-levelであり、データ書き換えは行わない。通常Applicationの
+comment作成は既存どおりauthenticatedの直接INSERTを使い、`parent_comment_id`のINSERT列権限だけを
+追加する。既存の本人・active viewer・可視postを検証するINSERT RLS policyは変更しない。
+
+`my_diary_private.my_diary_validate_comment_parent()`をcommentsのAFTER INSERT / UPDATE triggerから
+呼び出し、parentの存在、same-post、parentがtop-level、未soft-delete、active authorをDBで検証する。
+AFTER triggerとすることで既存INSERT RLSが本人・active viewer・可視postを先に拒否し、
+不可視post自体へのINSERTではSECURITY DEFINERのparent lookupへ到達させない。可視postへ不可視commentの
+UUIDを指定するprobeも含め、parent不存在、cross-post、reply、soft-delete、non-active authorはすべて
+SQLSTATE `23514`、message `invalid parent comment`の同じvalidation failureとし、parentの存在・状態・postを
+callerへ露出しない。
+trigger functionはparent rowを`FOR UPDATE`でlockする。reply INSERTが先ならcommit後にparent soft deleteが
+進み、soft deleteが先ならINSERT側は更新後の`deleted_at`を見て拒否するため、検証とsoft deleteの競合を
+直列化できる。既存replyのparentを後からsoft deleteする操作は許可し、reply rowと関係値は保持する。
+
+parent relationには自己参照FKを置かない。`ON DELETE CASCADE`はparent作者の物理削除で他ユーザーreplyを
+失い、`SET NULL`はreplyをtop-levelへ変え、`RESTRICT` / `NO ACTION`はAuth user削除を阻害し得るためである。
+triggerがINSERTと関係更新時の存在・階層を保証する。post物理削除では既存`comments.post_id` FKにより
+parentとreplyをともにcascadeし、parent作者だけの物理削除では他ユーザーreplyを非NULLのreplyとして
+保持する。parent UUIDは履歴関係として残るが、物理削除後はparent rowを参照できない。
+
+取得用に未削除行の`(post_id, parent_comment_id, created_at, id)` partial indexを追加する。
+trigger functionは`SECURITY DEFINER`、owner=`postgres`、`VOLATILE`、`search_path = ''`とし、
+`PUBLIC`、`anon`、`authenticated`、`service_role`、`authenticator`からEXECUTEを剥奪してtrigger専用とする。
+このためparent commentsとaccounts statusはpostgres権限でRLSを迂回して検証するが、取得値は返さず、
+invalid条件は前記のgeneric failureへ集約する。
+返信UI・親子取得・通知はC2aでは実装しない。C2a migrationはリンク済みのリモート開発DBへ
+初回適用済みで、local / remote履歴17件一致、再dry-runはup to date、remote schema dumpの定義一致、
+`public,my_diary_private,storage`のlinked schema diffが空であることを確認した。
 
 ### follows
 
@@ -604,7 +637,7 @@ Service Roleも使用していない。
 検索する公開RPCを追加する。既存posts table、RLS policy、ACL、indexは変更せず、
 ローカルreset、pgTAP、catalog、schema diff、認証済みブラウザで検証した。
 Phase B2b-3b終了時点ではリモート未適用だったが、後続Phaseで適用済みである。
-現在のlocal / remote migration履歴はC1aまでの16件で一致している。
+現在のlocal / remote migration履歴はC2aまでの17件で一致している。
 
 公開RPCのexact signatureは次のとおりで、overloadとdefault引数は作らない。
 
