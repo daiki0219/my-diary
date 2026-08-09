@@ -32,6 +32,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const statusMessage =
     params.status === "signed-out"
       ? "ログアウトしました。"
+      : params.status === "password-reset"
+        ? "パスワードを更新しました。新しいパスワードでログインしてください。"
       : params.error === "confirmation-failed"
         ? "メール確認を完了できませんでした。確認メールのリンクをもう一度お試しください。"
         : null;
@@ -57,6 +59,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <p
             aria-live="polite"
             className="mt-5 rounded-2xl bg-stone-100 px-4 py-3 text-sm leading-6 text-stone-700"
+            role="status"
           >
             {statusMessage}
           </p>

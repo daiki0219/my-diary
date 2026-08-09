@@ -3,9 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import {
   ACCOUNT_CHECK_FAILED_ERROR,
+  canUpdatePasswordFromRecovery,
   endCurrentAuthSession,
   getAccountGateError,
-  getAccountSessionState,
+  getAuthSessionContext,
 } from "./account-session";
 import { getSupabaseConfig } from "./env";
 
@@ -29,6 +30,10 @@ function copyResponseCookies(source: NextResponse, target: NextResponse) {
 
 function isPostImagePath(pathname: string) {
   return pathname.startsWith("/post-images/");
+}
+
+function isPasswordResetPath(pathname: string) {
+  return pathname === "/reset-password";
 }
 
 function isServerActionRequest(request: NextRequest) {
@@ -67,7 +72,77 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  const accountState = await getAccountSessionState(supabase);
+  const sessionContext = await getAuthSessionContext(supabase);
+  const accountState = sessionContext.accountState;
+
+  if (sessionContext.isPasswordRecovery) {
+    if (!canUpdatePasswordFromRecovery(sessionContext)) {
+      await endCurrentAuthSession(supabase);
+
+      if (isPasswordResetPath(request.nextUrl.pathname)) {
+        return response;
+      }
+
+      const invalidResetUrl = new URL(
+        "/reset-password?error=invalid-link",
+        request.url,
+      );
+
+      if (isServerActionRequest(request)) {
+        return copyResponseCookies(
+          response,
+          new NextResponse(null, {
+            headers: {
+              "Cache-Control": "private, no-store, max-age=0",
+              "x-action-redirect": `${invalidResetUrl.pathname}${invalidResetUrl.search};replace`,
+            },
+            status: 200,
+          }),
+        );
+      }
+
+      const invalidRecoveryResponse = NextResponse.redirect(
+        invalidResetUrl,
+        request.method === "GET" || request.method === "HEAD" ? 307 : 303,
+      );
+      invalidRecoveryResponse.headers.set(
+        "Cache-Control",
+        "private, no-store, max-age=0",
+      );
+
+      return copyResponseCookies(response, invalidRecoveryResponse);
+    }
+
+    if (isPasswordResetPath(request.nextUrl.pathname)) {
+      return response;
+    }
+
+    const resetUrl = new URL("/reset-password", request.url);
+
+    if (isServerActionRequest(request)) {
+      return copyResponseCookies(
+        response,
+        new NextResponse(null, {
+          headers: {
+            "Cache-Control": "private, no-store, max-age=0",
+            "x-action-redirect": `${resetUrl.pathname};replace`,
+          },
+          status: 200,
+        }),
+      );
+    }
+
+    const recoveryRedirectResponse = NextResponse.redirect(
+      resetUrl,
+      request.method === "GET" || request.method === "HEAD" ? 307 : 303,
+    );
+    recoveryRedirectResponse.headers.set(
+      "Cache-Control",
+      "private, no-store, max-age=0",
+    );
+
+    return copyResponseCookies(response, recoveryRedirectResponse);
+  }
 
   if (
     accountState.kind === "active" ||

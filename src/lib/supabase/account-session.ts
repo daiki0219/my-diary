@@ -10,11 +10,36 @@ export type AccountSessionState =
   | { kind: "account-missing"; userId: string }
   | { kind: "query-error"; userId: string };
 
-export async function getAccountSessionState(
+export type AuthSessionContext = {
+  accountState: AccountSessionState;
+  isPasswordRecovery: boolean;
+};
+
+export function hasPasswordRecoveryAuthenticationMethod(amr: unknown) {
+  if (!Array.isArray(amr)) {
+    return false;
+  }
+
+  return amr.some((entry) => {
+    if (entry === "recovery") {
+      return true;
+    }
+
+    return (
+      typeof entry === "object" &&
+      entry !== null &&
+      "method" in entry &&
+      (entry as { method?: unknown }).method === "recovery"
+    );
+  });
+}
+
+export async function getAuthSessionContext(
   supabase: SupabaseClient,
-): Promise<AccountSessionState> {
+): Promise<AuthSessionContext> {
   const claimsResult = await supabase.auth.getClaims().catch(() => null);
-  const userId = claimsResult?.data?.claims?.sub;
+  const claims = claimsResult?.data?.claims;
+  const userId = claims?.sub;
 
   if (
     !claimsResult ||
@@ -22,8 +47,15 @@ export async function getAccountSessionState(
     typeof userId !== "string" ||
     userId.length === 0
   ) {
-    return { kind: "unauthenticated" };
+    return {
+      accountState: { kind: "unauthenticated" },
+      isPasswordRecovery: false,
+    };
   }
+
+  const isPasswordRecovery = hasPasswordRecoveryAuthenticationMethod(
+    claims?.amr,
+  );
 
   let accountResult;
 
@@ -35,28 +67,64 @@ export async function getAccountSessionState(
       .limit(1)
       .maybeSingle<{ status: string }>();
   } catch {
-    return { kind: "query-error", userId };
+    return {
+      accountState: { kind: "query-error", userId },
+      isPasswordRecovery,
+    };
   }
 
   if (accountResult.error) {
-    return { kind: "query-error", userId };
+    return {
+      accountState: { kind: "query-error", userId },
+      isPasswordRecovery,
+    };
   }
 
   if (!accountResult.data) {
-    return { kind: "account-missing", userId };
+    return {
+      accountState: { kind: "account-missing", userId },
+      isPasswordRecovery,
+    };
   }
 
   const status = (accountResult.data as { status?: unknown }).status;
 
   if (status === "active") {
-    return { kind: "active", userId };
+    return {
+      accountState: { kind: "active", userId },
+      isPasswordRecovery,
+    };
   }
 
   if (typeof status !== "string") {
-    return { kind: "query-error", userId };
+    return {
+      accountState: { kind: "query-error", userId },
+      isPasswordRecovery,
+    };
   }
 
-  return { kind: "non-active", userId };
+  return {
+    accountState: { kind: "non-active", userId },
+    isPasswordRecovery,
+  };
+}
+
+export async function getAccountSessionState(
+  supabase: SupabaseClient,
+): Promise<AccountSessionState> {
+  const context = await getAuthSessionContext(supabase);
+
+  return context.accountState;
+}
+
+export function canUpdatePasswordFromRecovery(
+  context: AuthSessionContext,
+) {
+  return (
+    context.isPasswordRecovery &&
+    (context.accountState.kind === "active" ||
+      context.accountState.kind === "non-active")
+  );
 }
 
 export async function endCurrentAuthSession(supabase: SupabaseClient) {

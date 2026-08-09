@@ -1,34 +1,66 @@
 import { NextResponse } from "next/server";
 
 import {
+  canUpdatePasswordFromRecovery,
   endCurrentAuthSession,
   getAccountGateError,
-  getAccountSessionState,
+  getAuthSessionContext,
 } from "@/lib/supabase/account-session";
 import { createClient } from "@/lib/supabase/server";
 
-function getSafeNextPath(value: string | null) {
-  if (value?.startsWith("/") && !value.startsWith("//")) {
-    return value;
-  }
-
-  return "/home";
+function hasPasswordRecoveryRedirectType(data: unknown) {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "redirectType" in data &&
+    (data as { redirectType?: unknown }).redirectType === "recovery"
+  );
 }
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const nextPath = getSafeNextPath(requestUrl.searchParams.get("next"));
+  const requestedRecoveryFlow =
+    requestUrl.searchParams.get("flow") === "recovery";
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } =
+      await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      const accountState = await getAccountSessionState(supabase);
+      const sessionContext = await getAuthSessionContext(supabase);
+      const hasRecoveryRedirectType =
+        hasPasswordRecoveryRedirectType(data);
+
+      if (
+        requestedRecoveryFlow ||
+        hasRecoveryRedirectType ||
+        sessionContext.isPasswordRecovery
+      ) {
+        if (
+          hasRecoveryRedirectType &&
+          canUpdatePasswordFromRecovery(sessionContext)
+        ) {
+          return NextResponse.redirect(
+            new URL("/reset-password", requestUrl.origin),
+          );
+        }
+
+        await endCurrentAuthSession(supabase);
+
+        return NextResponse.redirect(
+          new URL(
+            "/reset-password?error=invalid-link",
+            requestUrl.origin,
+          ),
+        );
+      }
+
+      const accountState = sessionContext.accountState;
 
       if (accountState.kind === "active") {
-        return NextResponse.redirect(new URL(nextPath, requestUrl.origin));
+        return NextResponse.redirect(new URL("/home", requestUrl.origin));
       }
 
       await endCurrentAuthSession(supabase);
@@ -40,6 +72,12 @@ export async function GET(request: Request) {
         ),
       );
     }
+  }
+
+  if (requestedRecoveryFlow) {
+    return NextResponse.redirect(
+      new URL("/reset-password?error=invalid-link", requestUrl.origin),
+    );
   }
 
   return NextResponse.redirect(

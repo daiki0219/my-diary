@@ -20,6 +20,7 @@ function SubmitButton({ label }: { label: string }) {
   return (
     <button
       className="w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400"
+      aria-disabled={pending}
       disabled={pending}
       type="submit"
     >
@@ -72,6 +73,16 @@ export function AuthForm({ action, mode }: AuthFormProps) {
           required
           type="password"
         />
+        {isLogin && (
+          <p className="mt-2 text-right text-sm">
+            <Link
+              className="font-semibold text-orange-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              href="/forgot-password"
+            >
+              パスワードを忘れた方
+            </Link>
+          </p>
+        )}
         {!isLogin && (
           <p className="mt-2 text-xs leading-5 text-stone-500">
             6文字以上で設定してください。

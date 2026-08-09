@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-09
 - 調査時branch: `main`
-- 調査基準HEAD: `0327547e70550d3f544ab69ff65db55daec1be21`
-- 調査基準HEADのmessage: `feat: add calendar data foundation`
+- 調査基準HEAD: `f23b617f4407245ded6c3c1d147d38a056046f06`
+- 調査基準HEADのmessage: `feat: add calendar UI`
 
 ### 更新ルール
 
@@ -42,18 +42,18 @@
 
 | 状態 | 件数 |
 | --- | ---: |
-| 実装済み | 32 |
+| 実装済み | 33 |
 | 一部実装済み | 4 |
-| 未実装 | 5 |
+| 未実装 | 4 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
 | 合計 | 58 |
 
-現在は、メールアドレスとパスワードによる認証、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
+現在は、メールアドレスとパスワードによる認証とパスワード再設定、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
 DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤を追加し、Phase C2c-2では4種類のsource INSERTへ同一transactionの通知生成triggerを接続した。Phase C2c-3ではRLS下の通知一覧、未読件数、個別・すべて既読、Server側で再評価するtarget遷移、削除済みcomment等のneutral表示をApplication / UIへ接続した。Phase C3bではtimezone DB validator、viewer timezone helper、`/settings`、Server Actionを追加した。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは20ファイル、plan合計954 assertionで、timezone direct UPDATEの無効値拒否、本人・他人・non-active境界を含むDB認可を対象としている。
 
-MVP完了条件との差分には、場所入力UIがある。パスワードリセットとOAuth、avatarも未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了し、Phase C3c-1ではstrict month/date validation、DST対応のlocal month境界、本人Calendar posts query、日単位summaryと選択日data shapeを実装した。Phase C3c-2では`/calendar`、月grid、前後月・今月遷移、日別marker、日付選択、選択日投稿一覧、responsive / accessibilityを実装した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分には、場所入力UIがある。パスワードリセットはPhase C4aで完了し、OAuthとavatarは未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了し、Phase C3c-1ではstrict month/date validation、DST対応のlocal month境界、本人Calendar posts query、日単位summaryと選択日data shapeを実装した。Phase C3c-2では`/calendar`、月grid、前後月・今月遷移、日別marker、日付選択、選択日投稿一覧、responsive / accessibilityを実装した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
 Phase C3bでは、`accounts.timezone`をPostgreSQL timezone catalogで検証するtriggerと、runtime標準timezone option、viewer timezone helper、`/settings`、Server Actionを追加した。repository / local / remoteは20 migrationで一致し、全pgTAPは20ファイル・`954 / 954 PASS`である。
 
@@ -61,8 +61,8 @@ Phase C3bでは、`accounts.timezone`をPostgreSQL timezone catalogで検証す�
 
 正式仕様上のMVP分類と、公開前の実装優先順位は別に管理する。
 
-- 公開前に重要: Phase C3c-2のcalendar UIまで完了。残るMVP差分の優先順位を再評価する
-- 強く推奨: password reset、`location_name`のUI接続、follow / profile / user検索等の固定件数改善
+- 公開前に重要: Phase C4aのpassword resetまで完了。remote AuthのSite URL / Redirect URLsと実メール配信を公開環境で確認する
+- 強く推奨: `location_name`のUI接続、follow / profile / user検索等の固定件数改善
 - MVP対象だが後順位: Google login、Apple login、avatar、timezone以外のsettings、profile / follow list等のpagination
 - MVP後またはmaintenanceへ延期可能: 長期orphan cleanup、soft-deleted画像のphysical delete、保持期間後のphysical delete、正式仕様のPhase 2以降の機能
 
@@ -82,7 +82,7 @@ Phase C3bでは、`accounts.timezone`をPostgreSQL timezone catalogで検証す�
 | pgTAP | 20ファイル、plan合計954。C3bの全回帰は`954 / 954 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 調査基準commit | `0327547e70550d3f544ab69ff65db55daec1be21` | `feat: add calendar data foundation`。Phase C3c-1までを含む |
+| 調査基準commit | `f23b617f4407245ded6c3c1d147d38a056046f06` | `feat: add calendar UI`。Phase C3c-2までを含む |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -94,12 +94,12 @@ Server Componentがpageとデータ取得を担当し、入力フォーム、フ
 | --- | --- | --- | --- |
 | email/password会員登録 | 実装済み | `/sign-up`、`signUp` Server Action、email確認callback。`my_diary_on_auth_user_created`が`accounts`と`profiles`を作成 | なし |
 | ログイン・ログアウト・session・未認証遷移 | 実装済み | `/login`、`login`、`logout`、SSR cookie更新、各protected pageの`getClaims()`と`/login` redirect | 公開投稿の匿名閲覧は採用せず、認証画面へ誘導する方式 |
-| パスワードリセット | 未実装 | 対応route、action、UIなし | reset request、callback、password更新を実装する |
+| パスワードリセット | 実装済み | `/forgot-password`、account enumerationを避けるgeneric案内、Supabase SSR / PKCE callback、SDK `redirectType=recovery`とJWT `amr=recovery`の二重確認、recovery専用`/reset-password`、`updateUser()`、local sign-out、新passwordでの再loginを実装 | remote SupabaseのSite URL / Redirect URLs・SMTP、期限切れlink、実ブラウザ初回redirectと実キーボードは公開前確認 |
 | Googleログイン | 未実装 | OAuth actionとUIなし | provider設定と通常OAuth導線が必要 |
 | Appleログイン | 未実装 | OAuth actionとUIなし | provider設定と通常OAuth導線が必要 |
 | suspended account制御 | 実装済み | Phase C1aでDB / RLSをfail-closed化し、Phase C1bでlogin・即時session付きsign-up・callback・protected request・画像request・Server Action requestへ共通status gateを追加。本人accounts statusだけを取得し、`active`以外・row欠損・query失敗はfail-closedでcurrent sessionを終了し、固定codeのgeneric messageへ誘導する | ローカル統合回帰と実ブラウザ主要シナリオを確認済み。320〜390pxはBrowser viewport overrideが反映されず未確認 |
 
-主な関連コードは`src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/server.ts`、`src/lib/supabase/proxy.ts`である。主な関連テストは`0001_core_rls.test.sql`、`0004_user_search_and_follows.test.sql`、`0006_user_profile_posts_rls.test.sql`、`0007_follow_lists_rls.test.sql`である。
+主な関連コードは`src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/app/(auth)/forgot-password/page.tsx`、`src/app/(auth)/reset-password/page.tsx`、`src/components/auth/password-reset-request-form.tsx`、`src/components/auth/password-update-form.tsx`、`src/lib/auth-validation.ts`、`src/lib/supabase/server.ts`、`src/lib/supabase/account-session.ts`、`src/lib/supabase/proxy.ts`である。主な関連テストは`0001_core_rls.test.sql`、`0004_user_search_and_follows.test.sql`、`0006_user_profile_posts_rls.test.sql`、`0007_follow_lists_rls.test.sql`である。
 
 ### 4.2 プロフィール
 
@@ -268,7 +268,9 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 | `/` | page | landing、新規登録・ログイン導線 |
 | `/login` | page | email/passwordログイン |
 | `/sign-up` | page | email/password会員登録 |
-| `/auth/callback` | route handler | email確認codeをsessionへ交換 |
+| `/forgot-password` | page | account存在を露出しないパスワード再設定メール申請 |
+| `/reset-password` | page | SDK marker・JWT AMR・account状態を再検証したrecovery session専用のpassword更新 |
+| `/auth/callback` | route handler | email確認またはpassword recoveryのPKCE codeをsessionへ交換し、固定same-origin pathへ遷移 |
 | `/home` | page | 認証済みviewer向けのフォロー中・最新投稿timeline。20件forward cursor pagination、feed bind、不正cursorのgeneric error、home本文280 codepoints省略に対応（`feed=following` / `feed=latest`） |
 | `/calendar` | page | viewer timezone基準の本人月別Calendar。前後月・今月遷移、日別件数・最新mood marker、今日・選択日、選択日投稿一覧を表示（`month=YYYY-MM&date=YYYY-MM-DD`） |
 | `/notifications` | page | RLS上見える通知を20件ずつ表示し、未読 / 既読、個別・すべて既読、target遷移を提供 |
@@ -354,6 +356,8 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 ### 9.2 実行結果の区別
 
+- Phase C4aではDB schema・RLS・migration・pgTAP定義・packageを変更せず、Supabase SSR / PKCEのpassword recoveryをApplication / UIへ接続した。`resetPasswordForEmail()`の利用者向け結果は登録済み・未登録emailで同じgeneric案内とし、callbackは固定same-origin pathだけを使う。インストール済みAuth SDKがPKCE verifierへ保存するrecovery marker由来のruntime `redirectType`を安全なshape guardで読み、JWT `amr=recovery`とactive / non-active account rowの両方を再検証する。recovery sessionはProxyで`/reset-password`以外へ通さず、更新Server Actionも同じcontextを再検証し、`updateUser()`成功後にlocal sign-outして新passwordによる通常loginを要求する。通常UIとlocal Auth / mail captureで登録済み・未登録の同一案内、新規recovery email、callback判定、password入力境界、更新、旧password拒否、新password login、protected route、logout、直接アクセス・code欠損・malformed callback・使用済みlinkのgeneric拒否を確認した。自動Browserではcallback直後の同一redirect chainだけcookie未反映のinvalid表示となり、次の通常requestでは有効なformとなった。Supabase SSRの標準cookie保存実装と次requestの成立、独自1-hopでも同じ挙動だったことからautomation制約として記録し、そのためのproduction workaroundは追加していない。320 / 360 / 375 / 390 / 1280pxは横scrollなし、semantic label・ARIA・focus-visible実装とconsole warning / error 0件を確認した。実キーボード、瞬間的pending目視、期限切れlink、remote Auth / SMTPは未確認である。最終`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`は成功した。DB変更がないためpgTAPは再実行せず、既存`954 / 954 PASS`は過去結果として区別する。local Auth fixtureは通常UIに削除経路がないため残している。Service Role、Auth Admin API、remote DB / Auth、stage、commit、pushは使用・変更・実施していない。
+
 - Phase C3bでは既存19 migrationを変更せず、`20260809000400_validate_account_timezones.sql`と`0020_account_timezone_validation.test.sql`を各1件追加した。変更前はactiveなauthenticated本人が`Invalid/Timezone`を直接UPDATEできることをロールバック付きfixtureで再現した。新triggerは`pg_timezone_names`完全一致を使い、`posix/*`とIntl非対応の`Factory`を除外する。functionは追加権限が不要な`SECURITY INVOKER`、owner=`postgres`、空search path、trigger専用ACLとした。Applicationは`Intl.supportedValuesOf('timeZone')`＋`UTC`、runtime validation、viewer timezone helper、`/settings`、claims由来本人ID・通常Supabase client・既存RLSを使うServer Action、home導線、pending・成功・generic errorを実装した。DB validatorが受理する597 timezoneはNode Intlで全件利用でき、Application option 419件も全件DB受理可能で、不一致は両方向0件だった。認証済みローカルBrowser回帰で初期`Asia/Tokyo`、419候補、`America/New_York`・`Europe/London`・`Asia/Tokyo`の保存、保存直後表示、reload・再訪保持、home導線、320 / 360 / 375 / 390 / 1280pxの横scrollなし、label・説明関連付け・focus-visible・status、console warning / error 0件を確認した。保存直後だけselectが旧defaultへ戻る問題を検出し、selectを保存済みtimezoneでremountする最小修正を行った。通常authenticated clientの`Invalid/Timezone`直接UPDATEは`23514`で拒否され保存値は不変だった。Browser DOM tampering、瞬間的pending目視、信頼できるTab / Shift+Tab / Arrow移動は未実施で、helper・pgTAP・direct UPDATEと、`useFormStatus`・disabled / `aria-disabled`・semantic実装確認で補完した。reset後fixtureは0件で、新規`31 / 31`、全20ファイル`954 / 954 PASS`、timezone helper 14 assertion、`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`が成功した。remote migration履歴はread-onlyで19件を確認し、C3b migration未適用、remote mutation・Auth・Storage、Service Role、Auth Admin API、package変更、calendar、stage、commit、pushは未実施である。
 
 - Phase C2c-3ではDB schema・RLS・migration・pgTAP定義を変更せず、RLS下の通知data layer、20件複合cursor pagination、actor profile / target commentのbatch hydrate、4 type文言、未読 / 既読、個別・すべて既読、home badge、通知IDだけをClient入力とするServer Action、Server側で現在のnotification / profile / commentを再評価するtarget遷移、利用不能targetのneutral表示を実装した。全19 pgTAP `923 / 923`、`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`が成功した。認証済みローカルブラウザ回帰では通常sign-up / loginと既存mutationだけを使い、follow / reaction / comment / reply、個別既読とreload保持、通知openの既読化・正しいtarget遷移、すべて既読、未読badge、利用不能comment / replyのneutral表示、stale click、post可視性の再評価、不正cursor 6種のfail-closed、22件を`20 / 2`で表示するpaginationを確認した。通知内に本文・`deleted_at`・raw UUID・DB errorは露出せず、320 / 360 / 375 / 390 / 1280pxで横スクロールはなく、browser consoleのerror / warning、React warning、hydration errorは0件だった。検証中の専用server stderrでfixture account切替時に`refresh_token_not_found`が2回あったが、後続loginと通知操作は成功し、C2c-3固有の不具合とは確認できなかったため修正していない。fixtureはローカルresetで清掃し、全pgTAP `923 / 923`を再確認した。実キーボードのTab / Shift+Tab / Enter / Spaceと、低速環境での個別既読・すべて既読のpending表示目視は未実施の手動確認として残す。remote DB / Storageのschema・migration・既存dataは変更せず、Service Role・Auth Admin・直接notifications INSERTは使用していない。
@@ -415,6 +419,7 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 10. root-level `loading.tsx`と`error.tsx`はなく、未認証redirectと一般error handlingはpageごとに一部重複している。non-active status gateはProxyと共通helperへ集約済みで、protected layoutはClient navigation、Server Action、画像Route Handlerを単独では覆えないため追加していない。
 11. 自由タグは入力・投稿リンク・一覧・詳細・検索まで実装済みである。入力順を保存するcolumnはなく、投稿上はcode point順、タグ一覧・検索はDBの`normalized_name`順で表示する。検索の部分一致は現時点で専用indexを追加せず、RLS適用後のscan性能は大規模データで再評価が必要である。最大5個はauthenticatedのRPC経路で保証し、特権roleの直接SQLを禁止するconstraint triggerは置いていない。認証済みブラウザ回帰は完了したが、同一`created_at`の実データ、suspended author、瞬間的loading、実キーボードによるTab / Enterは未確認である。
 12. 投稿検索はNFKC化したtitle / bodyへの部分一致で、専用indexを追加していない。大規模データでRLS適用後のscan性能を再評価する必要がある。cursorはPostgRESTのtimestamp文字列をDateへ変換せず保持する。suspended author / viewerはpgTAPで確認し、通常UIによるブラウザ再現は未実施である。自動ブラウザのTab / Enter key injectionも再現できず、実キーボード確認が残る。
+13. password recoveryの自動Browser検証ではcallbackの同一redirect chain直後だけcookieが見えずinvalid表示となり、次の通常requestでは有効なformとなった。SDKのcallback交換・recovery marker・JWT AMR・account gateは成立し、次requestへcookieが反映されるためautomation制約と判断しているが、公開前に通常の実ブラウザで初回表示を手動確認する。remote SupabaseのSite URL / Redirect URLs・SMTP、期限切れlink、実キーボード操作も未確認である。
 
 ## 11. 次Phase候補
 
@@ -458,11 +463,19 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 - browser: 通常UIで同日3件と3公開範囲、mood未設定を含むfixtureを作成し、月遷移、年跨ぎ、URL保持、不正parameter、timezone境界、詳細遷移、empty state、320 / 360 / 375 / 390 / 1280px、semantic DOM、focus-visible、console warning / error 0件を確認した。fixture投稿は通常UIでsoft deleteしtimezoneを復元した。実キーボードによるTab / Shift+Tab / Enter操作は自動注入が安定せず未確認である。
 - DB / package: schema、migration、pgTAP定義、package、remote DBは変更していない。
 
-### C3c-2完了後の主な候補
+### C4a Password Resetの実装状態
 
-1. password resetを追加し、Google / Apple OAuthはprovider設定を含む別Phaseで扱う。
-2. `location_name`のform・Server Action・表示を既存atomic投稿更新へ接続する。
-3. profile投稿・follow一覧・ユーザー検索等の固定件数をcursor paginationで改善する。
+- request / enumeration: `/login`から`/forgot-password`へ進み、通常Supabase clientの`resetPasswordForEmail()`を使う。登録済み・未登録emailとも同一のgeneric成功案内とし、raw Auth errorを表示しない。
+- callback / authorization: 既存`/auth/callback`のPKCE交換と通常email-confirmation flowを維持する。固定`flow=recovery`はrecovery候補のfail-closed分岐にだけ使い、SDK runtime `redirectType=recovery`とJWT `amr=recovery`、claims由来user IDに対する通常clientのaccount statusを再検証する。両recovery証拠とactive / non-active account rowが揃う場合だけ`/reset-password`を許可し、row欠損・query失敗は拒否してlocal sessionを終了する。任意`next`やabsolute URLは受け付けない。
+- reset / session: recovery sessionはProxyで`/reset-password`以外の通常Applicationへ通さず、Server Actionでもcontextを再検証する。signupと共有する6文字以上validation、confirmation一致を確認して`updateUser()`し、成功後はlocal sign-out、`/login`、新passwordの通常loginとする。
+- browser / limitations: local Auth / mail captureと通常UIで、同一のenumeration-safe案内、新規link、更新、旧password拒否、新password login、protected route、logout、invalid / malformed / reused link、5幅responsive、semantic / ARIA、console 0件を確認した。callback直後のautomation cookie反映、実キーボード、瞬間的pending、期限切れlink、remote Auth / SMTPは未確認として残す。local Auth fixtureは通常UIに削除経路がないため残存する。
+- DB / package: schema、migration、pgTAP定義、package、remote DB / Authは変更していない。Service RoleとAuth Admin APIは使用していない。
+
+### C4a完了後の主な候補
+
+1. `location_name`のform・Server Action・表示を既存atomic投稿更新へ接続する。
+2. profile投稿・follow一覧・ユーザー検索等の固定件数をcursor paginationで改善する。
+3. Google / Apple OAuthとavatarはprovider・Storage設定を含む別Phaseで扱う。
 
 Phase B3dの投稿画像追加・削除・並び替えは完了済みであり、次Phase候補ではない。長期orphan回収、soft delete画像と保持期間後の物理削除は後続maintenanceとして別に扱う。
 
@@ -470,6 +483,7 @@ Phase B3dの投稿画像追加・削除・並び替えは完了済みであり�
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-09 | commit前。基準HEAD `f23b617f4407245ded6c3c1d147d38a056046f06` | Phase C4aとしてSupabase SSR / PKCEのpassword reset request、account enumerationを避けるgeneric案内、既存callbackのSDK recovery marker＋JWT AMR二重確認、recovery session専用gate、共有password validation、password更新後local sign-outと新password loginを実装。通常UIとlocal Auth / mail captureで登録済み・未登録の同一案内、新規recovery、入力境界、更新、旧password拒否、新password login、protected route、logout、直接・malformed・使用済みlink、5幅responsive、ARIA、console 0件を確認。callback直後の同一redirect chainだけcookie反映が遅れ、次requestは正常だったためautomation制約として記録し、production workaroundは追加していない。実キーボード、瞬間的pending、期限切れlink、remote Auth / SMTPは未確認。lint、typecheck、build、diff checkは成功。DB・migration・pgTAP定義・package・remote DB / Authは変更せず、既存954件は未再実行の過去結果。local fixtureは残存し、Service Role・Auth Admin API・stage・commit・pushは未使用・未実施 |
 | 2026-08-09 | commit前。基準HEAD `0327547e70550d3f544ab69ff65db55daec1be21` | Phase C3c-2として`/calendar`、semantic table月grid、前後月・今月遷移、日別件数・最新mood marker、今日・選択日、選択日全投稿一覧、home導線、投稿mutation後の再検証を実装。date-only queryもDB取得前にfail-closed化した。通常UIで同日3件・3公開範囲・mood未設定、月/年跨ぎ、URL reload・back / forward、不正・重複parameter、詳細遷移、timezone変更による日付境界再計算、320 / 360 / 375 / 390 / 1280px、semantic DOM、focus-visible、console warning / error 0件を確認し、fixture投稿をsoft delete、timezoneを復元、logoutした。実キーボードのTab / Shift+Tab / Enterは自動注入が安定せず未確認。419 runtime timezoneのCalendar assertion、lint、typecheck、build、diff checkが成功。DB・migration・pgTAP定義・package・remote DB、Service Role、Auth Admin API、stage・commit・pushは変更・使用・実施していない |
 | 2026-08-09 | commit前。基準HEAD `f70bd4929ec7aedbe88e6b83cf50f864b8df05e3` | Phase C3c-1としてstrict month/date parser、viewer timezone基準の現在月・今日・前後月、Intlによるlocal month開始ごとの独立UTC変換、本人Calendar posts query、local date、日別post count・最新mood、選択日全投稿data shapeを実装。Tokyo / New York / Londonの境界、同一instantの日付差、同日複数投稿の`created_at DESC, id DESC`、query条件と419 runtime timezoneの3月・8月境界をNode assertionで確認した。既存viewer helperのclaims由来本人ID、通常authenticated client、本人filter、未削除、half-open range、既存posts RLSを維持し、Service Role・SECURITY DEFINERは追加していない。lint、typecheck、build、diff checkが成功。UI・browserは対象外。DB・migration・pgTAP定義・package・remote DBは変更せず、stage・commit・pushは未実施 |
 | 2026-08-09 | commit前。基準HEAD `95a007477ebf3a021592f196476a482cd3748344` | Phase C3bとして`accounts.timezone`のDB validator trigger、pgTAP 31件、runtime標準IANA option・validation、viewer timezone helper、`/settings`、本人claimsと既存RLSを使うServer Action、home導線、pending・成功・generic error UIを実装。DB受理597件とNode Intl、Application option 419件とDB validatorの双方向不一致0件を確認。認証済みローカルBrowser回帰で保存直後のselectだけが旧値へ戻る問題を検出し、保存済みtimezoneでselectをremountする最小修正後、複数timezone保存・reload / 再訪保持・5幅responsive・accessibility・consoleを確認した。通常authenticated direct invalid UPDATEは拒否され、fixtureはlocal resetで清掃した。新規31件・全954件のpgTAP、helper 14件、lint、typecheck、build、diff checkを再確認。remote migration、Service Role、Auth Admin API、package変更、calendar、stage、commit、pushは未実施 |

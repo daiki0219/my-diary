@@ -4,13 +4,30 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
+  getPasswordValidationError,
+} from "@/lib/auth-validation";
+import {
+  canUpdatePasswordFromRecovery,
   endCurrentAuthSession,
   getAccountSessionState,
+  getAuthSessionContext,
 } from "@/lib/supabase/account-session";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthActionState = {
   error: string | null;
+};
+
+export type PasswordResetRequestActionState = {
+  emailInvalid: boolean;
+  error: string | null;
+  success: boolean;
+};
+
+export type PasswordUpdateActionState = {
+  confirmationInvalid: boolean;
+  error: string | null;
+  passwordInvalid: boolean;
 };
 
 function getCredentials(formData: FormData) {
@@ -50,26 +67,100 @@ function getAuthErrorMessage(code?: string) {
   }
 }
 
-async function getEmailRedirectTo() {
-  const requestHeaders = await headers();
-  const candidate =
-    process.env.NEXT_PUBLIC_SITE_URL || requestHeaders.get("origin");
-
+function getHttpOrigin(candidate: string | null) {
   if (!candidate) {
-    return undefined;
+    return null;
   }
 
   try {
-    const siteUrl = new URL(candidate);
+    const url = new URL(candidate);
 
-    if (siteUrl.protocol !== "http:" && siteUrl.protocol !== "https:") {
-      return undefined;
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
     }
 
-    return new URL("/auth/callback", siteUrl).toString();
+    return url.origin;
   } catch {
+    return null;
+  }
+}
+
+function getFirstHeaderValue(value: string | null) {
+  return value?.split(",", 1)[0]?.trim() || null;
+}
+
+async function getTrustedSiteOrigin() {
+  const configuredOrigin = getHttpOrigin(
+    process.env.NEXT_PUBLIC_SITE_URL ?? null,
+  );
+
+  if (configuredOrigin) {
+    return configuredOrigin;
+  }
+
+  const requestHeaders = await headers();
+  const requestOrigin = getHttpOrigin(requestHeaders.get("origin"));
+
+  if (!requestOrigin) {
     return undefined;
   }
+
+  const originUrl = new URL(requestOrigin);
+  const expectedHost =
+    getFirstHeaderValue(requestHeaders.get("x-forwarded-host")) ??
+    requestHeaders.get("host");
+  const expectedProtocol = getFirstHeaderValue(
+    requestHeaders.get("x-forwarded-proto"),
+  );
+
+  if (expectedHost && originUrl.host !== expectedHost) {
+    return undefined;
+  }
+
+  if (
+    expectedProtocol &&
+    originUrl.protocol !== `${expectedProtocol.toLowerCase()}:`
+  ) {
+    return undefined;
+  }
+
+  return requestOrigin;
+}
+
+async function getEmailRedirectTo(flow?: "recovery") {
+  const siteOrigin = await getTrustedSiteOrigin();
+
+  if (!siteOrigin) {
+    return undefined;
+  }
+
+  const callbackUrl = new URL("/auth/callback", siteOrigin);
+
+  if (flow === "recovery") {
+    callbackUrl.searchParams.set("flow", "recovery");
+  }
+
+  return callbackUrl.toString();
+}
+
+function getPasswordResetRequestEmail(formData: FormData) {
+  const value = formData.get("email");
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const email = value.trim();
+
+  if (
+    !email ||
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+$/.test(email)
+  ) {
+    return null;
+  }
+
+  return email;
 }
 
 export async function login(
@@ -116,8 +207,10 @@ export async function signUp(
     return { error: "有効なメールアドレスとパスワードを入力してください。" };
   }
 
-  if (credentials.password.length < 6) {
-    return { error: "パスワードは6文字以上で入力してください。" };
+  const passwordError = getPasswordValidationError(credentials.password);
+
+  if (passwordError) {
+    return { error: passwordError };
   }
 
   const emailRedirectTo = await getEmailRedirectTo();
@@ -156,6 +249,110 @@ export async function signUp(
   }
 
   redirect("/sign-up?status=check-email");
+}
+
+export async function requestPasswordReset(
+  _previousState: PasswordResetRequestActionState,
+  formData: FormData,
+): Promise<PasswordResetRequestActionState> {
+  const email = getPasswordResetRequestEmail(formData);
+
+  if (!email) {
+    return {
+      emailInvalid: true,
+      error: "有効なメールアドレスを入力してください。",
+      success: false,
+    };
+  }
+
+  const redirectTo = await getEmailRedirectTo("recovery");
+
+  if (!redirectTo) {
+    return {
+      emailInvalid: false,
+      error:
+        "パスワード再設定の案内を送信できませんでした。時間をおいてもう一度お試しください。",
+      success: false,
+    };
+  }
+
+  try {
+    const supabase = await createClient();
+    await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  } catch {
+    return {
+      emailInvalid: false,
+      error:
+        "パスワード再設定の案内を送信できませんでした。時間をおいてもう一度お試しください。",
+      success: false,
+    };
+  }
+
+  return {
+    emailInvalid: false,
+    error: null,
+    success: true,
+  };
+}
+
+export async function updatePasswordFromRecovery(
+  _previousState: PasswordUpdateActionState,
+  formData: FormData,
+): Promise<PasswordUpdateActionState> {
+  const password = formData.get("password");
+  const confirmation = formData.get("passwordConfirmation");
+
+  if (typeof password !== "string") {
+    return {
+      confirmationInvalid: false,
+      error: "新しいパスワードを入力してください。",
+      passwordInvalid: true,
+    };
+  }
+
+  const passwordError = getPasswordValidationError(password);
+
+  if (passwordError) {
+    return {
+      confirmationInvalid: false,
+      error: passwordError,
+      passwordInvalid: true,
+    };
+  }
+
+  if (typeof confirmation !== "string" || confirmation !== password) {
+    return {
+      confirmationInvalid: true,
+      error: "確認用パスワードが一致しません。",
+      passwordInvalid: false,
+    };
+  }
+
+  const supabase = await createClient();
+  const recoveryContext = await getAuthSessionContext(supabase);
+
+  if (!canUpdatePasswordFromRecovery(recoveryContext)) {
+    return {
+      confirmationInvalid: false,
+      error:
+        "パスワード再設定を確認できませんでした。もう一度再設定を申し込んでください。",
+      passwordInvalid: false,
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return {
+      confirmationInvalid: false,
+      error:
+        "パスワードを更新できませんでした。もう一度再設定を申し込んでください。",
+      passwordInvalid: false,
+    };
+  }
+
+  await endCurrentAuthSession(supabase);
+  redirect("/login?status=password-reset");
 }
 
 export async function logout() {
