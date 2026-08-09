@@ -5,6 +5,7 @@ import { PostImageGallery } from "@/components/posts/post-image-gallery";
 import { ReactionControls } from "@/components/posts/reaction-controls";
 import { TagList } from "@/components/posts/tag-list";
 import { getMoodLabel, type TimelinePost } from "@/lib/post-data";
+import { createPostBodyExcerpt } from "@/lib/post-excerpt";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "medium",
@@ -12,9 +13,18 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo",
 });
 
-export function TimelinePostCard({ post }: { post: TimelinePost }) {
+export function TimelinePostCard({
+  post,
+  showBodyExcerpt = false,
+}: {
+  post: TimelinePost;
+  showBodyExcerpt?: boolean;
+}) {
   const normalizedUsername = post.author?.username.trim() || "ユーザー";
   const initial = Array.from(normalizedUsername)[0] ?? "人";
+  const body = showBodyExcerpt
+    ? createPostBodyExcerpt(post.body)
+    : { text: post.body, isTruncated: false };
 
   return (
     <article className="min-w-0 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
@@ -57,8 +67,22 @@ export function TimelinePostCard({ post }: { post: TimelinePost }) {
       <TagList tags={post.tags} />
 
       <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
-        {post.body}
+        {body.text}
       </p>
+
+      {body.isTruncated && (
+        <Link
+          aria-label={
+            post.title
+              ? `投稿「${post.title}」を続きを読む`
+              : "この投稿を続きを読む"
+          }
+          className="mt-2 inline-flex rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+          href={`/posts/${post.id}`}
+        >
+          続きを読む
+        </Link>
+      )}
 
       <PostImageGallery images={post.images} />
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/post-data";
 import { getUnreadNotificationCount } from "@/lib/notification-data";
 import { createClient } from "@/lib/supabase/server";
+import { decodeTimelineCursor } from "@/lib/timeline-cursor";
 
 export const metadata: Metadata = {
   title: "タイムライン",
@@ -19,6 +20,7 @@ type HomePageProps = {
   searchParams: Promise<{
     error?: string | string[];
     feed?: string | string[];
+    cursor?: string | string[];
   }>;
 };
 
@@ -57,11 +59,28 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }
 
   const feed = getTimelineFeed(params.feed);
+  const rawCursor = params.cursor;
+  const cursor =
+    typeof rawCursor === "string"
+      ? decodeTimelineCursor(rawCursor, feed)
+      : null;
+  const hasInvalidCursor =
+    rawCursor !== undefined &&
+    (typeof rawCursor !== "string" || cursor === null);
   const [postsResult, unreadNotificationsResult] = await Promise.all([
-    getTimelinePosts(supabase, userId, feed),
+    hasInvalidCursor
+      ? Promise.resolve({
+          data: null,
+          nextCursor: null,
+          error: new Error("Invalid timeline cursor."),
+          reactionsError: null,
+          commentsError: null,
+        })
+      : getTimelinePosts(supabase, userId, feed, cursor),
     getUnreadNotificationCount(supabase),
   ]);
   const { data: posts, error: postsError } = postsResult;
+  const nextCursor = postsResult.nextCursor;
   const unreadNotificationCount = unreadNotificationsResult.count;
   const currentFeedContent = feedContent[feed];
 
@@ -170,19 +189,56 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         )}
 
         {postsError ? (
-          <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5">
+          <div
+            className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5"
+            role="alert"
+          >
             <h2 className="font-semibold text-stone-800">
-              日記を読み込めませんでした
+              タイムラインを読み込めませんでした
             </h2>
-            <p className="mt-2 text-sm leading-6 text-red-700" role="alert">
+            <p className="mt-2 text-sm leading-6 text-red-700">
               時間をおいて、もう一度お試しください。
             </p>
           </div>
         ) : posts && posts.length > 0 ? (
-          <div className="mt-5 space-y-4">
-            {posts.map((post) => (
-              <TimelinePostCard key={post.id} post={post} />
-            ))}
+          <>
+            <ul aria-label="タイムラインの投稿" className="mt-5 space-y-4">
+              {posts.map((post) => (
+                <li className="min-w-0" key={post.id}>
+                  <TimelinePostCard post={post} showBodyExcerpt />
+                </li>
+              ))}
+            </ul>
+            {nextCursor && (
+              <nav aria-label="タイムラインのページ移動" className="mt-6">
+                <Link
+                  className="flex min-h-11 w-full items-center justify-center rounded-full border border-orange-300 bg-orange-50 px-5 py-3 text-center font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+                  href={`/home?feed=${feed}&cursor=${encodeURIComponent(nextCursor)}`}
+                >
+                  次の投稿を見る →
+                </Link>
+              </nav>
+            )}
+            {!nextCursor && cursor && (
+              <p className="mt-6 text-center text-sm text-stone-500">
+                現在表示できる投稿をすべて表示しました。
+              </p>
+            )}
+          </>
+        ) : cursor ? (
+          <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
+            <h2 className="text-lg font-bold text-stone-800">
+              現在表示できる投稿はありません
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              フォロー関係や公開範囲が変更された可能性があります。
+            </p>
+            <Link
+              className="mt-5 inline-flex rounded-full border border-orange-300 bg-orange-50 px-5 py-3 font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              href={`/home?feed=${feed}`}
+            >
+              最初のページへ戻る
+            </Link>
           </div>
         ) : (
           <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">

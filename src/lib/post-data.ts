@@ -13,6 +13,11 @@ import {
   compareCanonicalTagNames,
   type PostTag,
 } from "@/lib/tag-data";
+import {
+  encodeTimelineCursor,
+  type TimelineCursor,
+  type TimelineCursorFeed,
+} from "@/lib/timeline-cursor";
 
 export const POST_MOODS = [
   "happy",
@@ -33,7 +38,7 @@ export const POST_VISIBILITIES = [
 
 export type PostVisibility = (typeof POST_VISIBILITIES)[number];
 
-export type TimelineFeed = "following" | "latest";
+export type TimelineFeed = TimelineCursorFeed;
 
 export const POST_MOOD_OPTIONS: ReadonlyArray<{
   value: PostMood;
@@ -96,7 +101,9 @@ export type PostDetailResult =
     };
 
 const USER_PROFILE_POST_LIMIT = 20;
+export const TIMELINE_PAGE_SIZE = 20;
 const TAG_RELATION_LOAD_ERROR = new Error("Post tag relation shape is invalid.");
+const TIMELINE_DATA_ERROR = new Error("Timeline data is invalid.");
 
 export type RawTagRelations = {
   post_tags: unknown;
@@ -298,7 +305,18 @@ export async function getTimelinePosts(
   supabase: SupabaseClient,
   currentUserId: string,
   feed: TimelineFeed,
+  cursor: TimelineCursor | null,
 ) {
+  if (cursor && cursor.feed !== feed) {
+    return {
+      data: null,
+      nextCursor: null,
+      error: TIMELINE_DATA_ERROR,
+      reactionsError: null,
+      commentsError: null,
+    };
+  }
+
   let postsQuery = supabase
     .from("posts")
     .select(
@@ -316,6 +334,7 @@ export async function getTimelinePosts(
     if (followsResult.error || !followsResult.data) {
       return {
         data: null,
+        nextCursor: null,
         error: followsResult.error,
         reactionsError: null,
         commentsError: null,
@@ -333,10 +352,16 @@ export async function getTimelinePosts(
     postsQuery = postsQuery.eq("visibility", "public");
   }
 
+  if (cursor) {
+    postsQuery = postsQuery.or(
+      `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
+    );
+  }
+
   const postsResult = await postsQuery
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .limit(50)
+    .limit(TIMELINE_PAGE_SIZE + 1)
     .returns<
       Array<
         Omit<
@@ -350,6 +375,7 @@ export async function getTimelinePosts(
   if (postsResult.error || !postsResult.data) {
     return {
       data: null,
+      nextCursor: null,
       error: postsResult.error,
       reactionsError: null,
       commentsError: null,
@@ -361,19 +387,30 @@ export async function getTimelinePosts(
   if (!posts) {
     return {
       data: null,
+      nextCursor: null,
       error: TAG_RELATION_LOAD_ERROR,
       reactionsError: null,
       commentsError: null,
     };
   }
 
+  const visiblePosts = posts.slice(0, TIMELINE_PAGE_SIZE);
   const hydrationResult = await hydrateTimelinePosts(
     supabase,
-    posts,
+    visiblePosts,
     currentUserId,
   );
+  const lastPost = visiblePosts.at(-1);
+  const nextCursor =
+    posts.length > TIMELINE_PAGE_SIZE && lastPost
+      ? encodeTimelineCursor({
+          feed,
+          createdAt: lastPost.created_at,
+          id: lastPost.id,
+        })
+      : null;
 
-  return hydrationResult;
+  return { ...hydrationResult, nextCursor };
 }
 
 export async function hydrateTimelinePosts(
