@@ -8,6 +8,7 @@ import {
   getTimelinePosts,
   type TimelineFeed,
 } from "@/lib/post-data";
+import { getUnreadNotificationCount } from "@/lib/notification-data";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -56,11 +57,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }
 
   const feed = getTimelineFeed(params.feed);
-  const { data: posts, error: postsError } = await getTimelinePosts(
-    supabase,
-    userId,
-    feed,
-  );
+  const [postsResult, unreadNotificationsResult] = await Promise.all([
+    getTimelinePosts(supabase, userId, feed),
+    getUnreadNotificationCount(supabase),
+  ]);
+  const { data: posts, error: postsError } = postsResult;
+  const unreadNotificationCount = unreadNotificationsResult.count;
   const currentFeedContent = feedContent[feed];
 
   return (
@@ -107,6 +109,23 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             href="/tags"
           >
             タグから日記を探す
+          </Link>
+          <Link
+            aria-label={
+              unreadNotificationCount !== null && unreadNotificationCount > 0
+                ? `通知、未読${unreadNotificationCount.toLocaleString("ja-JP")}件`
+                : "通知"
+            }
+            className="mt-3 flex min-w-0 items-center justify-center gap-2 rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
+            href="/notifications"
+          >
+            <span>通知</span>
+            {unreadNotificationCount !== null &&
+              unreadNotificationCount > 0 && (
+                <span className="shrink-0 rounded-full bg-orange-600 px-2.5 py-0.5 text-xs font-bold text-white">
+                  未読 {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                </span>
+              )}
           </Link>
         </div>
 

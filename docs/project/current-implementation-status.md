@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-09
 - 調査時branch: `main`
-- 調査基準HEAD: `7e5cf7669fd82db2b0b91a1868e240ae68ed7ad6`
-- 調査基準HEADのmessage: `feat: add comment reply UI`
+- 調査基準HEAD: `15960c342d32ac12287e11ed8c6d897bbdf34ffe`
+- 調査基準HEADのmessage: `feat: generate notifications`
 
 ### 更新ルール
 
@@ -42,8 +42,8 @@
 
 | 状態 | 件数 |
 | --- | ---: |
-| 実装済み | 25 |
-| 一部実装済み | 8 |
+| 実装済み | 29 |
+| 一部実装済み | 4 |
 | 未実装 | 8 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
@@ -51,15 +51,15 @@
 
 現在は、メールアドレスとパスワードによる認証、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤を追加し、Phase C2c-2では4種類のsource INSERTへ同一transactionの通知生成triggerを接続した。通知一覧・未読/既読・遷移UIは未実装である。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは19ファイル、plan合計923 assertionで、通知生成、ACL、active境界、現在のpost可視性、既読列更新、invalid replyのgeneric errorとatomic rollbackを含むDB認可を対象としている。
+DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤を追加し、Phase C2c-2では4種類のsource INSERTへ同一transactionの通知生成triggerを接続した。Phase C2c-3ではRLS下の通知一覧、未読件数、個別・すべて既読、Server側で再評価するtarget遷移、削除済みcomment等のneutral表示をApplication / UIへ接続した。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは19ファイル、plan合計923 assertionで、通知生成、ACL、active境界、現在のpost可視性、既読列更新、invalid replyのgeneric errorとatomic rollbackを含むDB認可を対象としている。
 
-MVP完了条件との差分には、場所入力UI、タイムラインのページネーション、通知一覧・未読/既読・遷移UI、カレンダー、設定がある。パスワードリセットとOAuth、avatarも未完成である。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤とfollow / reaction / comment / reply生成までPhase C2c-1 / C2c-2で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分には、場所入力UI、タイムラインのページネーション、カレンダー、設定がある。パスワードリセットとOAuth、avatarも未完成である。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
 ### 2.1 MVP残差と実装優先順位
 
 正式仕様上のMVP分類と、公開前の実装優先順位は別に管理する。
 
-- 公開前に重要: notifications、timeline pagination / infinite scroll、timezone settings、calendar
+- 公開前に重要: timeline pagination / infinite scroll、timezone settings、calendar
 - 強く推奨: password reset、`location_name`のUI接続、timeline本文省略、follow / profile / user検索等の固定件数改善
 - MVP対象だが後順位: Google login、Apple login、avatar、timezone以外のsettings、profile / follow list等のpagination
 - MVP後またはmaintenanceへ延期可能: 長期orphan cleanup、soft-deleted画像のphysical delete、保持期間後のphysical delete、正式仕様のPhase 2以降の機能
@@ -75,12 +75,12 @@ MVP完了条件との差分には、場所入力UI、タイムラインのペー
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback、request-scoped account status gate | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/account-session.ts`、`src/proxy.ts` |
-| migration | repository / localは19件、remoteは18件。latestはlocalのみの`20260809000300_generate_notifications.sql` | `supabase/migrations/*.sql`、local / linked remote migration list。C2c-2はremote未適用 |
+| migration | repository / local / remoteは19件。latestは`20260809000300_generate_notifications.sql` | `supabase/migrations/*.sql`、local / linked remote migration list |
 | DB table | repository / localは10 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications` |
 | pgTAP | 19ファイル、plan合計923。C2c-2のfresh reset後は`923 / 923 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 調査基準commit | `bac2b1326a3e87beaa009a32bed5e36ac6eb84f9` | `feat: add notification foundation`。Phase C2c-1までを含む |
+| 調査基準commit | `15960c342d32ac12287e11ed8c6d897bbdf34ffe` | `feat: generate notifications`。Phase C2c-2までを含む |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -143,7 +143,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
 | 3種類・追加・解除・変更・件数 | 実装済み | `empathy`、`support`、`relatable`。1投稿1ユーザー1件のUNIQUE、toggle Server Action、種類別・合計件数を表示 | 自分の投稿へのreactionは現在許可されている |
-| reaction通知 | 一部実装済み | `notifications`のreaction shape・post FK・RLS基盤は実装済み | reaction mutationと同一transactionでの通知生成、解除・種類変更時の扱いが未実装 |
+| reaction通知 | 実装済み | reaction INSERTと同一transactionで通知を生成し、RLS下の一覧からpostへ遷移する。解除・種類変更では追加通知しない | なし |
 
 関連migrationは`20260726000100_create_reactions.sql`、関連テストは`0002_reactions_rls.test.sql`とvisibility変更を扱う`0005_post_edit_rls.test.sql`である。
 
@@ -152,8 +152,8 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
 | 投稿・表示・本人soft delete・件数 | 実装済み | 投稿詳細で最大100件を古い順に表示。1〜1,000文字、閲覧可能投稿だけに作成可能。本人専用RPCでsoft delete | 投稿者による他者comment削除方針は未決定 |
-| 返信 | 実装済み | nullable `parent_comment_id`、同一post・top-level・未削除・active parentを検証するDB trigger、安定取得indexをlocal / remoteへ実装。既存comment作成・soft-delete経路を再利用した返信Server Action、古い順の1階層親子表示、inline form、削除済み・取得不能な親のneutral placeholderを実装 | 通知は後続Phase。comment一覧は古い順100件固定 |
-| 通知 | 一部実装済み | comment / reply shape、自己通知CHECK、target FK、recipient専用RLSは実装済み | comment / reply mutationからの生成と削除済み対象のUI表示が未実装 |
+| 返信 | 実装済み | nullable `parent_comment_id`、同一post・top-level・未削除・active parentを検証するDB trigger、安定取得indexをlocal / remoteへ実装。既存comment作成・soft-delete経路を再利用した返信Server Action、古い順の1階層親子表示、inline form、削除済み・取得不能な親のneutral placeholderを実装 | comment一覧は古い順100件固定 |
+| 通知 | 実装済み | comment / reply INSERTと同一transactionで通知を生成し、target commentをRLS下でbatch確認する。利用不能targetは本文やUUIDを出さずneutral表示し、既読化できる | なし |
 | コメント通報 | MVP後 | 正式仕様のPhase 2で通報を整備 | `reports` tableとUIなし |
 | コメント編集 | MVP後 | 正式仕様でMVP対象外でもよい | update UI・policyなし |
 
@@ -165,7 +165,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | --- | --- | --- | --- |
 | follow・解除・自己/重複拒否 | 実装済み | Server ActionとRLS、複合PK、CHECKで実装。active targetだけfollow可能 | なし |
 | following / followers一覧 | 実装済み | 自分・他者の4 route、最新順、20件、一覧内follow操作、suspended関係の除外 | paginationは未実装 |
-| follow通知 | 一部実装済み | follow shape、自己通知CHECK、recipient専用RLSは実装済み | follow mutationからの生成、解除・再follow・重複時の扱いが未実装 |
+| follow通知 | 実装済み | follow INSERTと同一transactionで通知を生成し、actor profileをRLS下で取得して遷移する。解除では追加通知せず、再followは新規eventとして扱う | なし |
 | 非公開account・承認制 | MVP後 | MVP対象外 | 将来拡張時にdata modelとRLSを再設計する |
 
 関連migrationはコアschema、`20260726000500_secure_user_search_and_follows.sql`、`20260801000100_secure_follow_lists.sql`、関連テストは`0004`と`0007`である。
@@ -186,7 +186,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
 | カレンダー | 未実装 | route、component、日付別queryなし | timezone、同日複数投稿、気分表示を設計する |
-| 通知 | 一部実装済み | DB / RLS基盤、4 type shape、自己通知拒否、recipient専用SELECT / `is_read`更新を実装 | 通知生成、一覧route / component、未読badge、すべて既読、遷移UIが未実装 |
+| 通知 | 実装済み | DB / RLS、4 type生成、`/notifications`、20件複合cursor、actor / comment batch取得、未読badge、個別・すべて既読、Server側再評価による遷移、利用不能targetのneutral表示を実装 | 大量通知での実データ性能は継続評価する |
 | 設定 | 未実装 | `/settings`相当のrouteなし | timezone等の設定UIを定義する |
 | レスポンシブ | 一部実装済み | mobile-first class、`min-w-0`、`break-words`、`overflow-wrap:anywhere`、幅制限を主要画面に使用。投稿画像galleryを320 / 360 / 375 / 390 / 1280pxで確認済み | repository内にviewport別の自動回帰テストはない |
 | アクセシビリティ | 一部実装済み | label、role、aria-live、focus-visible、semantic heading/link/buttonを主要UIに使用 | 網羅的なkeyboard、contrast、screen readerの自動検証はない |
@@ -210,14 +210,14 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | `tags` | 実装済み | `id`、`name`、`normalized_name`、`created_at` | NFKC canonical name、30 codepoint上限、文字種制約、UNIQUE、可視post連動SELECT。master mutationはatomic RPC内部だけで、入力・投稿表示・一覧・詳細・検索UIを実装済み |
 | `post_tags` | 一部実装済み | `post_id`、`tag_id`、`created_at` | 複合PK、cascade FK、逆引きindex、可視post連動SELECT RLS。RPC内の最大5個検証、post row lock、差分更新を実装 |
 | `post_images` | 実装済み | `id`、`post_id`、`storage_path`、`sort_order`、`created_at` | post物理削除へのcascade FK、`sort_order` 0〜9 CHECK、投稿×順序のdeferrable UNIQUE、path UNIQUE、可視post連動SELECT RLS。authenticatedの直接mutationはなく、作成・編集RPCがStorage object確認後にmetadataをatomic確定・更新。同一origin routeがRLS下でpathを解決して配信し、clientへはidと順序だけを渡す |
-| `notifications` | 一部実装済み | `id`、`recipient_user_id`、`actor_user_id`、`notification_type`、`target_post_id`、`target_comment_id`、`is_read`、`created_at` | account / post / commentへのcascade FK、4 typeとtarget shape・自己通知拒否CHECK、recipient安定順index、active recipient / actorと現在のposts RLSを再評価するrecipient専用SELECT / UPDATE RLS、authenticatedは`UPDATE(is_read)`のみ。生成とUIは未実装 |
+| `notifications` | 実装済み | `id`、`recipient_user_id`、`actor_user_id`、`notification_type`、`target_post_id`、`target_comment_id`、`is_read`、`created_at` | account / post / commentへのcascade FK、4 typeとtarget shape・自己通知拒否CHECK、recipient安定順index、active recipient / actorと現在のposts RLSを再評価するrecipient専用SELECT / UPDATE RLS、authenticatedは`UPDATE(is_read)`のみ。DB trigger生成とRLS下の一覧・既読UIを実装 |
 
 Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reaction_type`をtextとCHECK制約で管理している。主要FKはuser削除またはpost削除に対するcascadeを設定している。物理DELETEは一般ユーザーへ付与せず、postとcommentは専用RPCでsoft deleteする。
 
 ### 5.2 RLS、function、trigger、ACL
 
-- 9つのpublic tableすべてでRLSを明示的に有効化している。
-- public tableのpolicyは合計19件で、accounts 2、profiles 2、posts 3、follows 3、reactions 4、comments 2、tags 1、post_tags 1、post_images 1である。加えて`storage.objects`にpost画像用policyが8件（SELECT 4、INSERT 2、DELETE 2）ある。
+- 10個のpublic tableすべてでRLSを明示的に有効化している。
+- public tableのpolicyは合計21件で、accounts 2、profiles 2、posts 3、follows 3、reactions 4、comments 2、tags 1、post_tags 1、post_images 1、notifications 2である。加えて`storage.objects`にpost画像用policyが8件（SELECT 4、INSERT 2、DELETE 2）ある。
 - `posts` SELECTは本人、active viewer、active author、follow関係、visibility、`deleted_at`をDB側で評価する。
 - reactionsとcommentsは、参照先postを現在のviewerが閲覧できる場合だけSELECT・mutationできる。
 - post_tagsは可視postだけをSELECTでき、tagsは可視なpost_tagsが存在する場合だけSELECTできる。tags → post_tags → postsの一方向評価とし、private・権限外followers・soft-delete済みpostだけに紐づくtag名を隠す。
@@ -235,11 +235,11 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 - `rls_auto_enable()`はevent trigger `ensure_rls`からpublic schemaの新規table、partitioned table、CTAS、SELECT INTOへRLSを有効化する。policyやFORCE RLSは作成しない。
 - `rls_auto_enable()`のEXECUTEは`PUBLIC`、`anon`、`authenticated`、`service_role`、`authenticator`からREVOKEされ、`postgres`だけに残る。
 
-通常triggerは、5 tableの`updated_at`更新とAuth user作成時のaccount/profile作成に使用する。別にevent trigger `ensure_rls`が存在する。
+通常triggerは、5 tableの`updated_at`更新、Auth user作成時のaccount/profile作成、follow / reaction / comment / replyのnotification生成に使用する。別にevent trigger `ensure_rls`が存在する。
 
 ### 5.3 未作成の主要table
 
-MVPの`notifications` tableはDB / RLS基盤まで作成済みで、通知生成・一覧UIは未実装である。`post_images`はDB・private Storage・新規投稿時のupload / preview / atomic metadata確定 / 失敗cleanup、一覧・詳細への認証付き配信と表示、既存投稿での追加・削除・並び替え、保持identity、atomic更新、DB commit後の旧object cleanupまで作成済みである。長期orphan回収、soft delete画像と保持期間後の物理削除は未実装である。`tags`と`post_tags`はDB読み取り・mutation基盤、利用者向け入力・投稿リンク、タグ一覧・詳細・検索まで作成済みである。Phase 2の`reports`、Phase 3以降のcategories、favorites、communities、plushies、events、albumsと各紐付けtableは未作成である。
+`notifications`はDB / RLS、4 type生成、一覧・既読UIまで作成済みである。`post_images`はDB・private Storage・新規投稿時のupload / preview / atomic metadata確定 / 失敗cleanup、一覧・詳細への認証付き配信と表示、既存投稿での追加・削除・並び替え、保持identity、atomic更新、DB commit後の旧object cleanupまで作成済みである。長期orphan回収、soft delete画像と保持期間後の物理削除は未実装である。`tags`と`post_tags`はDB読み取り・mutation基盤、利用者向け入力・投稿リンク、タグ一覧・詳細・検索まで作成済みである。Phase 2の`reports`、Phase 3以降のcategories、favorites、communities、plushies、events、albumsと各紐付けtableは未作成である。
 
 ## 6. MVP後の機能
 
@@ -267,6 +267,7 @@ MVPの`notifications` tableはDB / RLS基盤まで作成済みで、通知生成
 | `/sign-up` | page | email/password会員登録 |
 | `/auth/callback` | route handler | email確認codeをsessionへ交換 |
 | `/home` | page | 認証済みviewer向けのフォロー中・最新投稿timeline（`feed=following` / `feed=latest`） |
+| `/notifications` | page | RLS上見える通知を20件ずつ表示し、未読 / 既読、個別・すべて既読、target遷移を提供 |
 | `/tags` | page | RLS上閲覧可能なタグをcanonical名順に50件ずつ表示 |
 | `/tags/[tagId]` | dynamic page | UUIDで識別したタグと、RLS上閲覧可能な投稿を20件ずつ表示 |
 | `/posts/new` | page | 日記作成 |
@@ -345,6 +346,8 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 ### 9.2 実行結果の区別
 
+- Phase C2c-3ではDB schema・RLS・migration・pgTAP定義を変更せず、RLS下の通知data layer、20件複合cursor pagination、actor profile / target commentのbatch hydrate、4 type文言、未読 / 既読、個別・すべて既読、home badge、通知IDだけをClient入力とするServer Action、Server側で現在のnotification / profile / commentを再評価するtarget遷移、利用不能targetのneutral表示を実装した。全19 pgTAP `923 / 923`、`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`が成功した。認証済みローカルブラウザ回帰では通常sign-up / loginと既存mutationだけを使い、follow / reaction / comment / reply、個別既読とreload保持、通知openの既読化・正しいtarget遷移、すべて既読、未読badge、利用不能comment / replyのneutral表示、stale click、post可視性の再評価、不正cursor 6種のfail-closed、22件を`20 / 2`で表示するpaginationを確認した。通知内に本文・`deleted_at`・raw UUID・DB errorは露出せず、320 / 360 / 375 / 390 / 1280pxで横スクロールはなく、browser consoleのerror / warning、React warning、hydration errorは0件だった。検証中の専用server stderrでfixture account切替時に`refresh_token_not_found`が2回あったが、後続loginと通知操作は成功し、C2c-3固有の不具合とは確認できなかったため修正していない。fixtureはローカルresetで清掃し、全pgTAP `923 / 923`を再確認した。実キーボードのTab / Shift+Tab / Enter / Spaceと、低速環境での個別既読・すべて既読のpending表示目視は未実施の手動確認として残す。remote DB / Storageのschema・migration・既存dataは変更せず、Service Role・Auth Admin・直接notifications INSERTは使用していない。
+
 - Phase C2c-2では既存18 migrationと既存pgTAPを変更せず、`20260809000300_generate_notifications.sql`と`0019_notification_generation.test.sql`を各1件追加した。follow / reaction / commentsのAFTER INSERT triggerから、trigger専用の`SECURITY DEFINER` functionでrecipient / actor / targetをsource rowとDBのcurrent dataから決定する。Application roleの直接EXECUTEとnotifications INSERTは開けず、実DB role=`authenticated`、`auth.uid()`とsource actor一致、actor / recipient active、非自己通知の境界を満たす場合だけ生成する。reaction UPDATE / DELETE、follow DELETEでは生成せず、再INSERTは新規eventとして追加する。replyはvalid parentだけをfail-closedな`INSERT ... SELECT`で通知し、invalid parentでは独自errorを出さず既存validatorの`23514 / invalid parent comment`を維持する。最終local resetで19 migrationをfresh適用し、新規`48 / 48`、関連既存`0017` 45件・`0018` 65件、全19ファイル`923 / 923 PASS`を確認した。linked remote historyはC2c-1まで18件で、C2c-2 migrationは未適用である。既存test、Server Action、notifications RLS / policy / table ACL、package、UIは変更していない。remote migration適用、Service Role、Auth Admin API、stage、commit、pushは未実施である。
 
 - Phase C2c-1では既存17 migrationを変更せず、`20260809000200_create_notifications.sql`を1件追加した。ローカルへincremental適用後、新規pgTAP `65 / 65`を確認し、local DB resetで18件をfresh適用して全pgTAP 18ファイル・`875 / 875 PASS`を確認した。reset前には引き継ぎどおり既存active fixtureが`0016`へ混入する1件失敗を再現し、今回のnotifications回帰と区別した。C2c-1で陳腐化した`0017`のnotifications不在assertionだけを削除し、reply認可期待値と既知fixture期待値は変更していない。repository / localは18 migration、remoteは17 migrationのままで、remote migration適用・linked schema diff・remote fixture・Service Role・Auth Admin APIは未実施である。通知生成、Application / UI、packageは変更していない。UI変更がないためbrowser / responsive検証は対象外である。
@@ -395,7 +398,7 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 4. timelineは最大50件、他者投稿とfollow一覧は最新20件、comment一覧は古い順100件で打ち切り、継続取得を実装していない。
 5. timelineはフォロー中と最新投稿に分離済みだが、一覧本文を省略しない。フォロー中feedのauthor filterは`.in(...)`を使用するため、大量follow時のURL長・query性能を実データで評価する必要がある。
 6. avatar_pathとlocation_nameはDB基盤だけで、UIから利用できない。
-7. comment返信はDBからApplication / UIまで実装済みである。通知はDB / RLS基盤のみ作成済みで、生成とUIは未実装である。通報tableは未作成である。
+7. comment返信と通知はDBからApplication / UIまで実装済みである。通知は現在RLS上見える行だけを一覧・件数・既読更新の対象とするため、不可視だったpost targetが将来再び可視になると過去通知が未読で再表示される場合がある。通報tableは未作成である。
 8. unit、component、E2E、accessibility、viewport別responsiveの自動回帰がない。
 9. profile件数、timeline補助data、comment件数は複数queryを使う。投稿単位のN+1は避けているが、規模拡大時はRPC、view、集計方式を再評価する必要がある。
 10. root-level `loading.tsx`と`error.tsx`はなく、未認証redirectと一般error handlingはpageごとに一部重複している。non-active status gateはProxyと共通helperへ集約済みで、protected layoutはClient navigation、Server Action、画像Route Handlerを単独では覆えないため追加していない。
@@ -414,21 +417,20 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 - repository / local DB: `20260809000100_add_comment_replies.sql`を追加・適用し、17 migration。返信は1階層、same-post、存在する未削除・active parentだけをDB triggerで許可する。
 - remote DB: C2a migration適用済みでlocal / remoteとも17 migration。再dry-run、remote catalog、linked schema diffを確認済み。migration repair、resetは未実施。
-- application: 既存top-level comment経路とsoft-delete RPCを再利用し、返信Server Action、1階層親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信削除を実装済み。reply通知生成はDB triggerで実装済み、通知UIは未実装。
+- application: 既存top-level comment経路とsoft-delete RPCを再利用し、返信Server Action、1階層親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信削除を実装済み。reply通知生成と通知UIも実装済み。
 
 ### C2c notificationの実装状態
 
 - repository / local DB: `20260809000200_create_notifications.sql`と`20260809000300_generate_notifications.sql`を追加・fresh適用し、19 migration。4 type、自己通知拒否、target FK / shape、recipient / actor active境界、現在のpost可視性、recipient専用既読更新に加え、follow / reaction / comment / replyのevent単位生成とsource transactionとのatomicityをDBで保証する。
-- remote DB: C2c-1まで18 migration適用済み。C2c-2 migrationは未適用で、remote schema・data・fixtureは変更していない。
-- application: 既存Server Actionは変更せず、通知生成責任をDB triggerへ限定した。通知一覧route / component、未読badge、個別・すべて既読、通知遷移は未実装。
+- remote DB: C2c-2まで19 migration適用済み。C2c-3ではremote schema・data・fixtureを変更していない。
+- application: 通知生成責任はDB triggerへ限定したまま、`/notifications`、20件cursor pagination、actor profile / target commentのbatch hydrate、4 type文言、未読 / 既読、個別・すべて既読、home badge、Server側で再評価するtarget遷移、利用不能targetのneutral表示を実装済み。
 
 ### C1完了後の主な候補
 
-1. Phase C2c-3で通知一覧、未読badge、個別・すべて既読、target遷移、削除済みtargetのneutral UIを実装する。
-2. timelineへcursor pagination / infinite scrollを追加し、本文省略を改善する。
-3. timezone settingsを先に整備し、その後calendarを実装する。
-4. password resetを追加し、Google / Apple OAuthはprovider設定を含む別Phaseで扱う。
-5. `location_name`のform・Server Action・表示を既存atomic投稿更新へ接続する。
+1. timelineへcursor pagination / infinite scrollを追加し、本文省略を改善する。
+2. timezone settingsを先に整備し、その後calendarを実装する。
+3. password resetを追加し、Google / Apple OAuthはprovider設定を含む別Phaseで扱う。
+4. `location_name`のform・Server Action・表示を既存atomic投稿更新へ接続する。
 
 Phase B3dの投稿画像追加・削除・並び替えは完了済みであり、次Phase候補ではない。長期orphan回収、soft delete画像と保持期間後の物理削除は後続maintenanceとして別に扱う。
 
@@ -436,6 +438,7 @@ Phase B3dの投稿画像追加・削除・並び替えは完了済みであり�
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-09 | commit前。基準HEAD `15960c342d32ac12287e11ed8c6d897bbdf34ffe` | Phase C2c-3として`/notifications`、20件複合cursor、RLS下のactor / comment batch hydrate、4 type文言、未読 / 既読、個別・すべて既読、home badge、Server側再評価によるtarget遷移、利用不能targetのneutral表示を実装。DB / migration / pgTAP定義 / packageは変更せず、全pgTAP923件とnpm・diff検証が成功。認証済みローカルブラウザで通知4種、個別・open・すべて既読、未読badge、neutral / stale target、post可視性再評価、不正cursor、22件の`20 / 2` pagination、5幅の横スクロールなし、console error / warning・React / hydration warning 0を確認。fixture清掃後に全pgTAP `923 / 923 PASS`。実キーボードと低速環境でのpending表示目視は手動確認へ持ち越し。remote schema / migration / Storageは変更せず、Service Role・Auth Admin・直接notifications INSERTは未使用 |
 | 2026-08-09 | commit前。基準HEAD `bac2b1326a3e87beaa009a32bed5e36ac6eb84f9` | Phase C2c-2としてfollow / reaction / comment / replyの通知生成をAFTER INSERT triggerで実装。source rowとDB current dataからrecipient / actor / targetを決定し、authenticated role＋`auth.uid()`一致、active両端、自己通知除外を防御的に検証するtrigger専用SECURITY DEFINER functionを追加した。reaction UPDATE / DELETEとfollow DELETEは通知せず、再INSERTは新規eventとして追加する。reply notificationはparent authorだけへ送り、新reply自身をtargetとし、invalid parentは独自errorなしで既存generic `23514`を維持する。ローカルresetで19 migrationをfresh適用し、新規48件・全923件がPASS。remoteはC2c-1まで18 migrationでC2c-2未適用。UI・package・既存test・Server Action・notifications RLS / ACLは変更せず、stage・commit・pushも未実施 |
 | 2026-08-09 | commit前。基準HEAD `7e5cf7669fd82db2b0b91a1868e240ae68ed7ad6` | Phase C2c-1としてnotifications DB / RLS基盤を実装。generic targetを採用せずpost / comment明示列、4 type shape、自己通知拒否、account / post / commentへのcascade FK、recipient安定順index、active recipient / actorと現在のposts RLSを再評価するrecipient専用SELECT / UPDATE policy、SELECT＋`UPDATE(is_read)`の最小ACLを追加した。ローカルincremental適用後に新規pgTAP`65 / 65`、resetで18 migrationをfresh適用し全`875 / 875`を確認。reset前には既知active fixtureによる`0016`の1件失敗を再現して今回回帰と区別した。remote migration、通知生成、UI、package、Service Role、Auth Admin API、stage、commit、pushは未実施 |
 | 2026-08-09 | commit前。基準HEAD `2951462d1e2fc3a7a230ab7a0882c813c579cd72` | Phase C2bとして既存comment作成・soft-delete経路を再利用し、返信Server Action、`parent_comment_id`取得、安定順の1階層親子表示、inline reply form、削除済み・取得不能な親のneutral placeholder、返信削除後refreshを実装。認証claims由来の`user_id`、RLSとC2a validatorの最終認可、invalid parentのgeneric UI errorを維持した。C2a pgTAPは`46 / 46 PASS`、全pgTAPは既存active local fixtureが`0016`の期待へ混入した1件だけ失敗して`810 / 811`。lint、typecheck、production build、diff checkを実施し、認証済みローカルブラウザで返信作成・refresh保持・削除、本文境界、pending、stale parent、neutral placeholderを確認。1280pxは横scrollなし、320 / 360 / 375 / 390pxはBrowser viewport overrideが反映されず未実施。DB・migration・package・通知は変更せず、Service Role、Auth Admin API、stage、commit、pushは未使用・未実施 |
