@@ -51,9 +51,9 @@
 
 現在は、メールアドレスとパスワードによる認証、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤をrepository / localへ追加したが、通知生成とUIは未実装である。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは18ファイル、plan合計875 assertionで、通知のACL、active境界、現在のpost可視性、既読列更新を含むDB認可を対象としている。
+DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤を追加し、Phase C2c-2では4種類のsource INSERTへ同一transactionの通知生成triggerを接続した。通知一覧・未読/既読・遷移UIは未実装である。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは19ファイル、plan合計923 assertionで、通知生成、ACL、active境界、現在のpost可視性、既読列更新、invalid replyのgeneric errorとatomic rollbackを含むDB認可を対象としている。
 
-MVP完了条件との差分には、場所入力UI、タイムラインのページネーション、通知生成・一覧UI、カレンダー、設定がある。パスワードリセットとOAuth、avatarも未完成である。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤だけがPhase C2c-1で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分には、場所入力UI、タイムラインのページネーション、通知一覧・未読/既読・遷移UI、カレンダー、設定がある。パスワードリセットとOAuth、avatarも未完成である。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤とfollow / reaction / comment / reply生成までPhase C2c-1 / C2c-2で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
 ### 2.1 MVP残差と実装優先順位
 
@@ -75,12 +75,12 @@ MVP完了条件との差分には、場所入力UI、タイムラインのペー
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback、request-scoped account status gate | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/account-session.ts`、`src/proxy.ts` |
-| migration | repository / localは18件、remoteは17件。latestはlocalのみの`20260809000200_create_notifications.sql` | `supabase/migrations/*.sql`、local migration list。remoteはC2c-1で変更していない |
+| migration | repository / localは19件、remoteは18件。latestはlocalのみの`20260809000300_generate_notifications.sql` | `supabase/migrations/*.sql`、local / linked remote migration list。C2c-2はremote未適用 |
 | DB table | repository / localは10 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications` |
-| pgTAP | 18ファイル、plan合計875。C2c-1のfresh reset後は`875 / 875 PASS` | `supabase/tests/database/*.sql` |
+| pgTAP | 19ファイル、plan合計923。C2c-2のfresh reset後は`923 / 923 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 調査基準commit | `7e5cf7669fd82db2b0b91a1868e240ae68ed7ad6` | `feat: add comment reply UI`。Phase C2bまでを含む |
+| 調査基準commit | `bac2b1326a3e87beaa009a32bed5e36ac6eb84f9` | `feat: add notification foundation`。Phase C2c-1までを含む |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -340,9 +340,12 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 | `0016_non_active_account_fail_closed.test.sql` | 79 | C1a catalog/ACL、active回帰、suspended/deactivated viewer、non-active target、accounts status最小経路、Storage orphan境界 |
 | `0017_comment_replies_rls.test.sql` | 45 | parent column・index・trigger function/ACL、top-level/reply、grandchild・cross-post・deleted parent・spoof拒否、不可視parentのgeneric error、visibility・soft/physical delete回帰 |
 | `0018_notifications_rls.test.sql` | 65 | notifications schema / CHECK / cascade FK / index、RLS / ACL、recipient・actor active境界、現在のpost可視性再評価、既読列更新、自己通知拒否、physical delete cascade |
-| 合計 | 875 | 18ファイル |
+| `0019_notification_generation.test.sql` | 48 | 3 trigger functionの属性 / ACL、follow / reaction / comment / reply生成、自己通知防止、解除・更新・再追加、invalid reply generic error、特権fixture境界、atomic rollback |
+| 合計 | 923 | 19ファイル |
 
 ### 9.2 実行結果の区別
+
+- Phase C2c-2では既存18 migrationと既存pgTAPを変更せず、`20260809000300_generate_notifications.sql`と`0019_notification_generation.test.sql`を各1件追加した。follow / reaction / commentsのAFTER INSERT triggerから、trigger専用の`SECURITY DEFINER` functionでrecipient / actor / targetをsource rowとDBのcurrent dataから決定する。Application roleの直接EXECUTEとnotifications INSERTは開けず、実DB role=`authenticated`、`auth.uid()`とsource actor一致、actor / recipient active、非自己通知の境界を満たす場合だけ生成する。reaction UPDATE / DELETE、follow DELETEでは生成せず、再INSERTは新規eventとして追加する。replyはvalid parentだけをfail-closedな`INSERT ... SELECT`で通知し、invalid parentでは独自errorを出さず既存validatorの`23514 / invalid parent comment`を維持する。最終local resetで19 migrationをfresh適用し、新規`48 / 48`、関連既存`0017` 45件・`0018` 65件、全19ファイル`923 / 923 PASS`を確認した。linked remote historyはC2c-1まで18件で、C2c-2 migrationは未適用である。既存test、Server Action、notifications RLS / policy / table ACL、package、UIは変更していない。remote migration適用、Service Role、Auth Admin API、stage、commit、pushは未実施である。
 
 - Phase C2c-1では既存17 migrationを変更せず、`20260809000200_create_notifications.sql`を1件追加した。ローカルへincremental適用後、新規pgTAP `65 / 65`を確認し、local DB resetで18件をfresh適用して全pgTAP 18ファイル・`875 / 875 PASS`を確認した。reset前には引き継ぎどおり既存active fixtureが`0016`へ混入する1件失敗を再現し、今回のnotifications回帰と区別した。C2c-1で陳腐化した`0017`のnotifications不在assertionだけを削除し、reply認可期待値と既知fixture期待値は変更していない。repository / localは18 migration、remoteは17 migrationのままで、remote migration適用・linked schema diff・remote fixture・Service Role・Auth Admin APIは未実施である。通知生成、Application / UI、packageは変更していない。UI変更がないためbrowser / responsive検証は対象外である。
 
@@ -403,7 +406,7 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 ### C1 DB / RLS・application完了状態
 
-- local DB / RLS: 実装・検証済み。repository / localは18 migration、全pgTAP `875 / 875 PASS`。
+- local DB / RLS: 実装・検証済み。repository / localは19 migration、全pgTAP `923 / 923 PASS`。
 - remote DB: C1a migration適用済み。local / remote履歴16件一致、再dry-run up to date、remote catalog / ACLと3 schemaのlinked diff確認済み。
 - application: C1b session gateをローカル実装・統合検証し、主要実ブラウザシナリオも確認済み。remote DB変更はない。320〜390px、信頼できるTab / Enter、実Auth callback、実画像bytesのnon-active browser表示は未実施。
 
@@ -411,17 +414,17 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 - repository / local DB: `20260809000100_add_comment_replies.sql`を追加・適用し、17 migration。返信は1階層、same-post、存在する未削除・active parentだけをDB triggerで許可する。
 - remote DB: C2a migration適用済みでlocal / remoteとも17 migration。再dry-run、remote catalog、linked schema diffを確認済み。migration repair、resetは未実施。
-- application: 既存top-level comment経路とsoft-delete RPCを再利用し、返信Server Action、1階層親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信削除を実装済み。通知生成と通知UIは未実装。
+- application: 既存top-level comment経路とsoft-delete RPCを再利用し、返信Server Action、1階層親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信削除を実装済み。reply通知生成はDB triggerで実装済み、通知UIは未実装。
 
 ### C2c notificationの実装状態
 
-- repository / local DB: `20260809000200_create_notifications.sql`を追加・fresh適用し、18 migration。4 type、自己通知拒否、target FK / shape、recipient / actor active境界、現在のpost可視性、recipient専用既読更新をDBで保証する。
-- remote DB: C2c-1 migrationは未適用。remoteはC2aまでの17 migrationで、remote schema・data・fixtureは変更していない。
-- application: 通知生成、通知一覧route / component、未読badge、すべて既読、通知遷移は未実装。
+- repository / local DB: `20260809000200_create_notifications.sql`と`20260809000300_generate_notifications.sql`を追加・fresh適用し、19 migration。4 type、自己通知拒否、target FK / shape、recipient / actor active境界、現在のpost可視性、recipient専用既読更新に加え、follow / reaction / comment / replyのevent単位生成とsource transactionとのatomicityをDBで保証する。
+- remote DB: C2c-1まで18 migration適用済み。C2c-2 migrationは未適用で、remote schema・data・fixtureは変更していない。
+- application: 既存Server Actionは変更せず、通知生成責任をDB triggerへ限定した。通知一覧route / component、未読badge、個別・すべて既読、通知遷移は未実装。
 
 ### C1完了後の主な候補
 
-1. Phase C2c-2でfollow / reaction / comment / reply mutationへ通知生成をtransaction境界とともに追加し、解除・種類変更・再follow・重複semanticsを確定する。
+1. Phase C2c-3で通知一覧、未読badge、個別・すべて既読、target遷移、削除済みtargetのneutral UIを実装する。
 2. timelineへcursor pagination / infinite scrollを追加し、本文省略を改善する。
 3. timezone settingsを先に整備し、その後calendarを実装する。
 4. password resetを追加し、Google / Apple OAuthはprovider設定を含む別Phaseで扱う。
@@ -433,6 +436,7 @@ Phase B3dの投稿画像追加・削除・並び替えは完了済みであり�
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-09 | commit前。基準HEAD `bac2b1326a3e87beaa009a32bed5e36ac6eb84f9` | Phase C2c-2としてfollow / reaction / comment / replyの通知生成をAFTER INSERT triggerで実装。source rowとDB current dataからrecipient / actor / targetを決定し、authenticated role＋`auth.uid()`一致、active両端、自己通知除外を防御的に検証するtrigger専用SECURITY DEFINER functionを追加した。reaction UPDATE / DELETEとfollow DELETEは通知せず、再INSERTは新規eventとして追加する。reply notificationはparent authorだけへ送り、新reply自身をtargetとし、invalid parentは独自errorなしで既存generic `23514`を維持する。ローカルresetで19 migrationをfresh適用し、新規48件・全923件がPASS。remoteはC2c-1まで18 migrationでC2c-2未適用。UI・package・既存test・Server Action・notifications RLS / ACLは変更せず、stage・commit・pushも未実施 |
 | 2026-08-09 | commit前。基準HEAD `7e5cf7669fd82db2b0b91a1868e240ae68ed7ad6` | Phase C2c-1としてnotifications DB / RLS基盤を実装。generic targetを採用せずpost / comment明示列、4 type shape、自己通知拒否、account / post / commentへのcascade FK、recipient安定順index、active recipient / actorと現在のposts RLSを再評価するrecipient専用SELECT / UPDATE policy、SELECT＋`UPDATE(is_read)`の最小ACLを追加した。ローカルincremental適用後に新規pgTAP`65 / 65`、resetで18 migrationをfresh適用し全`875 / 875`を確認。reset前には既知active fixtureによる`0016`の1件失敗を再現して今回回帰と区別した。remote migration、通知生成、UI、package、Service Role、Auth Admin API、stage、commit、pushは未実施 |
 | 2026-08-09 | commit前。基準HEAD `2951462d1e2fc3a7a230ab7a0882c813c579cd72` | Phase C2bとして既存comment作成・soft-delete経路を再利用し、返信Server Action、`parent_comment_id`取得、安定順の1階層親子表示、inline reply form、削除済み・取得不能な親のneutral placeholder、返信削除後refreshを実装。認証claims由来の`user_id`、RLSとC2a validatorの最終認可、invalid parentのgeneric UI errorを維持した。C2a pgTAPは`46 / 46 PASS`、全pgTAPは既存active local fixtureが`0016`の期待へ混入した1件だけ失敗して`810 / 811`。lint、typecheck、production build、diff checkを実施し、認証済みローカルブラウザで返信作成・refresh保持・削除、本文境界、pending、stale parent、neutral placeholderを確認。1280pxは横scrollなし、320 / 360 / 375 / 390pxはBrowser viewport overrideが反映されず未実施。DB・migration・package・通知は変更せず、Service Role、Auth Admin API、stage、commit、pushは未使用・未実施 |
 | 2026-08-09 | commit前。基準HEAD `3d6d5b3c968ed9564829055076555f2fc89a3b14` | Phase C2aとしてcommentsへnullable `parent_comment_id`、1階層・same-post・parent存在・未削除・active authorをDBで保証するlocking trigger、安定取得index、最小INSERT列権限を追加。追加security reviewで不可視別post parentと不存在parentのエラー差を再現し、全invalid parentをgenericな`23514 / invalid parent comment`へ統一した。既存top-level direct INSERT、RLS、soft-delete RPCを維持し、自己参照FKは物理削除時のcascade消失・top-level化・Auth削除阻害を避けるため採用しなかった。local / remote 17 migration一致、再dry-run、remote catalog、linked schema diff、新規pgTAP46件・全811件、lint、typecheck、build、diff checkが成功。UI・通知・package、remote fixture、Service Role、Auth Admin API、reset、repairは未実施・未使用 |

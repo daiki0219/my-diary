@@ -258,6 +258,35 @@ incremental適用した後、local resetで18件をfresh適用した。新規pgT
 18ファイル`875 / 875 PASS`である。remoteはC2aまでの17 migrationのままで、C2c-1では
 remote migration適用、remote schema / fixture変更、Service Role、Auth Admin APIを使用していない。
 
+### Phase C2c-2 notification生成
+
+`20260809000300_generate_notifications.sql`はfollows、reactions、commentsのAFTER INSERTへ
+triggerを追加し、follow、reaction、top-level comment、replyをsource mutationと同じtransactionで
+notificationsへ生成する。reaction UPDATE / DELETEとfollow DELETEにはtriggerを置かないため、種類変更・
+解除では追加通知せず過去通知を維持し、解除後の再INSERTは新しいeventとして別通知を生成する。
+commentはpost owner、replyはparent comment authorだけをrecipientとし、replyのtarget_comment_idは
+parentではなく新しいreply自身を指す。actorとrecipientが同じ場合はsource mutationを成功させ、通知だけを
+生成しない。username、本文、reaction type等のsnapshotとevent間UNIQUE制約は追加しない。
+
+3つのgenerator functionは`my_diary_private`に分離し、`VOLATILE`、`SECURITY DEFINER`、
+owner=`postgres`、`search_path=''`、完全修飾objectを使用する。`PUBLIC`、`anon`、`authenticated`、
+`service_role`、`authenticator`からEXECUTEを剥奪し、trigger以外の呼出経路を閉じる。trigger入口は
+実DB roleが`authenticated`かつ`auth.uid()`がsource actorと一致する場合だけfunctionを呼び、function内でも
+identity一致とactor / recipient activeを再検証する。これにより通常Application以外のmigration、fixture、
+特権SQLがJWT claimを残していても通知へ変換されない。recipient、actor、targetをClient入力として新たに
+受け取らず、authenticatedへのnotifications INSERT grantや公開生成RPCも追加しない。
+
+comment generatorはreply parentの存在、same-post、top-level、未削除、active authorを
+`INSERT ... SELECT`の条件として扱い、不正条件で独自errorを出さない。既存C2a validatorがその後に
+`FOR UPDATE` lockとgeneric `23514 / invalid parent comment`でsource INSERTを拒否し、先にgeneratorが
+実行された場合でも同一transaction rollbackでnotificationは残らない。このため同一timing trigger名の
+alphabetical orderに情報非露出保証を依存せず、replyとparent soft deleteの既存直列化も維持する。
+
+local resetで19 migrationをfresh適用し、新規pgTAP `48 / 48`、既存reply `45 / 45`、既存notifications
+RLS `65 / 65`、全19ファイル`923 / 923 PASS`を確認した。repository / localは19 migration、linked
+remoteはC2c-1まで18 migrationで、C2c-2 migrationは未適用である。remote schema / fixture変更、
+Service Role、Auth Admin API、Application / UI変更は行っていない。
+
 ### follows
 
 - SELECT: 閲覧者、`follower_id`、`following_id`の3者がすべてactiveの場合のみ
@@ -922,6 +951,11 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
 - anonと一般authenticatedのINSERT / DELETE拒否、recipient本人だけのSELECTと`is_read`更新
 - non-active recipient / actorのfail-closed、現在のpost visibility・follow・soft deleteの再評価
 - target commentのsoft deleteではpostが見える限りnotificationを維持し、target physical deleteではcascadeすること
+- follow / reaction / top-level comment / replyの正しいrecipient、actor、targetと自己通知防止
+- reaction種類変更・解除では追加通知せず、reaction再追加・refollowでは新しいevent通知を生成すること
+- replyはparent authorだけへ通知し、新reply自身をtargetとしてpost ownerへ重複通知しないこと
+- invalid replyのgeneric errorと0 notification、特権fixtureの非通知化、source mutationとのatomic rollback
+- notification generatorのowner、SECURITY DEFINER、空search path、trigger専用ACLとauthenticated直接INSERT拒否
 
 ## リモート適用後のAuth確認
 
