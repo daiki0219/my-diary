@@ -3,8 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAccountSessionState } from "@/lib/supabase/account-session";
 import { isRuntimeTimeZone } from "@/lib/timezone";
 
+export type AuthenticatedViewerId = string & {
+  readonly __authenticatedViewerId: unique symbol;
+};
+
 export type ViewerTimeZoneResult =
-  | { timezone: string; error: null }
+  | { userId: AuthenticatedViewerId; timezone: string; error: null }
   | {
       timezone: null;
       error:
@@ -55,5 +59,9 @@ export async function getViewerTimeZone(
     return { timezone: null, error: "invalid-timezone" };
   }
 
-  return { timezone: result.data.timezone, error: null };
+  return {
+    userId: sessionState.userId as AuthenticatedViewerId,
+    timezone: result.data.timezone,
+    error: null,
+  };
 }
