@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(46);
+select plan(45);
 
 select has_column(
   'public', 'comments', 'parent_comment_id',
@@ -168,11 +168,6 @@ select ok(
       and function_definition.proname = 'my_diary_validate_comment_parent'
   ),
   'The reply validator runs after comments RLS checks'
-);
-
-select hasnt_table(
-  'public', 'notifications',
-  'C2a does not add notifications'
 );
 
 insert into auth.users (id, email)

@@ -5,15 +5,15 @@
 この設計案は、最初のデータベース単位として `accounts`、`profiles`、
 `posts`、`follows` から開始した。その後、リアクション、コメント、自由タグ、
 投稿画像とStorageを後続migrationで追加し、投稿画像はPhase B3a〜B3dまで完了した。
-通知と通報は現在も未作成である。自由タグの後続Phase B1設計は本書の
+Phase C2c-1で通知DB / RLS基盤を追加した。通知生成と通知UI、通報は未作成である。自由タグの後続Phase B1設計は本書の
 「自由タグPhase B1追加設計」と「自由タグPhase B2a atomic mutation設計」に記録する。
 
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` にはpublic application tableの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaからPhase C2aまでのSQLは17件のmigrationとして管理し、localと
-リンク済みのリモート開発Supabaseへ適用済みである。Phase C2aでは
-`20260809000100_add_comment_replies.sql`を17件目として追加した。
+初回schemaからPhase C2aまでの17件はlocalとリンク済みのリモート開発Supabaseへ
+適用済みである。Phase C2c-1では`20260809000200_create_notifications.sql`を18件目として
+repository / localへ追加した。C2c-1 migrationはリモート未適用である。
 
 ### 投稿画像基盤の現在状態
 
@@ -90,6 +90,27 @@ MVPではプロフィール自体に機密情報を置かないが、Phase C1a�
 作成・削除は `follower_id = auth.uid()` の場合だけ許可する。MVPは承認制
 ではない。将来承認制を導入する場合は、状態列をこのテーブルへ足すより、
 フォローリクエストを別テーブルに分ける案を優先して再検討する。
+
+### notifications（Phase C2c-1）
+
+- `id`: UUID主キー
+- `recipient_user_id`: 通知受信者。`accounts.user_id`へCASCADE FK
+- `actor_user_id`: 通知を生じさせたuser。`accounts.user_id`へCASCADE FK
+- `notification_type`: `follow` / `reaction` / `comment` / `reply`
+- `target_post_id`: post target。`posts.id`へCASCADE FK
+- `target_comment_id`: comment / reply target。`comments.id`へCASCADE FK
+- `is_read`: 既読状態。必須、初期値`false`
+- `created_at`: `TIMESTAMPTZ`
+
+genericな`target_type / target_id`は採用しない。MVPの4種類について明示FKを維持し、
+DB CHECKでfollowはtargetなし、reactionはpostだけ、comment / replyはpostとcommentの
+両方を必須とする。`actor_user_id <> recipient_user_id`もCHECKで保証し、Applicationだけに
+自己通知除外を依存させない。commentがtop-levelかreplyか、recipientが正当なownerかという
+生成時の意味的整合はC2c-2のtransaction内通知生成経路で保証する。
+
+通常のpost / comment削除はsoft deleteなのでnotification rowを保持する。account、post、commentが
+物理削除された場合はCASCADEでnotificationも削除し、dangling UUIDを残さない。reaction rowや
+follow relationにはFKせず、reaction解除・種類変更、follow解除・再followの通知semanticsはC2c-2へ持ち越す。
 
 ## CHECK制約を採用する理由
 
@@ -215,6 +236,27 @@ invalid条件は前記のgeneric failureへ集約する。
 返信UI・親子取得・通知はC2aでは実装しない。C2a migrationはリンク済みのリモート開発DBへ
 初回適用済みで、local / remote履歴17件一致、再dry-runはup to date、remote schema dumpの定義一致、
 `public,my_diary_private,storage`のlinked schema diffが空であることを確認した。
+
+### Phase C2c-1 notification DB / RLS基盤
+
+`notifications`はRLSを明示的に有効化し、authenticatedのrecipient本人だけがSELECTできる。
+recipient本人とactorの双方が現在activeであることを既存
+`my_diary_private.my_diary_is_account_active(uuid)`で確認する。post targetを持つ通知は、
+`exists (select 1 from public.posts ...)`を通じて既存posts SELECT RLSへ委任し、follow解除、
+visibility変更、post soft delete、post author / viewerのactive状態を次のSELECTから再評価する。
+notification policyからpostsへ、posts policyから既存visibility helperへ進む一方向の評価であり、
+notificationsへ戻る参照はないためRLS recursionを増やさない。
+
+authenticatedにはtable SELECTと`UPDATE(is_read)`だけを付与する。UPDATE policyもSELECTと同じ
+recipient / active / post可視境界を使い、recipient、actor、type、target、created_at等は列権限で
+更新を拒否する。anon、一般authenticatedのINSERT / DELETE、INSERT policy、生成RPC、triggerは
+作成しない。C2c-1ではSECURITY DEFINER関数を追加していない。通知生成はC2c-2、一覧・未読badge・
+すべて既読・遷移UIはC2c-3へ持ち越す。
+
+repository / localは18 migrationで、`20260809000200_create_notifications.sql`をlocal DBへ
+incremental適用した後、local resetで18件をfresh適用した。新規pgTAPは`65 / 65`、全pgTAPは
+18ファイル`875 / 875 PASS`である。remoteはC2aまでの17 migrationのままで、C2c-1では
+remote migration適用、remote schema / fixture変更、Service Role、Auth Admin APIを使用していない。
 
 ### follows
 
@@ -637,7 +679,7 @@ Service Roleも使用していない。
 検索する公開RPCを追加する。既存posts table、RLS policy、ACL、indexは変更せず、
 ローカルreset、pgTAP、catalog、schema diff、認証済みブラウザで検証した。
 Phase B2b-3b終了時点ではリモート未適用だったが、後続Phaseで適用済みである。
-現在のlocal / remote migration履歴はC2aまでの17件で一致している。
+現在はremoteがC2aまでの17件、repository / localがC2c-1までの18件である。
 
 公開RPCのexact signatureは次のとおりで、overloadとdefault引数は作らない。
 
@@ -788,8 +830,12 @@ lifecycle操作は未実施である。Service Role、Auth Admin API、remote fi
   準備
 - `my_diary_tags_normalized_name_key`: canonical tag nameの重複防止と検索準備
 - `my_diary_post_tags_tag_post_idx`: tagから可視post relationを逆引きするため
+- `my_diary_notifications_recipient_created_id_idx`: recipientの通知一覧を
+  `created_at DESC, id DESC`の安定順で取得するため
 
 投稿検索Phase B2b-3bでは新しいindexを追加しない。
+
+通知の未読partial indexはC2c-3の実queryが未確定であるためC2c-1では追加しない。
 
 部分インデックスでは `deleted_at is null` を条件にし、通常の取得対象だけを
 小さく保つ。
@@ -872,6 +918,10 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
   Storage object owner・MIME・size、呼出順のsort_order、post / tag / image rollback
 - Storage mutationのoperation context、owner_id、本人UUID namespace、UPDATE拒否、
   active ownerだけの未参照orphan SELECT / cleanup、参照済み・soft-delete済みmetadataの削除拒否
+- notificationsの4 type / target shape、自己通知拒否、account / post / commentへのcascade FK
+- anonと一般authenticatedのINSERT / DELETE拒否、recipient本人だけのSELECTと`is_read`更新
+- non-active recipient / actorのfail-closed、現在のpost visibility・follow・soft deleteの再評価
+- target commentのsoft deleteではpostが見える限りnotificationを維持し、target physical deleteではcascadeすること
 
 ## リモート適用後のAuth確認
 
