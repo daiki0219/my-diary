@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 
 import {
+  buildCalendarHref,
   buildCalendarPostIndex,
   formatInstantToCalendarDate,
   getCalendarMonthForInstant,
+  getCalendarMonthGrid,
   getCalendarMonthUtcRange,
   getCalendarPostsForDate,
   isCalendarDateInMonth,
@@ -70,6 +72,34 @@ assert.equal(
   shiftCalendarMonth(parseCalendarMonth("2026-12"), 1),
   "2027-01",
 );
+
+const augustGrid = getCalendarMonthGrid(august);
+assert.ok(augustGrid);
+assert.equal(augustGrid.length, 6);
+assert.deepEqual(augustGrid[0], [
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  "2026-08-01",
+]);
+assert.equal(augustGrid.flat().filter(Boolean).length, 31);
+assert.equal(augustGrid.flat().indexOf("2026-08-09"), 14);
+assert.equal(buildCalendarHref(august), "/calendar?month=2026-08");
+assert.equal(
+  buildCalendarHref(august, augustNinth),
+  "/calendar?month=2026-08&date=2026-08-09",
+);
+assert.throws(() => buildCalendarHref(august, julyLast), RangeError);
+
+const leapFebruary = parseCalendarMonth("2024-02");
+assert.ok(leapFebruary);
+const leapFebruaryGrid = getCalendarMonthGrid(leapFebruary);
+assert.ok(leapFebruaryGrid);
+assert.equal(leapFebruaryGrid.flat().filter(Boolean).length, 29);
+assert.equal(leapFebruaryGrid[0][4], "2024-02-01");
 
 assert.deepEqual(getCalendarMonthUtcRange(august, "Asia/Tokyo"), {
   start: "2026-07-31T15:00:00.000Z",

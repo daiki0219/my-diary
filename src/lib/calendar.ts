@@ -27,6 +27,8 @@ export type CalendarPostIndex = {
   postsByDate: Record<string, CalendarPost[]>;
 };
 
+export type CalendarMonthGrid = Array<Array<CalendarDate | null>>;
+
 type LocalDateTimeParts = {
   year: number;
   month: number;
@@ -323,6 +325,53 @@ export function shiftCalendarMonth(
   }
 
   return formatMonth(shiftedYear, normalizedMonth);
+}
+
+export function getCalendarMonthGrid(
+  month: CalendarMonth,
+): CalendarMonthGrid | null {
+  const match = MONTH_PATTERN.exec(month);
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const monthNumber = Number(match[2]);
+  const firstWeekday = new Date(
+    getUtcMilliseconds(year, monthNumber, 1),
+  ).getUTCDay();
+  const daysInMonth = getDaysInMonth(year, monthNumber);
+  const cellCount = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+  const cells: Array<CalendarDate | null> = Array.from(
+    { length: cellCount },
+    (_, index) => {
+      const day = index - firstWeekday + 1;
+      return day >= 1 && day <= daysInMonth
+        ? formatDate(year, monthNumber, day)
+        : null;
+    },
+  );
+  const weeks: CalendarMonthGrid = [];
+
+  for (let index = 0; index < cells.length; index += 7) {
+    weeks.push(cells.slice(index, index + 7));
+  }
+
+  return weeks;
+}
+
+export function buildCalendarHref(
+  month: CalendarMonth,
+  date?: CalendarDate,
+) {
+  if (date && !isCalendarDateInMonth(date, month)) {
+    throw new RangeError("Calendar date is outside the requested month.");
+  }
+
+  return date
+    ? `/calendar?month=${month}&date=${date}`
+    : `/calendar?month=${month}`;
 }
 
 export function getCalendarMonthForInstant(

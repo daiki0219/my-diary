@@ -438,6 +438,7 @@ export async function createPost(
   }
 
   revalidatePath("/home");
+  revalidatePath("/calendar");
   revalidatePath("/profile");
   revalidatePath("/profile/posts");
   revalidatePath(`/users/${userId}`);
@@ -647,6 +648,7 @@ export async function updatePost(
     : false;
 
   revalidatePath("/home");
+  revalidatePath("/calendar");
   revalidatePath("/profile");
   revalidatePath("/profile/posts");
   revalidatePath(`/posts/${postIdValue}`);
@@ -707,6 +709,7 @@ export async function deletePost(
     };
   }
 
+  revalidatePath("/calendar");
   revalidatePath("/profile");
   revalidatePath("/profile/posts");
   revalidatePath(`/users/${userId}`);

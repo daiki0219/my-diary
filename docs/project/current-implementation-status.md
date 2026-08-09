@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-09
 - 調査時branch: `main`
-- 調査基準HEAD: `f70bd4929ec7aedbe88e6b83cf50f864b8df05e3`
-- 調査基準HEADのmessage: `feat: add timezone settings`
+- 調査基準HEAD: `0327547e70550d3f544ab69ff65db55daec1be21`
+- 調査基準HEADのmessage: `feat: add calendar data foundation`
 
 ### 更新ルール
 
@@ -42,8 +42,8 @@
 
 | 状態 | 件数 |
 | --- | ---: |
-| 実装済み | 31 |
-| 一部実装済み | 5 |
+| 実装済み | 32 |
+| 一部実装済み | 4 |
 | 未実装 | 5 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
@@ -53,7 +53,7 @@
 
 DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤を追加し、Phase C2c-2では4種類のsource INSERTへ同一transactionの通知生成triggerを接続した。Phase C2c-3ではRLS下の通知一覧、未読件数、個別・すべて既読、Server側で再評価するtarget遷移、削除済みcomment等のneutral表示をApplication / UIへ接続した。Phase C3bではtimezone DB validator、viewer timezone helper、`/settings`、Server Actionを追加した。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは20ファイル、plan合計954 assertionで、timezone direct UPDATEの無効値拒否、本人・他人・non-active境界を含むDB認可を対象としている。
 
-MVP完了条件との差分には、場所入力UIとカレンダーUIがある。パスワードリセットとOAuth、avatarも未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了し、Phase C3c-1ではstrict month/date validation、DST対応のlocal month境界、本人Calendar posts query、日単位summaryと選択日data shapeを実装した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分には、場所入力UIがある。パスワードリセットとOAuth、avatarも未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了し、Phase C3c-1ではstrict month/date validation、DST対応のlocal month境界、本人Calendar posts query、日単位summaryと選択日data shapeを実装した。Phase C3c-2では`/calendar`、月grid、前後月・今月遷移、日別marker、日付選択、選択日投稿一覧、responsive / accessibilityを実装した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
 Phase C3bでは、`accounts.timezone`をPostgreSQL timezone catalogで検証するtriggerと、runtime標準timezone option、viewer timezone helper、`/settings`、Server Actionを追加した。repository / local / remoteは20 migrationで一致し、全pgTAPは20ファイル・`954 / 954 PASS`である。
 
@@ -61,7 +61,7 @@ Phase C3bでは、`accounts.timezone`をPostgreSQL timezone catalogで検証す�
 
 正式仕様上のMVP分類と、公開前の実装優先順位は別に管理する。
 
-- 公開前に重要: calendar
+- 公開前に重要: Phase C3c-2のcalendar UIまで完了。残るMVP差分の優先順位を再評価する
 - 強く推奨: password reset、`location_name`のUI接続、follow / profile / user検索等の固定件数改善
 - MVP対象だが後順位: Google login、Apple login、avatar、timezone以外のsettings、profile / follow list等のpagination
 - MVP後またはmaintenanceへ延期可能: 長期orphan cleanup、soft-deleted画像のphysical delete、保持期間後のphysical delete、正式仕様のPhase 2以降の機能
@@ -82,7 +82,7 @@ Phase C3bでは、`accounts.timezone`をPostgreSQL timezone catalogで検証す�
 | pgTAP | 20ファイル、plan合計954。C3bの全回帰は`954 / 954 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 調査基準commit | `f70bd4929ec7aedbe88e6b83cf50f864b8df05e3` | `feat: add timezone settings`。Phase C3bまでを含む |
+| 調査基準commit | `0327547e70550d3f544ab69ff65db55daec1be21` | `feat: add calendar data foundation`。Phase C3c-1までを含む |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -187,11 +187,11 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
-| カレンダー | 一部実装済み | strict month/date parser、viewer timezone基準の現在月・今日・前後月、DST対応UTC half-open range、claims由来本人IDと既存posts RLSを使う月別query、日別件数・最新mood・選択日全投稿data shapeを実装 | `/calendar`、月grid、marker、日付選択、選択日一覧、responsive / accessibilityはC3c-2 |
+| カレンダー | 実装済み | strict month/date parser、viewer timezone基準の現在月・今日・前後月、DST対応UTC half-open range、claims由来本人IDと既存posts RLSを使う本人月別query、日別件数・最新mood、`/calendar`のsemantic table月grid、前後月・今月遷移、marker、日付選択、選択日全投稿一覧を実装 | 実キーボードによるTab / Shift+Tab / Enter操作は手動確認へ持ち越し |
 | 通知 | 実装済み | DB / RLS、4 type生成、`/notifications`、20件複合cursor、actor / comment batch取得、未読badge、個別・すべて既読、Server側再評価による遷移、利用不能targetのneutral表示を実装 | 大量通知での実データ性能は継続評価する |
 | 設定 | 実装済み | `/settings`で現在のtimezone、runtime標準IANA option、保存中・成功・generic errorを表示し、Server Actionからclaims由来の本人IDと既存RLSで更新する | timezone以外の設定は後順位 |
-| レスポンシブ | 一部実装済み | mobile-first class、`min-w-0`、`break-words`、`overflow-wrap:anywhere`、幅制限を主要画面に使用。投稿画像galleryを320 / 360 / 375 / 390 / 1280pxで確認済み | repository内にviewport別の自動回帰テストはない |
-| アクセシビリティ | 一部実装済み | label、role、aria-live、focus-visible、semantic heading/link/buttonを主要UIに使用 | 網羅的なkeyboard、contrast、screen readerの自動検証はない |
+| レスポンシブ | 一部実装済み | mobile-first class、`min-w-0`、`break-words`、`overflow-wrap:anywhere`、幅制限を主要画面に使用。投稿画像galleryとCalendar UIを320 / 360 / 375 / 390 / 1280pxで確認済み | repository内にviewport別の自動回帰テストはない |
+| アクセシビリティ | 一部実装済み | label、role、aria-live、focus-visible、semantic heading/link/buttonを主要UIに使用。Calendarはcaption、column header、日付ごとのaccessible name、今日・選択日の状態を提供 | 網羅的なkeyboard、contrast、screen readerの自動検証はなく、Calendarの実キーボード操作は未確認 |
 | error handling・loading | 一部実装済み | not-found UI、role alert、empty state、Server Action error、送信中disabledを実装 | route-level `loading.tsx`、error boundary、再試行UIは未整備 |
 | ログ・監視 | 一部実装済み | `/api/health/supabase`は秘密情報を返さず接続状態を返す | 集約ログ、監視、管理操作logはない |
 | 振り返り | MVP後 | profileに総投稿数の基盤はあるが、正式仕様ではPhase 2 | 今月、連続投稿日数、去年の今日、timezone集計なし |
@@ -270,6 +270,7 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 | `/sign-up` | page | email/password会員登録 |
 | `/auth/callback` | route handler | email確認codeをsessionへ交換 |
 | `/home` | page | 認証済みviewer向けのフォロー中・最新投稿timeline。20件forward cursor pagination、feed bind、不正cursorのgeneric error、home本文280 codepoints省略に対応（`feed=following` / `feed=latest`） |
+| `/calendar` | page | viewer timezone基準の本人月別Calendar。前後月・今月遷移、日別件数・最新mood marker、今日・選択日、選択日投稿一覧を表示（`month=YYYY-MM&date=YYYY-MM-DD`） |
 | `/notifications` | page | RLS上見える通知を20件ずつ表示し、未読 / 既読、個別・すべて既読、target遷移を提供 |
 | `/settings` | page | viewer本人の現在timezoneを表示し、runtime標準IANA optionから選択してServer Actionで保存 |
 | `/tags` | page | RLS上閲覧可能なタグをcanonical名順に50件ずつ表示 |
@@ -446,15 +447,22 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 - application: `YYYY-MM` / `YYYY-MM-DD`をstrict検証し、存在日、表示monthとの一致、viewer timezone基準の現在月・今日、前月・次月を扱う。malformed parameterはviewer / posts query前にfail-closedとする。
 - timezone: Node / Intlだけを使い、表示local monthと次local monthの開始instantを独立に探索する。1つの固定offsetを月全体へ適用せず、Tokyo、New York、Londonの2026年DST境界を決定的assertionで確認した。
 - data: C3bのviewer timezone helperが返すclaims由来本人IDを使い、通常authenticated clientで本人、UTC half-open range、未削除へ明示的に絞る。`id, title, body, mood, visibility, created_at`だけを`created_at DESC, id DESC`で取得し、既存posts SELECT RLSを最終認可として維持する。
-- shape: 各postへviewer local dateを付与し、日別のpost countと最新postの代表mood、日付別全post集合、任意の選択日post集合を返す。Calendar route / grid / 利用者向けUIは追加していない。
+- shape: 各postへviewer local dateを付与し、日別のpost countと最新postの代表mood、日付別全post集合、任意の選択日post集合を返す。このdata foundationをC3c-2のCalendar UIが利用する。
 - DB / package: schema、migration、pgTAP定義、packageは変更していない。
 
-### C3c-1完了後の主な候補
+### C3c-2 Calendar UIの実装状態
 
-1. C3c-2として`/calendar`、月grid、marker、日付選択、選択日の投稿一覧を実装する。
-2. password resetを追加し、Google / Apple OAuthはprovider設定を含む別Phaseで扱う。
-3. `location_name`のform・Server Action・表示を既存atomic投稿更新へ接続する。
-4. profile投稿・follow一覧・ユーザー検索等の固定件数をcursor paginationで改善する。
+- route / navigation: `/calendar`を追加し、queryなしはviewer timezoneの現在月、strictな`month` / `date`はURL stateとして扱う。前月・次月・今月、日付選択、reload、back / forward、年跨ぎに対応し、不正・重複・month不一致parameterはgeneric errorへfail-closedとする。
+- grid / selected posts: semantic tableで7列の月gridを表示し、今日、選択日、投稿件数、最新postの代表moodを区別する。選択日は同日全postを`created_at DESC, id DESC`で、時刻・mood・公開範囲・title・280 codepoint本文excerpt・詳細導線とともに表示する。
+- authorization / timezone: page-level claims gate、claims由来本人ID、通常authenticated client、本人filter、未削除、UTC half-open range、既存posts RLSを維持する。設定timezone変更後は今日・marker・選択日一覧を再計算する。投稿作成・編集・soft delete時は`/calendar`を再検証する。
+- browser: 通常UIで同日3件と3公開範囲、mood未設定を含むfixtureを作成し、月遷移、年跨ぎ、URL保持、不正parameter、timezone境界、詳細遷移、empty state、320 / 360 / 375 / 390 / 1280px、semantic DOM、focus-visible、console warning / error 0件を確認した。fixture投稿は通常UIでsoft deleteしtimezoneを復元した。実キーボードによるTab / Shift+Tab / Enter操作は自動注入が安定せず未確認である。
+- DB / package: schema、migration、pgTAP定義、package、remote DBは変更していない。
+
+### C3c-2完了後の主な候補
+
+1. password resetを追加し、Google / Apple OAuthはprovider設定を含む別Phaseで扱う。
+2. `location_name`のform・Server Action・表示を既存atomic投稿更新へ接続する。
+3. profile投稿・follow一覧・ユーザー検索等の固定件数をcursor paginationで改善する。
 
 Phase B3dの投稿画像追加・削除・並び替えは完了済みであり、次Phase候補ではない。長期orphan回収、soft delete画像と保持期間後の物理削除は後続maintenanceとして別に扱う。
 
@@ -462,6 +470,7 @@ Phase B3dの投稿画像追加・削除・並び替えは完了済みであり�
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-09 | commit前。基準HEAD `0327547e70550d3f544ab69ff65db55daec1be21` | Phase C3c-2として`/calendar`、semantic table月grid、前後月・今月遷移、日別件数・最新mood marker、今日・選択日、選択日全投稿一覧、home導線、投稿mutation後の再検証を実装。date-only queryもDB取得前にfail-closed化した。通常UIで同日3件・3公開範囲・mood未設定、月/年跨ぎ、URL reload・back / forward、不正・重複parameter、詳細遷移、timezone変更による日付境界再計算、320 / 360 / 375 / 390 / 1280px、semantic DOM、focus-visible、console warning / error 0件を確認し、fixture投稿をsoft delete、timezoneを復元、logoutした。実キーボードのTab / Shift+Tab / Enterは自動注入が安定せず未確認。419 runtime timezoneのCalendar assertion、lint、typecheck、build、diff checkが成功。DB・migration・pgTAP定義・package・remote DB、Service Role、Auth Admin API、stage・commit・pushは変更・使用・実施していない |
 | 2026-08-09 | commit前。基準HEAD `f70bd4929ec7aedbe88e6b83cf50f864b8df05e3` | Phase C3c-1としてstrict month/date parser、viewer timezone基準の現在月・今日・前後月、Intlによるlocal month開始ごとの独立UTC変換、本人Calendar posts query、local date、日別post count・最新mood、選択日全投稿data shapeを実装。Tokyo / New York / Londonの境界、同一instantの日付差、同日複数投稿の`created_at DESC, id DESC`、query条件と419 runtime timezoneの3月・8月境界をNode assertionで確認した。既存viewer helperのclaims由来本人ID、通常authenticated client、本人filter、未削除、half-open range、既存posts RLSを維持し、Service Role・SECURITY DEFINERは追加していない。lint、typecheck、build、diff checkが成功。UI・browserは対象外。DB・migration・pgTAP定義・package・remote DBは変更せず、stage・commit・pushは未実施 |
 | 2026-08-09 | commit前。基準HEAD `95a007477ebf3a021592f196476a482cd3748344` | Phase C3bとして`accounts.timezone`のDB validator trigger、pgTAP 31件、runtime標準IANA option・validation、viewer timezone helper、`/settings`、本人claimsと既存RLSを使うServer Action、home導線、pending・成功・generic error UIを実装。DB受理597件とNode Intl、Application option 419件とDB validatorの双方向不一致0件を確認。認証済みローカルBrowser回帰で保存直後のselectだけが旧値へ戻る問題を検出し、保存済みtimezoneでselectをremountする最小修正後、複数timezone保存・reload / 再訪保持・5幅responsive・accessibility・consoleを確認した。通常authenticated direct invalid UPDATEは拒否され、fixtureはlocal resetで清掃した。新規31件・全954件のpgTAP、helper 14件、lint、typecheck、build、diff checkを再確認。remote migration、Service Role、Auth Admin API、package変更、calendar、stage、commit、pushは未実施 |
 | 2026-08-09 | commit前。基準HEAD `dbd0b837f92bf657088f2a25006fd180f7b9bbbb` | Phase C3aとしてfollowing / latestへ`created_at DESC, id DESC`の20件forward cursor pagination、21件目next判定、表示20件だけの補助hydrateを実装。version・feed・timestamp・UUIDをstrict検証するopaque base64url cursorをfeedへbindし、feed切替で破棄、不正cursorはgeneric error、現在のfollow・visibility・RLSをpageごとに再評価する。homeだけ本文を280 codepointsで省略し、281以上へellipsisと「続きを読む」を表示して投稿詳細・home以外は全文を維持した。認証済みローカルブラウザでfollowing `20 / 5`、latest `20 / 7`、reload・back / forward・直接URL、malformed / feed mismatch、follow解除・visibility変更後のsaved cursor、本文境界、5幅responsive、semantic / accessible name、console warning / error 0を確認。同一timestamp実fixtureと実キーボード操作は手動確認へ持ち越した。C3a fixtureはローカル限定resetで削除し、19 migration fresh適用、fixture全件0、全pgTAP `923 / 923 PASS`、lint、typecheck、build、diff checkを確認。DB / migration / pgTAP定義 / package / remote DB / Storageは変更せず、Service Role・Auth Admin・stage・commit・pushは未使用・未実施 |

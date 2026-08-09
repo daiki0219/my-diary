@@ -65,6 +65,8 @@ export type CalendarMonthDataResult =
         | "invalid-data";
     };
 
+export type CalendarMonthData = NonNullable<CalendarMonthDataResult["data"]>;
+
 function isCalendarPostRow(value: unknown): value is CalendarPostRow {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -90,6 +92,10 @@ export async function getCalendarMonthData(
   params: CalendarSearchParams,
   now = new Date(),
 ): Promise<CalendarMonthDataResult> {
+  if (params.date !== undefined && params.month === undefined) {
+    return { data: null, error: "invalid-date" };
+  }
+
   const requestedMonth =
     params.month === undefined ? null : parseCalendarMonth(params.month);
 
