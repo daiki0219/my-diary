@@ -1,5 +1,5 @@
-import { CommentCard } from "@/components/posts/comment-card";
-import type { Comment } from "@/lib/comment-data";
+import { CommentThreadList } from "@/components/posts/comment-thread-list";
+import { buildCommentThreads, type Comment } from "@/lib/comment-data";
 
 export function CommentList({
   comments,
@@ -37,16 +37,11 @@ export function CommentList({
         </p>
       ) : comments.length > 0 ? (
         <>
-          <ol className="mt-4 space-y-3">
-            {comments.map((comment) => (
-              <CommentCard
-                comment={comment}
-                currentUserId={currentUserId}
-                key={comment.id}
-                postId={postId}
-              />
-            ))}
-          </ol>
+          <CommentThreadList
+            currentUserId={currentUserId}
+            postId={postId}
+            threads={buildCommentThreads(comments)}
+          />
           {isTruncated && (
             <p className="mt-4 text-sm leading-6 text-stone-600">
               コメントが多いため、古い順に100件を表示しています。

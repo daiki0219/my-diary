@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 
 import {
   deleteComment,
@@ -31,9 +32,16 @@ export function DeleteCommentButton({
   postId: string;
 }) {
   const [isConfirming, setIsConfirming] = useState(false);
+  const router = useRouter();
   const initialState: DeleteCommentActionState = { error: null };
   const [state, formAction] = useActionState(deleteComment, initialState);
   const confirmationId = `delete-comment-confirmation-${commentId}`;
+
+  useEffect(() => {
+    if (state.deletedCommentId) {
+      router.refresh();
+    }
+  }, [router, state.deletedCommentId]);
 
   return (
     <form action={formAction} className="mt-3">

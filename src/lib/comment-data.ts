@@ -8,6 +8,7 @@ const COMMENT_COUNT_PAGE_SIZE = 1000;
 export type Comment = {
   id: string;
   user_id: string;
+  parent_comment_id: string | null;
   body: string;
   created_at: string;
   author: {
@@ -16,6 +17,101 @@ export type Comment = {
 };
 
 type CommentRow = Omit<Comment, "author">;
+
+export type DisplayComment = Omit<Comment, "parent_comment_id">;
+
+export type CommentThread =
+  | {
+      kind: "available";
+      parent: DisplayComment;
+      replies: DisplayComment[];
+    }
+  | {
+      kind: "unavailable";
+      key: string;
+      replies: DisplayComment[];
+    };
+
+function compareComments(
+  left: Pick<Comment, "created_at" | "id">,
+  right: Pick<Comment, "created_at" | "id">,
+) {
+  const createdAtComparison = left.created_at.localeCompare(right.created_at);
+
+  return createdAtComparison !== 0
+    ? createdAtComparison
+    : left.id.localeCompare(right.id);
+}
+
+function toDisplayComment(comment: Comment): DisplayComment {
+  return {
+    id: comment.id,
+    user_id: comment.user_id,
+    body: comment.body,
+    created_at: comment.created_at,
+    author: comment.author,
+  };
+}
+
+export function buildCommentThreads(comments: Comment[]): CommentThread[] {
+  const topLevelComments = comments
+    .filter((comment) => comment.parent_comment_id === null)
+    .sort(compareComments);
+  const topLevelIds = new Set(topLevelComments.map((comment) => comment.id));
+  const repliesByParentId = new Map<string, Comment[]>();
+
+  for (const comment of comments) {
+    if (comment.parent_comment_id === null) {
+      continue;
+    }
+
+    const replies = repliesByParentId.get(comment.parent_comment_id) ?? [];
+    replies.push(comment);
+    repliesByParentId.set(comment.parent_comment_id, replies);
+  }
+
+  const threads: Array<{
+    sortComment: Pick<Comment, "created_at" | "id">;
+    thread: CommentThread;
+  }> = topLevelComments.map((parent) => ({
+    sortComment: parent,
+    thread: {
+      kind: "available",
+      parent: toDisplayComment(parent),
+      replies: (repliesByParentId.get(parent.id) ?? [])
+        .sort(compareComments)
+        .map(toDisplayComment),
+    },
+  }));
+
+  for (const [parentId, replies] of repliesByParentId) {
+    if (topLevelIds.has(parentId)) {
+      continue;
+    }
+
+    const sortedReplies = replies.sort(compareComments);
+    const firstReply = sortedReplies[0];
+
+    if (!firstReply) {
+      continue;
+    }
+
+    threads.push({
+      sortComment: firstReply,
+      thread: {
+        kind: "unavailable",
+        key: `unavailable-${firstReply.id}`,
+        replies: sortedReplies.map(toDisplayComment),
+      },
+    });
+  }
+
+  return threads
+    .sort((left, right) =>
+      compareComments(left.sortComment, right.sortComment),
+    )
+    .map(({ thread }) => thread);
+}
 
 export async function getCommentCounts(
   supabase: SupabaseClient,
@@ -64,7 +160,9 @@ export async function getCommentsForPost(
 ) {
   const commentsResult = await supabase
     .from("comments")
-    .select("id, user_id, body, created_at", { count: "exact" })
+    .select("id, user_id, parent_comment_id, body, created_at", {
+      count: "exact",
+    })
     .eq("post_id", postId)
     .order("created_at", { ascending: true })
     .order("id", { ascending: true })

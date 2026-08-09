@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { DeleteCommentButton } from "@/components/posts/delete-comment-button";
-import type { Comment } from "@/lib/comment-data";
+import type { DisplayComment } from "@/lib/comment-data";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   dateStyle: "medium",
@@ -12,17 +12,31 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
 export function CommentCard({
   comment,
   currentUserId,
+  isReply = false,
+  isReplyFormOpen = false,
+  onReply,
   postId,
+  replyControlsId,
 }: {
-  comment: Comment;
+  comment: DisplayComment;
   currentUserId: string;
+  isReply?: boolean;
+  isReplyFormOpen?: boolean;
+  onReply?: () => void;
   postId: string;
+  replyControlsId?: string;
 }) {
   const normalizedUsername = comment.author?.username.trim() || "ユーザー";
   const initial = Array.from(normalizedUsername)[0] ?? "人";
 
   return (
-    <li className="min-w-0 rounded-2xl border border-stone-200 bg-white p-4">
+    <article
+      className={`min-w-0 rounded-2xl border p-4 ${
+        isReply
+          ? "border-orange-100 bg-orange-50/40"
+          : "border-stone-200 bg-white"
+      }`}
+    >
       <div className="flex min-w-0 items-center gap-3">
         <div
           aria-hidden="true"
@@ -50,9 +64,22 @@ export function CommentCard({
         {comment.body}
       </p>
 
+      {onReply && replyControlsId && (
+        <button
+          aria-controls={replyControlsId}
+          aria-expanded={isReplyFormOpen}
+          className="mt-3 rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+          id={`reply-button-${comment.id}`}
+          onClick={onReply}
+          type="button"
+        >
+          返信
+        </button>
+      )}
+
       {comment.user_id === currentUserId && (
         <DeleteCommentButton commentId={comment.id} postId={postId} />
       )}
-    </li>
+    </article>
   );
 }

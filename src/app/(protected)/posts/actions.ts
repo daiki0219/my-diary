@@ -66,8 +66,11 @@ export type CreateCommentActionState = {
   createdCommentId: string | null;
 };
 
+export type CreateReplyActionState = CreateCommentActionState;
+
 export type DeleteCommentActionState = {
   error: string | null;
+  deletedCommentId?: string;
 };
 
 function characterCount(value: string) {
@@ -841,16 +844,22 @@ export async function toggleReaction(
   return { error: null };
 }
 
-export async function createComment(
-  _previousState: CreateCommentActionState,
+async function createCommentEntry(
   formData: FormData,
+  options: {
+    kind: "comment" | "reply";
+    parentCommentId?: string;
+  },
 ): Promise<CreateCommentActionState> {
   const postIdValue = formData.get("postId");
   const bodyValue = formData.get("body");
+  const isReply = options.kind === "reply";
 
   if (typeof postIdValue !== "string" || !isUuid(postIdValue)) {
     return {
-      error: "コメントする日記を確認できませんでした。",
+      error: isReply
+        ? "返信する日記を確認できませんでした。"
+        : "コメントする日記を確認できませんでした。",
       fieldError: null,
       createdCommentId: null,
     };
@@ -859,7 +868,9 @@ export async function createComment(
   if (typeof bodyValue !== "string") {
     return {
       error: "入力内容を確認してください。",
-      fieldError: "コメントを入力してください。",
+      fieldError: isReply
+        ? "返信を入力してください。"
+        : "コメントを入力してください。",
       createdCommentId: null,
     };
   }
@@ -869,7 +880,9 @@ export async function createComment(
   if (characterCount(body) < 1) {
     return {
       error: "入力内容を確認してください。",
-      fieldError: "コメントを入力してください。",
+      fieldError: isReply
+        ? "返信を入力してください。"
+        : "コメントを入力してください。",
       createdCommentId: null,
     };
   }
@@ -877,7 +890,7 @@ export async function createComment(
   if (characterCount(body) > COMMENT_MAX_LENGTH) {
     return {
       error: "入力内容を確認してください。",
-      fieldError: `コメントは${COMMENT_MAX_LENGTH.toLocaleString("ja-JP")}文字以下で入力してください。`,
+      fieldError: `${isReply ? "返信" : "コメント"}は${COMMENT_MAX_LENGTH.toLocaleString("ja-JP")}文字以下で入力してください。`,
       createdCommentId: null,
     };
   }
@@ -913,7 +926,7 @@ export async function createComment(
 
   if (accountResult.data?.status !== "active") {
     return {
-      error: "現在のアカウント状態ではコメントを投稿できません。",
+      error: `現在のアカウント状態では${isReply ? "返信" : "コメントを投稿"}できません。`,
       fieldError: null,
       createdCommentId: null,
     };
@@ -938,25 +951,41 @@ export async function createComment(
 
   if (!postResult.data) {
     return {
-      error: "この日記は現在表示できないため、コメントできません。",
+      error: `この日記は現在表示できないため、${isReply ? "返信" : "コメント"}できません。`,
       fieldError: null,
       createdCommentId: null,
     };
   }
 
-  const { data, error } = await supabase
-    .from("comments")
-    .insert({
-      post_id: postIdValue,
-      user_id: userId,
-      body,
-    })
-    .select("id")
-    .maybeSingle<{ id: string }>();
+  let mutationResult: {
+    data: { id: string } | null;
+    error: { code?: string } | null;
+  };
+
+  try {
+    mutationResult = await supabase
+      .from("comments")
+      .insert({
+        post_id: postIdValue,
+        user_id: userId,
+        body,
+        ...(options.parentCommentId
+          ? { parent_comment_id: options.parentCommentId }
+          : {}),
+      })
+      .select("id")
+      .maybeSingle<{ id: string }>();
+  } catch {
+    mutationResult = { data: null, error: { code: "request-failed" } };
+  }
+
+  const { data, error } = mutationResult;
 
   if (error || !data) {
     return {
-      error: "コメントを投稿できませんでした。もう一度お試しください。",
+      error: isReply
+        ? "返信できませんでした。コメントの状態が変わった可能性があります。再読み込みしてお試しください。"
+        : "コメントを投稿できませんでした。もう一度お試しください。",
       fieldError: null,
       createdCommentId: null,
     };
@@ -972,6 +1001,37 @@ export async function createComment(
     fieldError: null,
     createdCommentId: data.id,
   };
+}
+
+export async function createComment(
+  _previousState: CreateCommentActionState,
+  formData: FormData,
+): Promise<CreateCommentActionState> {
+  return createCommentEntry(formData, { kind: "comment" });
+}
+
+export async function createReply(
+  _previousState: CreateReplyActionState,
+  formData: FormData,
+): Promise<CreateReplyActionState> {
+  const parentCommentIdValue = formData.get("parentCommentId");
+
+  if (
+    typeof parentCommentIdValue !== "string" ||
+    !isUuid(parentCommentIdValue)
+  ) {
+    return {
+      error:
+        "返信先のコメントを確認できませんでした。再読み込みしてお試しください。",
+      fieldError: null,
+      createdCommentId: null,
+    };
+  }
+
+  return createCommentEntry(formData, {
+    kind: "reply",
+    parentCommentId: parentCommentIdValue,
+  });
 }
 
 export async function deleteComment(
@@ -1053,5 +1113,5 @@ export async function deleteComment(
   revalidatePath(`/posts/${postIdValue}`);
   revalidatePath(`/users/${postResult.data.user_id}`);
 
-  return { error: null };
+  return { error: null, deletedCommentId: commentIdValue };
 }
