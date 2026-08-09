@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-09
 - 調査時branch: `main`
-- 調査基準HEAD: `dbd0b837f92bf657088f2a25006fd180f7b9bbbb`
-- 調査基準HEADのmessage: `feat: add notification UI`
+- 調査基準HEAD: `95a007477ebf3a021592f196476a482cd3748344`
+- 調査基準HEADのmessage: `feat: paginate home timelines`
 
 ### 更新ルール
 
@@ -42,24 +42,26 @@
 
 | 状態 | 件数 |
 | --- | ---: |
-| 実装済み | 30 |
+| 実装済み | 31 |
 | 一部実装済み | 4 |
-| 未実装 | 7 |
+| 未実装 | 6 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
 | 合計 | 58 |
 
 現在は、メールアドレスとパスワードによる認証、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤を追加し、Phase C2c-2では4種類のsource INSERTへ同一transactionの通知生成triggerを接続した。Phase C2c-3ではRLS下の通知一覧、未読件数、個別・すべて既読、Server側で再評価するtarget遷移、削除済みcomment等のneutral表示をApplication / UIへ接続した。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは19ファイル、plan合計923 assertionで、通知生成、ACL、active境界、現在のpost可視性、既読列更新、invalid replyのgeneric errorとatomic rollbackを含むDB認可を対象としている。
+DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤を追加し、Phase C2c-2では4種類のsource INSERTへ同一transactionの通知生成triggerを接続した。Phase C2c-3ではRLS下の通知一覧、未読件数、個別・すべて既読、Server側で再評価するtarget遷移、削除済みcomment等のneutral表示をApplication / UIへ接続した。Phase C3bではtimezone DB validator、viewer timezone helper、`/settings`、Server Actionを追加した。自由タグ、投稿検索、private投稿画像とatomic mutationは既存設計を維持する。pgTAPは20ファイル、plan合計954 assertionで、timezone direct UPDATEの無効値拒否、本人・他人・non-active境界を含むDB認可を対象としている。
 
-MVP完了条件との差分には、場所入力UI、カレンダー、設定がある。パスワードリセットとOAuth、avatarも未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+MVP完了条件との差分には、場所入力UIとカレンダーがある。パスワードリセットとOAuth、avatarも未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
+
+Phase C3bでは、`accounts.timezone`をPostgreSQL timezone catalogで検証するtriggerと、runtime標準timezone option、viewer timezone helper、`/settings`、Server Actionを追加した。repository / localは20 migration、全pgTAPは20ファイル・`954 / 954 PASS`である。C3b migrationはremote未適用である。
 
 ### 2.1 MVP残差と実装優先順位
 
 正式仕様上のMVP分類と、公開前の実装優先順位は別に管理する。
 
-- 公開前に重要: timezone settings、calendar
+- 公開前に重要: calendar
 - 強く推奨: password reset、`location_name`のUI接続、follow / profile / user検索等の固定件数改善
 - MVP対象だが後順位: Google login、Apple login、avatar、timezone以外のsettings、profile / follow list等のpagination
 - MVP後またはmaintenanceへ延期可能: 長期orphan cleanup、soft-deleted画像のphysical delete、保持期間後のphysical delete、正式仕様のPhase 2以降の機能
@@ -75,9 +77,9 @@ MVP完了条件との差分には、場所入力UI、カレンダー、設定が
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback、request-scoped account status gate | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/account-session.ts`、`src/proxy.ts` |
-| migration | repository / local / remoteは19件。latestは`20260809000300_generate_notifications.sql` | `supabase/migrations/*.sql`、local / linked remote migration list |
+| migration | repository / localは20件、remoteは19件。latestは`20260809000400_validate_account_timezones.sql` | `supabase/migrations/*.sql`、local migration list。C3b migrationはremote未適用 |
 | DB table | repository / localは10 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications` |
-| pgTAP | 19ファイル、plan合計923。C3aのfresh reset後は`923 / 923 PASS` | `supabase/tests/database/*.sql` |
+| pgTAP | 20ファイル、plan合計954。C3bの全回帰は`954 / 954 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
 | 調査基準commit | `dbd0b837f92bf657088f2a25006fd180f7b9bbbb` | `feat: add notification UI`。Phase C2c-3までを含む |
@@ -187,7 +189,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | --- | --- | --- | --- |
 | カレンダー | 未実装 | route、component、日付別queryなし | timezone、同日複数投稿、気分表示を設計する |
 | 通知 | 実装済み | DB / RLS、4 type生成、`/notifications`、20件複合cursor、actor / comment batch取得、未読badge、個別・すべて既読、Server側再評価による遷移、利用不能targetのneutral表示を実装 | 大量通知での実データ性能は継続評価する |
-| 設定 | 未実装 | `/settings`相当のrouteなし | timezone等の設定UIを定義する |
+| 設定 | 実装済み | `/settings`で現在のtimezone、runtime標準IANA option、保存中・成功・generic errorを表示し、Server Actionからclaims由来の本人IDと既存RLSで更新する | timezone以外の設定は後順位。calendarは未実装 |
 | レスポンシブ | 一部実装済み | mobile-first class、`min-w-0`、`break-words`、`overflow-wrap:anywhere`、幅制限を主要画面に使用。投稿画像galleryを320 / 360 / 375 / 390 / 1280pxで確認済み | repository内にviewport別の自動回帰テストはない |
 | アクセシビリティ | 一部実装済み | label、role、aria-live、focus-visible、semantic heading/link/buttonを主要UIに使用 | 網羅的なkeyboard、contrast、screen readerの自動検証はない |
 | error handling・loading | 一部実装済み | not-found UI、role alert、empty state、Server Action error、送信中disabledを実装 | route-level `loading.tsx`、error boundary、再試行UIは未整備 |
@@ -201,7 +203,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 
 | 対象 | 状態 | column | 主な制約・index・権限 |
 | --- | --- | --- | --- |
-| `accounts` | 実装済み | `user_id`、`role`、`status`、`timezone`、`created_at`、`updated_at` | Auth userへのcascade FK、role/status/timezone CHECK、本人SELECT、active時のtimezone更新 |
+| `accounts` | 実装済み | `user_id`、`role`、`status`、`timezone`、`created_at`、`updated_at` | Auth userへのcascade FK、role/status/timezone CHECK、IANA timezone validator trigger、本人SELECT、active時のtimezone更新 |
 | `profiles` | 一部実装済み | `user_id`、`username`、`bio`、`avatar_path`、`created_at`、`updated_at` | Auth userへのcascade FK、文字数CHECK、`lower(username)` index、本人更新。avatar利用UIとsuspended対象のSELECT制限は未完成 |
 | `posts` | 一部実装済み | `id`、`user_id`、`title`、`body`、`mood`、`location_name`、`visibility`、`created_at`、`updated_at`、`deleted_at` | Auth userへのcascade FK、入力値CHECK、partial index、可視性RLS。authenticatedの直接INSERT/UPDATEを閉じ、atomic post/tag RPCだけを一般作成・更新経路とする |
 | `follows` | 実装済み | `follower_id`、`following_id`、`created_at` | 両userへのcascade FK、複合PK、self-follow CHECK、active関係だけのSELECT、following/follower安定順index |
@@ -224,6 +226,7 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 - post_imagesは可視postだけをSELECTできる。`storage.objects`は対応metadataが見える場合、または通常upload / cleanup中の本人所有orphanだけをSELECTできる。INSERT / DELETEはStorage operation context、本人owner、3 UUID segment path、active状態または未参照状態を検査し、UPDATE / upsertは許可しない。標準Storage tableのowner、ACL、owner_idは変更していない。
 - `my_diary_is_account_active`と`my_diary_can_view_post`をprivate schemaへ置き、再帰的RLSを避けている。
 - `my_diary_validate_comment_parent`は一般roleから直接実行できないprivate trigger functionで、返信INSERT時にparent rowをlockし、1階層・same-post・未削除・active authorを検証する。ownerは`postgres`、`SECURITY DEFINER`、空search pathである。
+- `my_diary_validate_account_timezone`は`pg_timezone_names`の完全一致を使うprivate trigger functionで、`accounts` INSERTとtimezone UPDATEを検証する。`posix/*`重複treeとIntl非対応の`Factory`を除外し、ownerは`postgres`、`SECURITY INVOKER`、空search path、一般roleの直接EXECUTEなしである。
 - `my_diary_normalize_tag_name`をprivate schemaへ置き、NFKC、前後空白、先頭`#`、連続空白、ASCII caseを決定的にcanonical化する。一般application roleにはEXECUTEを付与しない。
 - `my_diary_soft_delete_post`、`my_diary_soft_delete_comment`は本人とactive状態を再検証する。
 - `my_diary_create_post_with_tags`と`my_diary_update_post_with_tags`は投稿本体とtag relationを同一transactionで処理し、後者はpost row lockと差分更新を使用する。
@@ -268,6 +271,7 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 | `/auth/callback` | route handler | email確認codeをsessionへ交換 |
 | `/home` | page | 認証済みviewer向けのフォロー中・最新投稿timeline。20件forward cursor pagination、feed bind、不正cursorのgeneric error、home本文280 codepoints省略に対応（`feed=following` / `feed=latest`） |
 | `/notifications` | page | RLS上見える通知を20件ずつ表示し、未読 / 既読、個別・すべて既読、target遷移を提供 |
+| `/settings` | page | viewer本人の現在timezoneを表示し、runtime標準IANA optionから選択してServer Actionで保存 |
 | `/tags` | page | RLS上閲覧可能なタグをcanonical名順に50件ずつ表示 |
 | `/tags/[tagId]` | dynamic page | UUIDで識別したタグと、RLS上閲覧可能な投稿を20件ずつ表示 |
 | `/posts/new` | page | 日記作成 |
@@ -308,6 +312,8 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 | `20260808000300` | `20260808000300_integrate_post_image_edits.sql` | final JSONB image manifest、post row lock、保持画像identity、追加path検証、metadata削除・順序更新をatomicに行う編集RPC、削除旧path返却、最小ACL |
 | `20260809000100` | `20260809000100_add_comment_replies.sql` | nullable parent relation、1階層・same-post・未削除・active parentを検証するlocking trigger、返信取得index、既存RLSを維持した最小INSERT列権限 |
 | `20260809000200` | `20260809000200_create_notifications.sql` | notifications、4 type / target shape / 自己通知CHECK、account・post・commentへのcascade FK、recipient安定順index、active recipient / actorとposts RLSを再評価するSELECT / UPDATE policy、SELECT＋`UPDATE(is_read)`の最小ACL |
+| `20260809000300` | `20260809000300_generate_notifications.sql` | follow / reaction / comment / replyの同一transaction通知生成trigger、trigger専用functionと最小ACL |
+| `20260809000400` | `20260809000400_validate_account_timezones.sql` | PostgreSQL timezone catalogに基づくaccounts INSERT / timezone UPDATE validator、runtime非互換値除外、trigger専用ACL |
 
 Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_user_and_tag_search.sql`を1件追加した。ローカルresetで11件すべてをfresh適用した後、この1件だけをリンク済みのリモート開発DBへ通常適用した。local / remote履歴は11件で一致し、適用後の再dry-runはup to date、pg-deltaによる`public,my_diary_private`のlinked schema diffは空だった。migration transaction内のpostconditionと空のcatalog diffを組み合わせ、両検索RPCとprivate helperのsignature、引数名、return shape、owner、volatility、security属性、固定search path、ACL、および既存tags RLS・policy・table ACLの維持を確認した。適用後のcatalog cache生成では一時CA証明書を参照できない補助warningが発生したが、migration適用は終了コード0で完了し、remote履歴と再dry-runで成功を確認したため再適用していない。リモートfixture・ユーザーデータ操作・Service Roleは使用せず、Git stage・commit・pushも実施していない。
 
@@ -342,9 +348,12 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 | `0017_comment_replies_rls.test.sql` | 45 | parent column・index・trigger function/ACL、top-level/reply、grandchild・cross-post・deleted parent・spoof拒否、不可視parentのgeneric error、visibility・soft/physical delete回帰 |
 | `0018_notifications_rls.test.sql` | 65 | notifications schema / CHECK / cascade FK / index、RLS / ACL、recipient・actor active境界、現在のpost可視性再評価、既読列更新、自己通知拒否、physical delete cascade |
 | `0019_notification_generation.test.sql` | 48 | 3 trigger functionの属性 / ACL、follow / reaction / comment / reply生成、自己通知防止、解除・更新・再追加、invalid reply generic error、特権fixture境界、atomic rollback |
-| 合計 | 923 | 19ファイル |
+| `0020_account_timezone_validation.test.sql` | 31 | timezone validator function / trigger / ACL、IANA値、無効・空・内部timezone拒否、本人・他人・non-active、role / status境界 |
+| 合計 | 954 | 20ファイル |
 
 ### 9.2 実行結果の区別
+
+- Phase C3bでは既存19 migrationを変更せず、`20260809000400_validate_account_timezones.sql`と`0020_account_timezone_validation.test.sql`を各1件追加した。変更前はactiveなauthenticated本人が`Invalid/Timezone`を直接UPDATEできることをロールバック付きfixtureで再現した。新triggerは`pg_timezone_names`完全一致を使い、`posix/*`とIntl非対応の`Factory`を除外する。functionは追加権限が不要な`SECURITY INVOKER`、owner=`postgres`、空search path、trigger専用ACLとした。Applicationは`Intl.supportedValuesOf('timeZone')`＋`UTC`、runtime validation、viewer timezone helper、`/settings`、claims由来本人ID・通常Supabase client・既存RLSを使うServer Action、home導線、pending・成功・generic errorを実装した。DB validatorが受理する597 timezoneはNode Intlで全件利用でき、Application option 419件も全件DB受理可能で、不一致は両方向0件だった。認証済みローカルBrowser回帰で初期`Asia/Tokyo`、419候補、`America/New_York`・`Europe/London`・`Asia/Tokyo`の保存、保存直後表示、reload・再訪保持、home導線、320 / 360 / 375 / 390 / 1280pxの横scrollなし、label・説明関連付け・focus-visible・status、console warning / error 0件を確認した。保存直後だけselectが旧defaultへ戻る問題を検出し、selectを保存済みtimezoneでremountする最小修正を行った。通常authenticated clientの`Invalid/Timezone`直接UPDATEは`23514`で拒否され保存値は不変だった。Browser DOM tampering、瞬間的pending目視、信頼できるTab / Shift+Tab / Arrow移動は未実施で、helper・pgTAP・direct UPDATEと、`useFormStatus`・disabled / `aria-disabled`・semantic実装確認で補完した。reset後fixtureは0件で、新規`31 / 31`、全20ファイル`954 / 954 PASS`、timezone helper 14 assertion、`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`が成功した。remote migration履歴はread-onlyで19件を確認し、C3b migration未適用、remote mutation・Auth・Storage、Service Role、Auth Admin API、package変更、calendar、stage、commit、pushは未実施である。
 
 - Phase C2c-3ではDB schema・RLS・migration・pgTAP定義を変更せず、RLS下の通知data layer、20件複合cursor pagination、actor profile / target commentのbatch hydrate、4 type文言、未読 / 既読、個別・すべて既読、home badge、通知IDだけをClient入力とするServer Action、Server側で現在のnotification / profile / commentを再評価するtarget遷移、利用不能targetのneutral表示を実装した。全19 pgTAP `923 / 923`、`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`が成功した。認証済みローカルブラウザ回帰では通常sign-up / loginと既存mutationだけを使い、follow / reaction / comment / reply、個別既読とreload保持、通知openの既読化・正しいtarget遷移、すべて既読、未読badge、利用不能comment / replyのneutral表示、stale click、post可視性の再評価、不正cursor 6種のfail-closed、22件を`20 / 2`で表示するpaginationを確認した。通知内に本文・`deleted_at`・raw UUID・DB errorは露出せず、320 / 360 / 375 / 390 / 1280pxで横スクロールはなく、browser consoleのerror / warning、React warning、hydration errorは0件だった。検証中の専用server stderrでfixture account切替時に`refresh_token_not_found`が2回あったが、後続loginと通知操作は成功し、C2c-3固有の不具合とは確認できなかったため修正していない。fixtureはローカルresetで清掃し、全pgTAP `923 / 923`を再確認した。実キーボードのTab / Shift+Tab / Enter / Spaceと、低速環境での個別既読・すべて既読のpending表示目視は未実施の手動確認として残す。remote DB / Storageのschema・migration・既存dataは変更せず、Service Role・Auth Admin・直接notifications INSERTは使用していない。
 
@@ -434,7 +443,7 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 ### C3a完了後の主な候補
 
-1. timezone settingsを先に整備し、その後calendarを実装する。
+1. viewer timezone helperを使ってcalendarを実装する。
 2. password resetを追加し、Google / Apple OAuthはprovider設定を含む別Phaseで扱う。
 3. `location_name`のform・Server Action・表示を既存atomic投稿更新へ接続する。
 4. profile投稿・follow一覧・ユーザー検索等の固定件数をcursor paginationで改善する。
@@ -445,6 +454,7 @@ Phase B3dの投稿画像追加・削除・並び替えは完了済みであり�
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-09 | commit前。基準HEAD `95a007477ebf3a021592f196476a482cd3748344` | Phase C3bとして`accounts.timezone`のDB validator trigger、pgTAP 31件、runtime標準IANA option・validation、viewer timezone helper、`/settings`、本人claimsと既存RLSを使うServer Action、home導線、pending・成功・generic error UIを実装。DB受理597件とNode Intl、Application option 419件とDB validatorの双方向不一致0件を確認。認証済みローカルBrowser回帰で保存直後のselectだけが旧値へ戻る問題を検出し、保存済みtimezoneでselectをremountする最小修正後、複数timezone保存・reload / 再訪保持・5幅responsive・accessibility・consoleを確認した。通常authenticated direct invalid UPDATEは拒否され、fixtureはlocal resetで清掃した。新規31件・全954件のpgTAP、helper 14件、lint、typecheck、build、diff checkを再確認。remote migration、Service Role、Auth Admin API、package変更、calendar、stage、commit、pushは未実施 |
 | 2026-08-09 | commit前。基準HEAD `dbd0b837f92bf657088f2a25006fd180f7b9bbbb` | Phase C3aとしてfollowing / latestへ`created_at DESC, id DESC`の20件forward cursor pagination、21件目next判定、表示20件だけの補助hydrateを実装。version・feed・timestamp・UUIDをstrict検証するopaque base64url cursorをfeedへbindし、feed切替で破棄、不正cursorはgeneric error、現在のfollow・visibility・RLSをpageごとに再評価する。homeだけ本文を280 codepointsで省略し、281以上へellipsisと「続きを読む」を表示して投稿詳細・home以外は全文を維持した。認証済みローカルブラウザでfollowing `20 / 5`、latest `20 / 7`、reload・back / forward・直接URL、malformed / feed mismatch、follow解除・visibility変更後のsaved cursor、本文境界、5幅responsive、semantic / accessible name、console warning / error 0を確認。同一timestamp実fixtureと実キーボード操作は手動確認へ持ち越した。C3a fixtureはローカル限定resetで削除し、19 migration fresh適用、fixture全件0、全pgTAP `923 / 923 PASS`、lint、typecheck、build、diff checkを確認。DB / migration / pgTAP定義 / package / remote DB / Storageは変更せず、Service Role・Auth Admin・stage・commit・pushは未使用・未実施 |
 | 2026-08-09 | commit前。基準HEAD `15960c342d32ac12287e11ed8c6d897bbdf34ffe` | Phase C2c-3として`/notifications`、20件複合cursor、RLS下のactor / comment batch hydrate、4 type文言、未読 / 既読、個別・すべて既読、home badge、Server側再評価によるtarget遷移、利用不能targetのneutral表示を実装。DB / migration / pgTAP定義 / packageは変更せず、全pgTAP923件とnpm・diff検証が成功。認証済みローカルブラウザで通知4種、個別・open・すべて既読、未読badge、neutral / stale target、post可視性再評価、不正cursor、22件の`20 / 2` pagination、5幅の横スクロールなし、console error / warning・React / hydration warning 0を確認。fixture清掃後に全pgTAP `923 / 923 PASS`。実キーボードと低速環境でのpending表示目視は手動確認へ持ち越し。remote schema / migration / Storageは変更せず、Service Role・Auth Admin・直接notifications INSERTは未使用 |
 | 2026-08-09 | commit前。基準HEAD `bac2b1326a3e87beaa009a32bed5e36ac6eb84f9` | Phase C2c-2としてfollow / reaction / comment / replyの通知生成をAFTER INSERT triggerで実装。source rowとDB current dataからrecipient / actor / targetを決定し、authenticated role＋`auth.uid()`一致、active両端、自己通知除外を防御的に検証するtrigger専用SECURITY DEFINER functionを追加した。reaction UPDATE / DELETEとfollow DELETEは通知せず、再INSERTは新規eventとして追加する。reply notificationはparent authorだけへ送り、新reply自身をtargetとし、invalid parentは独自errorなしで既存generic `23514`を維持する。ローカルresetで19 migrationをfresh適用し、新規48件・全923件がPASS。remoteはC2c-1まで18 migrationでC2c-2未適用。UI・package・既存test・Server Action・notifications RLS / ACLは変更せず、stage・commit・pushも未実施 |

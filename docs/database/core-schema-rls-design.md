@@ -5,15 +5,15 @@
 この設計案は、最初のデータベース単位として `accounts`、`profiles`、
 `posts`、`follows` から開始した。その後、リアクション、コメント、自由タグ、
 投稿画像とStorageを後続migrationで追加し、投稿画像はPhase B3a〜B3dまで完了した。
-Phase C2c-1で通知DB / RLS基盤を追加した。通知生成と通知UI、通報は未作成である。自由タグの後続Phase B1設計は本書の
+Phase C2cで通知DB / RLS基盤、通知生成、通知UIを追加し、Phase C3bでtimezone設定とDB validation境界を追加した。通報は未作成である。自由タグの後続Phase B1設計は本書の
 「自由タグPhase B1追加設計」と「自由タグPhase B2a atomic mutation設計」に記録する。
 
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` にはpublic application tableの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaからPhase C2aまでの17件はlocalとリンク済みのリモート開発Supabaseへ
-適用済みである。Phase C2c-1では`20260809000200_create_notifications.sql`を18件目として
-repository / localへ追加した。C2c-1 migrationはリモート未適用である。
+初回schemaからPhase C2c-2までの19件はリンク済みのリモート開発Supabaseへ適用済みである。
+Phase C3bでは`20260809000400_validate_account_timezones.sql`を20件目としてrepository / localへ追加した。
+C3b migrationはリモート未適用である。
 
 ### 投稿画像基盤の現在状態
 
@@ -32,12 +32,14 @@ repository / localへ追加した。C2c-1 migrationはリモート未適用で�
 - `user_id`: `auth.users.id` を参照する主キー
 - `role`: `user` / `admin`
 - `status`: `active` / `suspended` / `deactivated`
-- `timezone`: IANAタイムゾーン名を保存する想定。初期値は `Asia/Tokyo`
+- `timezone`: IANAタイムゾーン名。初期値は `Asia/Tokyo`
 - `created_at` / `updated_at`: `TIMESTAMPTZ`
 
 一般ユーザーに許可する更新列は `timezone` だけである。`role` と `status`
 はRLSだけに頼らず、PostgreSQLの列権限でも更新を拒否する。管理者による
 状態変更は管理機能の設計時に、監査ログと一緒に別途追加する。
+Phase C3b以降はDB triggerがPostgreSQLのtimezone catalogへ完全一致する値だけを許可し、
+Applicationを迂回するauthenticated direct UPDATEでも無効値を保存できない。
 
 ### profiles
 
@@ -370,6 +372,28 @@ responseは`Cache-Control: private, no-store, max-age=0`、`X-Content-Type-Optio
 - SELECT: statusがnon-activeでも本人の行だけ。C1bのstatus判定経路として維持する
 - UPDATE: activeな本人の `timezone` 列だけ
 - INSERT / DELETE: 一般ユーザーには許可しない
+
+### Phase C3b timezone validation境界
+
+`20260809000400_validate_account_timezones.sql`は、
+`my_diary_private.my_diary_validate_account_timezone()`を
+`accounts`の`BEFORE INSERT OR UPDATE OF timezone` triggerから呼び出す。
+保存値は`pg_catalog.pg_timezone_names.name`への完全一致を必須とする。
+PostgreSQL内部の重複treeである`posix/*`、将来存在した場合の`right/*`、
+現在のNode Intlが扱えない特殊値`Factory`は拒否する。
+
+ローカルPostgreSQL 17.6では`pg_timezone_names` 1196件のうち`posix/*`が598件で、
+残る598件をNode 24.12.0の`Intl.DateTimeFormat`へ照合すると非対応は`Factory`だけだった。
+`Asia/Tokyo`、`America/New_York`、`Europe/London`、`UTC`と、runtimeが扱える既存aliasを維持できる。
+Applicationの新規選択肢は`Intl.supportedValuesOf('timeZone')`に`UTC`を加えた安定sortとし、
+保存済みのruntime-valid aliasがcanonical option集合にない場合だけ現在値を追加する。
+Server Actionはこのserver-generated集合へ完全一致する入力だけを受理し、DB triggerを最終整合性境界とする。
+
+validatorはcatalog SELECTに追加権限が不要なため`SECURITY INVOKER`とし、owner=`postgres`、
+`search_path=''`、完全修飾objectを使用する。`PUBLIC`、`anon`、`authenticated`、
+`service_role`、`authenticator`の直接EXECUTEはREVOKEし、trigger以外の呼出経路を閉じる。
+既存accounts RLSと`UPDATE(timezone)`列権限は変更せず、active本人だけ更新可能、
+他人・suspended・deactivated・role・status更新不可の境界を維持する。
 
 ## プロジェクト固有名と既存オブジェクトの保護
 
@@ -956,6 +980,9 @@ JWT claimとDB roleを切り替えてRLSを検証し、最後にロールバッ�
 - replyはparent authorだけへ通知し、新reply自身をtargetとしてpost ownerへ重複通知しないこと
 - invalid replyのgeneric errorと0 notification、特権fixtureの非通知化、source mutationとのatomic rollback
 - notification generatorのowner、SECURITY DEFINER、空search path、trigger専用ACLとauthenticated直接INSERT拒否
+- account timezone validatorのowner、SECURITY INVOKER、空search path、trigger専用ACL、INSERT / UPDATE event
+- authenticated direct UPDATEで有効timezoneだけを保存でき、無効・空・内部timezoneを拒否すること
+- 本人timezone更新成功、他人・suspended・deactivated更新拒否、role / status列権限維持
 
 ## リモート適用後のAuth確認
 
@@ -972,7 +999,6 @@ accountsとprofilesが各1行だけ作成され、role=`user`、status=`active` 
 ## 未確定事項
 
 - body、bio等の文字数上限の最終値
-- `timezone` のIANA名をDBでも厳密検証するか、アプリ入力候補で保証するか
 - ソフトデリート後の保持期間とPhase 2での物理削除手順
 - Phase 2で実装する管理者のrole/status変更経路と監査ログ
 - 将来のプロフィール公開範囲とブロック機能
