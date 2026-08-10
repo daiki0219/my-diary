@@ -11,9 +11,9 @@ Phase C2cで通知DB / RLS基盤、通知生成、通知UIを追加し、Phase C
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` にはpublic application tableの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaからPhase C2c-2までの19件はリンク済みのリモート開発Supabaseへ適用済みである。
-Phase C3bでは`20260809000400_validate_account_timezones.sql`を20件目としてrepository / localへ追加した。
-C3b migrationはリモート未適用である。
+初回schemaからPhase C4b-1までの21件はリンク済みのリモート開発Supabaseへ適用済みである。
+latestは`20260810000100_add_location_name_atomic_mutation.sql`で、repository / local / remoteの
+migration履歴は一致している。
 
 ### 投稿画像基盤の現在状態
 
@@ -864,6 +864,60 @@ owner・volatility・`SECURITY DEFINER`・空search path・authenticated専用AC
 一時CAファイルwarningが発生したが、履歴・catalog・再dry-run・schema diffで適用成功と切り分け、
 repairや再適用は行っていない。安全な既存remote認証情報がないため、remote実updateとStorage
 lifecycle操作は未実施である。Service Role、Auth Admin API、remote fixtureは使用していない。
+
+## 場所名 Phase C4b-1 atomic mutation設計
+
+`20260810000100_add_location_name_atomic_mutation.sql`は既存の
+`posts.location_name`列と1〜100文字CHECKを変更せず、現在のApplicationが使用する
+`my_diary_create_post_with_images` / `my_diary_update_post_with_images`も維持する。
+C4b-2でApplicationを接続するため、次の別名successor RPCを追加した。
+
+```sql
+public.my_diary_create_post_with_images_and_location(
+  p_post_id uuid,
+  p_title text,
+  p_body text,
+  p_mood text,
+  p_location_name text,
+  p_visibility text,
+  p_tags text[],
+  p_image_paths text[]
+) returns uuid
+
+public.my_diary_update_post_with_images_and_location(
+  p_post_id uuid,
+  p_title text,
+  p_body text,
+  p_mood text,
+  p_location_name text,
+  p_visibility text,
+  p_tags text[],
+  p_image_manifest jsonb
+) returns jsonb
+```
+
+場所名はDB mutation境界で前後のspaceを除去し、空または空白のみを`NULL`へ
+正規化する。PostgreSQLの`char_length`で100 codepointまでを許可し、101以上は
+`22023`で拒否する。既存CHECKにないcontrol文字制約は追加せず、既存DB semanticsを
+維持した最小変更とする。編集の`NULL`は明示的な場所名解除であり、値の維持ではない。
+C4b-2の編集formは現在値または解除用`NULL`を送る。
+
+successor RPCは`SECURITY DEFINER`、owner=`postgres`、`search_path=''`、
+authenticated専用EXECUTEである。client由来user IDを受け取らず、`auth.uid()`と
+active accountを確認する。既存画像統合RPCを同じRPC statement / transaction内で
+呼ぶため、本人所有・未削除・更新row lock、tag差分、画像manifest、Storage object lockを
+再利用する。location更新までcommitされず、location・tag・imageのいずれかのvalidation
+failureではpost本体を含むstatement全体がrollbackする。既存posts RLS 3件、updated_at
+trigger、authenticatedのposts直接INSERT / UPDATE閉鎖、tag/image RPCとStorage境界は変更しない。
+
+local DBをresetして21 migrationをfresh適用し、新規pgTAP `48 / 48`、全pgTAP
+`1,002 / 1,002`を確認した。linked開発DBへ21件目だけを通常適用し、適用後の
+migration履歴21件一致、再dry-run up to date、remote catalog属性・ACL、
+`public,my_diary_private,storage`のlinked schema diff 0件を確認した。適用直後の
+pg-delta catalog cacheでは一時CA証明書の補助warningが発生したが、SQL終了コード、
+migration履歴、再dry-run、remote catalog、linked schema diffで適用成功と切り分け、
+再適用とmigration repairは行っていない。remote fixture、ユーザーデータ、Storage object、
+Service Role、Auth Admin APIは使用していない。
 
 ## インデックス
 
