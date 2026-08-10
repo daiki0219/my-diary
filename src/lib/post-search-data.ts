@@ -69,6 +69,7 @@ function isRawPostSearchPost(value: unknown): value is RawPostSearchPost {
       "title",
       "body",
       "mood",
+      "location_name",
       "visibility",
       "created_at",
       "post_tags",
@@ -78,6 +79,7 @@ function isRawPostSearchPost(value: unknown): value is RawPostSearchPost {
     "title" in value &&
     "body" in value &&
     "mood" in value &&
+    "location_name" in value &&
     "visibility" in value &&
     "created_at" in value &&
     "post_tags" in value &&
@@ -89,6 +91,8 @@ function isRawPostSearchPost(value: unknown): value is RawPostSearchPost {
     typeof value.body === "string" &&
     (value.mood === null ||
       (typeof value.mood === "string" && isPostMood(value.mood))) &&
+    (value.location_name === null ||
+      typeof value.location_name === "string") &&
     typeof value.visibility === "string" &&
     isPostVisibility(value.visibility) &&
     typeof value.created_at === "string" &&
@@ -186,7 +190,7 @@ export async function searchPosts(
   const postsResult = await supabase
     .from("posts")
     .select(
-      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
+      "id, user_id, title, body, mood, location_name, visibility, created_at, post_tags(tags(id, name))",
     )
     .in("id", displayIds)
     .returns<unknown[]>();

@@ -40,6 +40,7 @@ type RawTagPostRow = {
   title: string | null;
   body: string;
   mood: PostMood | null;
+  location_name: string | null;
   visibility: PostVisibility;
   created_at: string;
   matching_tags: unknown;
@@ -259,7 +260,7 @@ export async function getVisiblePostsForTag(
   let query = supabase
     .from("posts")
     .select(
-      "id, user_id, title, body, mood, visibility, created_at, matching_tags:post_tags!inner(tag_id), post_tags(tags(id, name))",
+      "id, user_id, title, body, mood, location_name, visibility, created_at, matching_tags:post_tags!inner(tag_id), post_tags(tags(id, name))",
     )
     .eq("matching_tags.tag_id", tagId)
     .is("deleted_at", null)

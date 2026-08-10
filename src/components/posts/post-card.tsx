@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CommentCount } from "@/components/posts/comment-count";
 import { DeletePostButton } from "@/components/posts/delete-post-button";
 import { PostImageGallery } from "@/components/posts/post-image-gallery";
+import { PostLocation } from "@/components/posts/post-location";
 import { ReactionControls } from "@/components/posts/reaction-controls";
 import { TagList } from "@/components/posts/tag-list";
 import {
@@ -53,6 +54,8 @@ export function PostCard({
           </span>
         </div>
       </div>
+
+      <PostLocation locationName={post.location_name} />
 
       <TagList tags={post.tags} />
 

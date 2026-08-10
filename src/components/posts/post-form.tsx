@@ -29,6 +29,12 @@ import {
   POST_IMAGE_MAX_COUNT,
   validatePostImageFiles,
 } from "@/lib/post-image-data";
+import {
+  getPostLocationNameCharacterCount,
+  getPostLocationNameError,
+  normalizePostLocationName,
+  POST_LOCATION_NAME_MAX_LENGTH,
+} from "@/lib/post-location";
 import { isUuid } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/client";
 
@@ -46,6 +52,18 @@ function imageErrorState(
     error: "画像を投稿できませんでした。",
     fieldErrors: { images: error },
     imageErrorRevision: (previousState.imageErrorRevision ?? 0) + 1,
+    submittedTagValues: previousState.submittedTagValues,
+    revision: previousState.revision,
+  };
+}
+
+function locationErrorState(
+  previousState: CreatePostActionState,
+  error: string,
+): CreatePostActionState {
+  return {
+    error: "入力内容を確認してください。",
+    fieldErrors: { location: error },
     submittedTagValues: previousState.submittedTagValues,
     revision: previousState.revision,
   };
@@ -89,6 +107,7 @@ export function PostForm() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [locationName, setLocationName] = useState("");
   const [selectedImages, setSelectedImages] = useState<SelectedPostImage[]>(
     [],
   );
@@ -99,6 +118,11 @@ export function PostForm() {
   const [dismissedImageErrorKey, setDismissedImageErrorKey] = useState<
     string | null
   >(null);
+  const [clientLocationError, setClientLocationError] = useState<
+    string | null
+  >(null);
+  const [dismissedLocationErrorRevision, setDismissedLocationErrorRevision] =
+    useState<number | null>(null);
   const selectedImagesRef = useRef<SelectedPostImage[]>([]);
   const submissionInFlight = useRef(false);
   const initialState: CreatePostActionState = {
@@ -118,6 +142,23 @@ export function PostForm() {
       }
 
       submissionInFlight.current = true;
+      const locationValue = formData.get("locationName");
+
+      if (typeof locationValue !== "string") {
+        submissionInFlight.current = false;
+        return locationErrorState(
+          previousState,
+          "場所を正しく入力してください。",
+        );
+      }
+
+      const locationError = getPostLocationNameError(locationValue);
+
+      if (locationError) {
+        submissionInFlight.current = false;
+        return locationErrorState(previousState, locationError);
+      }
+
       const images = selectedImagesRef.current;
       const validation = validatePostImageFiles(
         images.map((image) => image.file),
@@ -239,6 +280,12 @@ export function PostForm() {
     (dismissedImageErrorKey === imageErrorKey
       ? undefined
       : state.fieldErrors.images);
+  const displayedLocationError =
+    clientLocationError ??
+    (dismissedLocationErrorRevision === state.revision
+      ? undefined
+      : state.fieldErrors.location);
+  const normalizedLocationName = normalizePostLocationName(locationName) ?? "";
 
   useEffect(() => {
     return () => {
@@ -392,6 +439,56 @@ export function PostForm() {
             role="alert"
           >
             {state.fieldErrors.body}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label
+          className="mb-2 block text-sm font-medium text-stone-700"
+          htmlFor="post-location"
+        >
+          場所
+          <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+        </label>
+        <input
+          aria-describedby={
+            displayedLocationError
+              ? "post-location-help post-location-error"
+              : "post-location-help"
+          }
+          aria-invalid={Boolean(displayedLocationError)}
+          className="w-full min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          id="post-location"
+          name="locationName"
+          onChange={(event) => {
+            const nextLocationName = event.target.value;
+            setLocationName(nextLocationName);
+            setClientLocationError(
+              getPostLocationNameError(nextLocationName),
+            );
+            setDismissedLocationErrorRevision(state.revision);
+          }}
+          placeholder="東京駅"
+          type="text"
+          value={locationName}
+        />
+        <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+          <p id="post-location-help">
+            任意。場所の名前を自由に入力できます。
+          </p>
+          <p aria-hidden="true" className="shrink-0">
+            {getPostLocationNameCharacterCount(normalizedLocationName)} /{" "}
+            {POST_LOCATION_NAME_MAX_LENGTH}
+          </p>
+        </div>
+        {displayedLocationError && (
+          <p
+            className="mt-2 text-sm text-red-700"
+            id="post-location-error"
+            role="alert"
+          >
+            {displayedLocationError}
           </p>
         )}
       </div>

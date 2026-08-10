@@ -66,6 +66,7 @@ export type Post = {
   title: string | null;
   body: string;
   mood: PostMood | null;
+  location_name: string | null;
   visibility: PostVisibility;
   created_at: string;
   images: PostImageReference[];
@@ -85,7 +86,14 @@ export type PostDetail = Omit<TimelinePost, "commentCount">;
 
 export type EditablePost = Pick<
   PostDetail,
-  "id" | "title" | "body" | "mood" | "visibility" | "tags" | "images"
+  | "id"
+  | "title"
+  | "body"
+  | "mood"
+  | "location_name"
+  | "visibility"
+  | "tags"
+  | "images"
 >;
 
 export type PostDetailResult =
@@ -164,7 +172,7 @@ export async function getOwnPosts(
   const postsResult = await supabase
     .from("posts")
     .select(
-      "id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
+      "id, title, body, mood, location_name, visibility, created_at, post_tags(tags(id, name))",
     )
     .eq("user_id", userId)
     .is("deleted_at", null)
@@ -233,7 +241,7 @@ export async function getVisiblePostsByUser(
   const postsResult = await supabase
     .from("posts")
     .select(
-      "id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
+      "id, title, body, mood, location_name, visibility, created_at, post_tags(tags(id, name))",
     )
     .eq("user_id", targetUserId)
     .is("deleted_at", null)
@@ -320,7 +328,7 @@ export async function getTimelinePosts(
   let postsQuery = supabase
     .from("posts")
     .select(
-      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
+      "id, user_id, title, body, mood, location_name, visibility, created_at, post_tags(tags(id, name))",
     )
     .is("deleted_at", null);
 
@@ -474,7 +482,7 @@ export async function getPostDetail(
   const postsResult = await supabase
     .from("posts")
     .select(
-      "id, user_id, title, body, mood, visibility, created_at, post_tags(tags(id, name))",
+      "id, user_id, title, body, mood, location_name, visibility, created_at, post_tags(tags(id, name))",
     )
     .eq("id", postId)
     .is("deleted_at", null)
@@ -538,7 +546,9 @@ export async function getEditablePost(
 ) {
   const result = await supabase
     .from("posts")
-    .select("id, title, body, mood, visibility, post_tags(tags(id, name))")
+    .select(
+      "id, title, body, mood, location_name, visibility, post_tags(tags(id, name))",
+    )
     .eq("id", postId)
     .eq("user_id", currentUserId)
     .is("deleted_at", null)

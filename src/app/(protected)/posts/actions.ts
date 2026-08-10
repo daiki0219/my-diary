@@ -12,6 +12,10 @@ import {
   POST_IMAGE_BUCKET,
   POST_IMAGE_MAX_COUNT,
 } from "@/lib/post-image-data";
+import {
+  getPostLocationNameError,
+  normalizePostLocationName,
+} from "@/lib/post-location";
 import { isUuid } from "@/lib/profile-data";
 import {
   isReactionType,
@@ -29,6 +33,7 @@ export type CreatePostActionState = {
     title?: string;
     body?: string;
     mood?: string;
+    location?: string;
     visibility?: string;
     tags?: string;
     images?: string;
@@ -287,6 +292,7 @@ export async function createPost(
   const titleValue = formData.get("title");
   const bodyValue = formData.get("body");
   const moodValue = formData.get("mood");
+  const locationValue = formData.get("locationName");
   const visibilityValue = formData.get("visibility");
   const postIdValue = formData.get("postId");
   const imagePathEntries = formData.getAll("imagePaths");
@@ -306,6 +312,10 @@ export async function createPost(
 
   if (moodValue !== null && typeof moodValue !== "string") {
     fieldErrors.mood = "気分を正しく選択してください。";
+  }
+
+  if (typeof locationValue !== "string") {
+    fieldErrors.location = "場所を正しく入力してください。";
   }
 
   if (typeof visibilityValue !== "string") {
@@ -335,6 +345,10 @@ export async function createPost(
     typeof moodValue === "string" && moodValue !== ""
       ? moodValue
       : null;
+  const locationName =
+    typeof locationValue === "string"
+      ? normalizePostLocationName(locationValue)
+      : null;
   const visibility =
     typeof visibilityValue === "string" ? visibilityValue : "";
   const postId =
@@ -354,6 +368,14 @@ export async function createPost(
 
   if (mood !== null && !isPostMood(mood)) {
     fieldErrors.mood = "選択された気分は使用できません。";
+  }
+
+  if (typeof locationValue === "string") {
+    const locationError = getPostLocationNameError(locationValue);
+
+    if (locationError) {
+      fieldErrors.location = locationError;
+    }
   }
 
   if (!isPostVisibility(visibility)) {
@@ -398,12 +420,13 @@ export async function createPost(
   }
 
   const { data, error } = await supabase.rpc(
-    "my_diary_create_post_with_images",
+    "my_diary_create_post_with_images_and_location",
     {
       p_post_id: postId as string,
       p_title: title,
       p_body: body,
       p_mood: mood,
+      p_location_name: locationName,
       p_visibility: visibility,
       p_tags: tagsResult.data,
       p_image_paths: imagePaths,
@@ -459,6 +482,7 @@ export async function updatePost(
   const titleValue = formData.get("title");
   const bodyValue = formData.get("body");
   const moodValue = formData.get("mood");
+  const locationValue = formData.get("locationName");
   const visibilityValue = formData.get("visibility");
   const imageManifestResult = parsePostImageManifest(
     formData.get("imageManifest"),
@@ -489,6 +513,10 @@ export async function updatePost(
 
   if (moodValue !== null && typeof moodValue !== "string") {
     fieldErrors.mood = "気分を正しく選択してください。";
+  }
+
+  if (typeof locationValue !== "string") {
+    fieldErrors.location = "場所を正しく入力してください。";
   }
 
   if (typeof visibilityValue !== "string") {
@@ -522,6 +550,10 @@ export async function updatePost(
     typeof moodValue === "string" && moodValue !== ""
       ? moodValue
       : null;
+  const locationName =
+    typeof locationValue === "string"
+      ? normalizePostLocationName(locationValue)
+      : null;
   const visibility = visibilityValue as string;
 
   if (title !== null && characterCount(title) > 120) {
@@ -536,6 +568,14 @@ export async function updatePost(
 
   if (mood !== null && !isPostMood(mood)) {
     fieldErrors.mood = "選択された気分は使用できません。";
+  }
+
+  if (typeof locationValue === "string") {
+    const locationError = getPostLocationNameError(locationValue);
+
+    if (locationError) {
+      fieldErrors.location = locationError;
+    }
   }
 
   if (!isPostVisibility(visibility)) {
@@ -585,15 +625,19 @@ export async function updatePost(
   let rpcResult: Awaited<ReturnType<typeof supabase.rpc>>;
 
   try {
-    rpcResult = await supabase.rpc("my_diary_update_post_with_images", {
-      p_post_id: postIdValue,
-      p_title: title,
-      p_body: body,
-      p_mood: mood,
-      p_visibility: visibility,
-      p_tags: tagsResult.data,
-      p_image_manifest: imageManifestResult.data,
-    });
+    rpcResult = await supabase.rpc(
+      "my_diary_update_post_with_images_and_location",
+      {
+        p_post_id: postIdValue,
+        p_title: title,
+        p_body: body,
+        p_mood: mood,
+        p_location_name: locationName,
+        p_visibility: visibility,
+        p_tags: tagsResult.data,
+        p_image_manifest: imageManifestResult.data,
+      },
+    );
   } catch {
     return {
       error:
