@@ -455,7 +455,7 @@ select throws_ok(
 reset role;
 update public.accounts set status = 'active'
 where user_id = 'e2400000-0000-4000-8000-000000000005';
-update public.accounts set status = 'deactivated'
+update public.accounts set status = 'suspended'
 where user_id = 'b2400000-0000-4000-8000-000000000002';
 select set_config(
   'request.jwt.claim.sub',
@@ -466,19 +466,19 @@ set local role authenticated;
 select throws_ok(
   $$select public.my_diary_create_exchange_entry(
       'd2400000-0000-4000-8000-000000000001',
-      null, 'deactivated counterpart', null, null, null
+      null, 'suspended counterpart', null, null, null
     )$$,
   '42501', 'Exchange entry operation is unavailable.',
-  'create fails while the other participant is deactivated'
+  'create fails while the other participant is suspended'
 );
 
 select throws_ok(
   $$select public.my_diary_update_exchange_entry(
       current_setting('my_diary.e2b_primary_entry')::uuid,
-      null, 'deactivated counterpart', null, null, null
+      null, 'suspended counterpart', null, null, null
     )$$,
   '42501', 'Exchange entry operation is unavailable.',
-  'update fails while the other participant is deactivated'
+  'update fails while the other participant is suspended'
 );
 
 reset role;
