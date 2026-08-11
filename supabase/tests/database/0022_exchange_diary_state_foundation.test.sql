@@ -1175,8 +1175,8 @@ set local role authenticated;
 select results_eq(
   $$select id from public.exchange_invitations
     where id = 'a2200000-0000-4000-8000-000000000704'$$,
-  $$select null::uuid where false$$,
-  'Terminal invitation history is not exposed by general SELECT'
+  $$values ('a2200000-0000-4000-8000-000000000704'::uuid)$$,
+  'Rejected invitation history remains visible to its active inviter'
 );
 
 select results_eq(
