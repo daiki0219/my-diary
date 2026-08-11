@@ -1,7 +1,7 @@
 # my-diary 現在の実装状況
 
 > この文書は、my-diaryの現在の実装状況を示す。
-> 仕様そのものは [`my-diary_spec_v2.0.md`](../../my-diary_spec_v2.0.md) を正とする。
+> 仕様そのものは [`my-diary_spec_v2.1.md`](../../my-diary_spec_v2.1.md) を正とする。
 > 各Phase完了後に、実装・migration・テスト結果に基づいて更新する。
 > 計画や希望だけで「実装済み」に変更しない。
 
@@ -9,7 +9,7 @@
 
 この文書は、正式仕様の各項目と現在のrepositoryに存在する実装根拠を対応付け、次のPhaseを判断できる状態に保つための管理文書である。仕様の追加・変更はこの文書では行わない。
 
-- 正式仕様: [`my-diary_spec_v2.0.md`](../../my-diary_spec_v2.0.md)
+- 正式仕様: [`my-diary_spec_v2.1.md`](../../my-diary_spec_v2.1.md)
 - 初期MVPの履歴資料: [`docs/specs/archive/my-diary_MVP_spec_v1.0.md`](../specs/archive/my-diary_MVP_spec_v1.0.md)
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-09
@@ -58,6 +58,8 @@ MVP完了条件との差分では、パスワードリセットと場所名が�
 Phase C4b-1では、既存Applicationが使用する画像統合RPCを維持したまま、`location_name`対応の作成・編集successor RPCを追加した。repository / local / remoteは21 migrationで一致している。local resetで21件をfresh適用し、新規pgTAPは`48 / 48 PASS`、全21ファイルは`1,002 / 1,002 PASS`である。reset前の`1,001 / 1,002`はPhase C4aで残存したlocal Auth fixtureが既存`0016`へ混入したもので、reset後は解消した。
 
 Phase C4b-2では、作成・編集formへ任意の場所名を追加し、trim・空欄からNULL・最大100 Unicode codepointsをClientとServer Actionで検証する。画像upload前のClient validationとDB successor RPCの最終境界を併用し、既存tag / image manifest・Storage cleanup順序を維持する。投稿詳細、home、自己・他者投稿一覧、タグ詳細、投稿検索結果は必要なposts SELECTへだけ`location_name`を追加し、共通metadata componentで表示する。Calendar、通知、location検索、package、DB、migrationは変更していない。このセッションの認証付きbrowser fixtureは、通常sign-upがローカルAuthのemail rate limitへ達し、利用可能な別browser sessionもなかったため未実施である。`lint`、`typecheck`、`build`、`git diff --check`は成功した。
+
+正式仕様Ver.2.1で、交換日記が初回公開前のPhase 1機能として追加された。現時点で対応DB・route・UIは未実装である。この更新は正式仕様の切り替えに限定し、上記58項目の状態集計に交換日記は未反映とする。実装設計と状態集計の更新は、repositoryのread-only調査後の別Phaseで行う。
 
 ### 2.1 MVP残差と実装優先順位
 
