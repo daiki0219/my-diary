@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(94);
+select plan(95);
 
 -- Exact catalog, owner, security, and ACL boundary.
 select is(
@@ -500,7 +500,7 @@ select throws_ok(
     current_setting('my_diary.e2a2_ab_invitation')::uuid
   )$$,
   '42501', 'Exchange diary operation is unavailable.',
-  'A block invalidates and prevents acceptance'
+  'A block rejects and prevents acceptance'
 );
 
 select is(
@@ -511,8 +511,12 @@ select is(
   'The invitee can remove the block'
 );
 
--- The invalidated invitation remains terminal; create a fresh invitation after unblock.
+-- The block-induced rejection remains terminal. Age its shared cooldown before
+-- creating a fresh invitation for the remaining acceptance regressions.
 reset role;
+update public.exchange_invitations
+set processed_at = now() - interval '24 hours 1 minute'
+where id = current_setting('my_diary.e2a2_ab_invitation')::uuid;
 select set_config('request.jwt.claim.sub', 'a2300000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 select set_config(
@@ -884,7 +888,7 @@ reset role;
 update public.accounts set status = 'active'
 where user_id = '42300000-0000-4000-8000-00000000000a';
 
--- Block/unblock direction, idempotence, invalidation, and oracle boundary.
+-- Block/unblock direction, idempotence, rejection, and oracle boundary.
 insert into public.exchange_invitations (
   id, inviter_user_id, invitee_user_id
 )
@@ -923,7 +927,7 @@ select results_eq(
   $$select status from public.exchange_invitations
     where id = 'e2300000-0000-4000-8000-000000000100'$$,
   $$values ('pending'::text)$$,
-  'Blocking F does not invalidate the reverse E-to-F invitation'
+  'Blocking F does not alter the reverse E-to-F invitation'
 );
 
 insert into public.exchange_diaries (
@@ -963,8 +967,8 @@ select results_eq(
   $$select status, processed_at is not null, diary_id
     from public.exchange_invitations
     where id = 'e2300000-0000-4000-8000-000000000101'$$,
-  $$values ('invalidated'::text, true, null::uuid)$$,
-  'Block invalidates an incoming pending invitation atomically'
+  $$values ('rejected'::text, true, null::uuid)$$,
+  'Block rejects an incoming pending invitation atomically'
 );
 select is(
   (select state from public.exchange_diaries
@@ -1001,11 +1005,12 @@ select is(
   0::bigint,
   'Blocked inviter cannot read the block relation'
 );
-select is(
-  (select pg_catalog.count(*) from public.exchange_invitations
-   where id = 'e2300000-0000-4000-8000-000000000101'),
-  0::bigint,
-  'Blocked inviter cannot read the invalidated invitation status'
+select results_eq(
+  $$select status, processed_at is not null, diary_id
+    from public.exchange_invitations
+    where id = 'e2300000-0000-4000-8000-000000000101'$$,
+  $$values ('rejected'::text, true, null::uuid)$$,
+  'Blocked inviter retains the known invitation as an ordinary rejection'
 );
 
 reset role;
@@ -1030,17 +1035,30 @@ reset role;
 select is(
   (select status from public.exchange_invitations
    where id = 'e2300000-0000-4000-8000-000000000101'),
-  'invalidated'::text,
-  'Unblock never restores an invalidated invitation to pending'
+  'rejected'::text,
+  'Unblock never restores a block-induced rejection to pending'
 );
 
 select set_config('request.jwt.claim.sub', '12300000-0000-4000-8000-000000000007', true);
+set local role authenticated;
+select throws_ok(
+  $$select public.my_diary_create_exchange_invitation(
+    'e2300000-0000-4000-8000-000000000005'
+  )$$,
+  '42501', 'Exchange diary operation is unavailable.',
+  'A block-induced rejection keeps the 24-hour cooldown after unblock'
+);
+
+reset role;
+update public.exchange_invitations
+set processed_at = now() - interval '24 hours 1 minute'
+where id = 'e2300000-0000-4000-8000-000000000101';
 set local role authenticated;
 select ok(
   public.my_diary_create_exchange_invitation(
     'e2300000-0000-4000-8000-000000000005'
   ) is not null,
-  'A new invitation is possible after unblock without cooldown'
+  'A block-induced rejection older than 24 hours permits a new invitation'
 );
 
 -- Title update normalization, authorization, participant state, and limits.

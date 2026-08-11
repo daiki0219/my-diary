@@ -794,11 +794,11 @@ reset role;
 update public.accounts set status = 'active'
 where user_id = 'a2600000-0000-4000-8000-000000000001';
 
--- Invalidating a pending invitation hides its notification target.
+-- Rejecting a pending invitation through block keeps the existing target.
 select set_config('request.jwt.claim.sub',
   'a2600000-0000-4000-8000-000000000001', true);
 set local role authenticated;
-select set_config('my_diary.e2c_invalidated_invitation',
+select set_config('my_diary.e2c_block_rejected_invitation',
   public.my_diary_create_exchange_invitation(
     'c2600000-0000-4000-8000-000000000003'
   )::text,true);
@@ -810,7 +810,7 @@ set local role authenticated;
 select is(
   (select pg_catalog.count(*) from public.notifications
    where exchange_invitation_id =
-     current_setting('my_diary.e2c_invalidated_invitation')::uuid),
+     current_setting('my_diary.e2c_block_rejected_invitation')::uuid),
   1::bigint,
   'invitee initially sees the invitation notification'
 );
@@ -818,23 +818,23 @@ select lives_ok(
   $$select public.my_diary_block_exchange_invitations_from_user(
       'a2600000-0000-4000-8000-000000000001'
     )$$,
-  'invitee can invalidate the invitation through the existing block RPC'
+  'invitee can reject the invitation through the existing block RPC'
 );
 select is(
   (select pg_catalog.count(*) from public.notifications
    where exchange_invitation_id =
-     current_setting('my_diary.e2c_invalidated_invitation')::uuid),
-  0::bigint,
-  'invalidated invitation notification is hidden without exposing the target'
+     current_setting('my_diary.e2c_block_rejected_invitation')::uuid),
+  1::bigint,
+  'blocker retains the original notification through the ordinary rejected target'
 );
 reset role;
 
 select is(
   (select pg_catalog.count(*) from public.notifications
    where exchange_invitation_id =
-     current_setting('my_diary.e2c_invalidated_invitation')::uuid),
+     current_setting('my_diary.e2c_block_rejected_invitation')::uuid),
   1::bigint,
-  'block invalidation creates no additional notification row'
+  'block-induced rejection creates no additional notification row'
 );
 
 select set_config('request.jwt.claim.sub',
