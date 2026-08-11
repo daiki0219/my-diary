@@ -76,9 +76,10 @@ select tables_are(
     'exchange_diary_participants','exchange_invitations',
     'exchange_invitation_blocks','exchange_entries','exchange_entry_tags',
     'exchange_entry_images','exchange_notification_preferences',
-    'exchange_diary_mutes'
+    'exchange_diary_mutes','reports','report_exchange_entry_snapshots',
+    'report_snapshot_images'
   ],
-  'the two exchange notification setting tables are present'
+  'exchange notification settings and later report tables are present'
 );
 
 select columns_are(
