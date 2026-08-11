@@ -10,7 +10,7 @@ select columns_are(
   array[
     'id', 'reporter_user_id', 'target_type', 'target_id',
     'reported_user_id', 'reason', 'details', 'status', 'created_at',
-    'updated_at', 'resolved_at', 'resolved_by'
+    'updated_at', 'resolved_at', 'resolved_by', 'evidence_delete_after'
   ],
   'reports has the exact common moderation columns'
 );
@@ -229,8 +229,11 @@ select ok(
 select ok(
   pg_catalog.pg_get_functiondef(
     'my_diary_private.my_diary_exchange_entry_image_cleanup_is_allowed(text,text)'::pg_catalog.regprocedure
-  ) like '%report_snapshot_images%',
-  'exchange orphan cleanup includes report image evidence holds'
+  ) like '%exchange_entry_image_cleanup_candidates%'
+  and pg_catalog.pg_get_functiondef(
+    'my_diary_private.my_diary_exchange_entry_image_cleanup_is_allowed(text,text)'::pg_catalog.regprocedure
+  ) not like '%report_snapshot_images%',
+  'exchange user cleanup is candidate-based and evidence-agnostic'
 );
 
 select ok(
@@ -240,7 +243,7 @@ select ok(
     where schemaname = 'storage'
       and tablename = 'objects'
       and policyname like 'my_diary_exchange_entry_images_storage_%'
-  ) = 8
+  ) = 11
   and pg_catalog.to_regprocedure(
     'my_diary_private.my_diary_post_image_path_is_referenced(text)'
   ) is not null
@@ -250,7 +253,7 @@ select ok(
     where schemaname = 'public'
       and tablename = 'notifications'
   ) = 2,
-  'exchange Storage policy count, post images, and notifications stay unchanged'
+  'exchange Storage policies, post images, and notifications have expected boundaries'
 );
 
 -- Users, moderation roles, diaries, entries, tags, and Storage fixtures.

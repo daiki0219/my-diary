@@ -784,8 +784,11 @@ entryは通常日記に近い入力体験とし、少なくとも次を扱う。
 - 通報後にentryが編集・soft deleteされても、運営が通報時点の内容を確認できる
 - 交換日記全体を証拠として複製・保存しない
 - 保持対象は通報されたentryに必要な範囲だけとする
-- 画像を含む証拠データの具体的な保存方法・保持期間はDB / Storage / moderation設計時に決定する
-- retentionは必要以上に長くせず、運用・法的要件を確認したうえで明示する
+- entryからrelation解除された交換日記画像は通常ユーザーから即時不可視とし、physical bytesは解除時点から7日間保持した後、trusted maintenanceだけが削除する
+- 通報snapshot evidenceは`pending` / `reviewing`中は保持し、`resolved` / `dismissed`への実際の遷移時点から30日間保持した後、trusted purge対象とする
+- 30日retentionの対象は通報されたentryのsnapshot本文・タグ・画像metadata・underlying evidence bytesだけとし、交換日記全体は保持・開示しない
+- 一度正式にentryへ確定されたremoved imageは、evidence有無にかかわらず通常ユーザーのphysical cleanup結果を同じにし、7日経過後も通常ユーザーへDELETEを再許可しない
+- 重大なsafety案件や法的要件により、将来通常期限を超えて保持できる拡張余地を残す
 
 ### 7.11.21 運営の閲覧境界
 

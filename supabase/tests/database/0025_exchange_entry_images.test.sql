@@ -100,8 +100,8 @@ select is(
   (select pg_catalog.count(*) from pg_catalog.pg_policies
    where schemaname = 'storage' and tablename = 'objects'
      and policyname like 'my_diary_exchange_entry_images_storage_%'),
-  8::bigint,
-  'the bucket has eight operation-specific Storage policies'
+  11::bigint,
+  'the bucket has eleven operation-specific Storage policies'
 );
 
 select is(
@@ -659,12 +659,9 @@ select is(
     ]'::jsonb
   ),
   pg_catalog.jsonb_build_object(
-    'entryId', 'e2500000-0000-4000-8000-000000000001'::uuid,
-    'removedImagePaths', pg_catalog.to_jsonb(array[
-      'a2500000-0000-4000-8000-000000000001/d2500000-0000-4000-8000-000000000001/e2500000-0000-4000-8000-000000000001/f2500000-0000-4000-8000-000000000101'
-    ]::text[])
+    'entryId', 'e2500000-0000-4000-8000-000000000001'::uuid
   ),
-  'update returns the exact entryId and DB-derived removed paths shape'
+  'update returns only entryId and delegates physical cleanup to retention maintenance'
 );
 
 reset role;

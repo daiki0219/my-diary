@@ -153,8 +153,8 @@ select ok(
     from pg_catalog.pg_policies
     where schemaname = 'storage'
       and policyname like 'my_diary_exchange_entry_images_storage_%'
-  ) = 8,
-  'exchange table and Storage RLS/ACL boundaries are unchanged'
+  ) = 11,
+  'exchange table and hardened Storage RLS/ACL boundaries are intact'
 );
 
 select ok(
