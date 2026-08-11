@@ -12,10 +12,10 @@
 - 正式仕様: [`my-diary_spec_v2.1.md`](../../my-diary_spec_v2.1.md)
 - 初期MVPの履歴資料: [`docs/specs/archive/my-diary_MVP_spec_v1.0.md`](../specs/archive/my-diary_MVP_spec_v1.0.md)
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
-- 調査基準日: 2026-08-09
+- 調査基準日: 2026-08-11
 - 調査時branch: `main`
-- 調査基準HEAD: `f23b617f4407245ded6c3c1d147d38a056046f06`
-- 調査基準HEADのmessage: `feat: add calendar UI`
+- 調査基準HEAD: `5b7d79cd322f5688560306ce967794a10e59b54f`
+- 調査基準HEADのmessage: `fix: harden exchange image evidence retention`
 
 ### 更新ルール
 
@@ -38,37 +38,37 @@
 
 ## 2. 全体サマリー
 
-この文書では、機能を58個の管理項目へ分けて集計する。
+この文書では、機能を60個の管理項目へ分けて集計する。従来の58項目に、交換日記の「DB / Storage foundation」と「Application / UI」を分離した2項目を追加した。
 
 | 状態 | 件数 |
 | --- | ---: |
 | 実装済み | 34 |
-| 一部実装済み | 3 |
-| 未実装 | 4 |
+| 一部実装済み | 6 |
+| 未実装 | 3 |
 | MVP後 | 17 |
 | 確認不能 | 0 |
-| 合計 | 58 |
+| 合計 | 60 |
 
 現在は、メールアドレスとパスワードによる認証とパスワード再設定、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、任意の場所名、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、`accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications`の10 tableと、公開範囲・active状態を守るRLS、権限を限定した関数、RLS自動有効化の安全網がmigration管理されている。Phase C1aでは、Auth sessionを保持する`suspended` / `deactivated` viewerも通常データを取得できないよう、posts owner例外、profiles、SECURITY DEFINER profile検索、Storage orphan経路をactive必須へ変更した。Phase C1bでは通常authenticated clientでviewer本人の`accounts.status`だけを確認し、`active`以外、account row欠損、status query失敗を通常利用へ通さず、login・即時session付きsign-up・callback・protected request・画像request・Server Action requestでsessionを終了する。Phase C2aでは1階層comment返信のDB基盤をrepository / local / remoteへ追加し、invalid parentをgeneric errorへ集約した。Phase C2bでは既存comment経路を再利用して返信Server Action、親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信soft deleteをApplication / UIへ接続した。Phase C2c-1ではfollow / reaction / comment / replyを保持する通知DB / RLS基盤を追加し、Phase C2c-2では4種類のsource INSERTへ同一transactionの通知生成triggerを接続した。Phase C2c-3ではRLS下の通知一覧、未読件数、個別・すべて既読、Server側で再評価するtarget遷移、削除済みcomment等のneutral表示をApplication / UIへ接続した。Phase C3bではtimezone DB validator、viewer timezone helper、`/settings`、Server Actionを追加した。Phase C4b-1ではlocation_name対応のatomic successor RPCを追加し、既存Application用RPCとの互換性を維持した。pgTAPは21ファイル、plan合計1,002 assertionで、DB認可、location_nameの正規化・境界・rollback・互換性を対象としている。
+DB側では、従来のコア10 public tableに加え、交換日記・通知設定・通報の12 public table、2 private table、private Storage bucket `exchange-entry-images`がmigration管理されている。公開範囲、active / suspended / deactivated、participant-only、通報対象だけの運営閲覧、evidence保持をRLS・ACL・RPC・trigger・Storage policyで制御する。Exchangeの通常利用者向けApplication / UIは未実装であり、DB / Storage foundationとは完了状態を分ける。repositoryは30 migration、30 pgTAPで、最新確認済みの全件結果は`1,673 / 1,673 PASS`である。E2h-1aはstrict read-only監査のため、この全件結果を再実行せず過去の確認済み結果として照合した。
 
 MVP完了条件との差分では、パスワードリセットと場所名が完了し、OAuthとavatarは未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了し、Phase C3c-1ではstrict month/date validation、DST対応のlocal month境界、本人Calendar posts query、日単位summaryと選択日data shapeを実装した。Phase C3c-2では`/calendar`、月grid、前後月・今月遷移、日別marker、日付選択、選択日投稿一覧、responsive / accessibilityを実装した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
-Phase C4b-1では、既存Applicationが使用する画像統合RPCを維持したまま、`location_name`対応の作成・編集successor RPCを追加した。repository / local / remoteは21 migrationで一致している。local resetで21件をfresh適用し、新規pgTAPは`48 / 48 PASS`、全21ファイルは`1,002 / 1,002 PASS`である。reset前の`1,001 / 1,002`はPhase C4aで残存したlocal Auth fixtureが既存`0016`へ混入したもので、reset後は解消した。
+Phase E2a〜E2gで、交換日記のstate・招待、entry / tag / private画像、通知設定・mute、通報snapshot、deactivated時archive、invite-block privacy、画像evidence retention / cleanup・trusted maintenance基盤を実装した。Phase E2h-1aの最終read-only security auditではDB / Storage BLOCKERは0件だった。ただし、ExchangeのApplication / UIには7件の実装blocker、公開前には4件の運用・統合確認が残る。
 
 Phase C4b-2では、作成・編集formへ任意の場所名を追加し、trim・空欄からNULL・最大100 Unicode codepointsをClientとServer Actionで検証する。画像upload前のClient validationとDB successor RPCの最終境界を併用し、既存tag / image manifest・Storage cleanup順序を維持する。投稿詳細、home、自己・他者投稿一覧、タグ詳細、投稿検索結果は必要なposts SELECTへだけ`location_name`を追加し、共通metadata componentで表示する。Calendar、通知、location検索、package、DB、migrationは変更していない。このセッションの認証付きbrowser fixtureは、通常sign-upがローカルAuthのemail rate limitへ達し、利用可能な別browser sessionもなかったため未実施である。`lint`、`typecheck`、`build`、`git diff --check`は成功した。
 
-正式仕様Ver.2.1で、交換日記が初回公開前のPhase 1機能として追加された。現時点で対応DB・route・UIは未実装である。この更新は正式仕様の切り替えに限定し、上記58項目の状態集計に交換日記は未反映とする。実装設計と状態集計の更新は、repositoryのread-only調査後の別Phaseで行う。
+正式仕様Ver.2.1で初回公開前のPhase 1機能とされた交換日記は、DB / Storage foundationまで実装済みである。利用者向けroute・Application / UIと、運営向けの最小moderation / maintenance経路は後続E3で実装する。
 
 ### 2.1 MVP残差と実装優先順位
 
 正式仕様上のMVP分類と、公開前の実装優先順位は別に管理する。
 
-- 公開前に重要: Phase C4aのpassword resetまで完了。remote AuthのSite URL / Redirect URLsと実メール配信を公開環境で確認する
+- 公開前に重要: Exchange Application / UI、moderation / maintenance経路、remote AuthのSite URL / Redirect URLsと実メール配信を完了する
 - 強く推奨: follow / profile / user検索等の固定件数改善
 - MVP対象だが後順位: Google login、Apple login、avatar、timezone以外のsettings、profile / follow list等のpagination
-- MVP後またはmaintenanceへ延期可能: 長期orphan cleanup、soft-deleted画像のphysical delete、保持期間後のphysical delete、正式仕様のPhase 2以降の機能
+- MVP後またはmaintenanceへ延期可能: 通常post画像の長期orphan cleanup・soft-delete後physical delete、正式仕様のPhase 2以降の機能
 
 この優先順位は正式仕様のMVP対象をMVP後へ変更するものではない。投稿画像の主要利用者要件は実装済みだが、物理削除と長期orphan回収は運用・保持方針を伴う後続maintenanceとして残る。
 
@@ -81,12 +81,12 @@ Phase C4b-2では、作成・編集formへ任意の場所名を追加し、trim�
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback、request-scoped account status gate | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/account-session.ts`、`src/proxy.ts` |
-| migration | repository / local / remoteは21件で一致。latestは`20260810000100_add_location_name_atomic_mutation.sql` | `supabase/migrations/*.sql`、migration list |
-| DB table | repository / localは10 table | `accounts`、`profiles`、`posts`、`follows`、`reactions`、`comments`、`tags`、`post_tags`、`post_images`、`notifications` |
-| pgTAP | 21ファイル、plan合計1,002。C4b-1新規`48 / 48`、fresh local全回帰`1,002 / 1,002 PASS` | `supabase/tests/database/*.sql` |
+| migration | repository / local / remoteは30件で一致。latestは`20260811000900_harden_exchange_image_evidence_retention.sql` | `supabase/migrations/*.sql`、migration list |
+| DB table | public 22 table、private 2 table | 既存コア10件、Exchange / report 12件、pair lock / cleanup candidate 2件 |
+| pgTAP | 30ファイル、plan合計1,673。最新確認済み全回帰`1,673 / 1,673 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 調査基準commit | `8a889aa44e4c6875f30b35486162bf243f51987b` | `feat: add location mutation foundation`。Phase C4b-1までを含む |
+| 調査基準commit | `5b7d79cd322f5688560306ce967794a10e59b54f` | `fix: harden exchange image evidence retention`。Phase E2a〜E2gまでを含む |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -192,14 +192,21 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
 | カレンダー | 実装済み | strict month/date parser、viewer timezone基準の現在月・今日・前後月、DST対応UTC half-open range、claims由来本人IDと既存posts RLSを使う本人月別query、日別件数・最新mood、`/calendar`のsemantic table月grid、前後月・今月遷移、marker、日付選択、選択日全投稿一覧を実装 | 実キーボードによるTab / Shift+Tab / Enter操作は手動確認へ持ち越し |
-| 通知 | 実装済み | DB / RLS、4 type生成、`/notifications`、20件複合cursor、actor / comment batch取得、未読badge、個別・すべて既読、Server側再評価による遷移、利用不能targetのneutral表示を実装 | 大量通知での実データ性能は継続評価する |
+| 通常SNS通知 | 実装済み | DB / RLS、follow / reaction / comment / replyの4 type生成、`/notifications`、20件複合cursor、actor / comment batch取得、未読badge、個別・すべて既読、Server側再評価による遷移、利用不能targetのneutral表示を実装 | Exchange 3 typeのApplication parser対応は別のE3項目 |
 | 設定 | 実装済み | `/settings`で現在のtimezone、runtime標準IANA option、保存中・成功・generic errorを表示し、Server Actionからclaims由来の本人IDと既存RLSで更新する | timezone以外の設定は後順位 |
 | レスポンシブ | 一部実装済み | mobile-first class、`min-w-0`、`break-words`、`overflow-wrap:anywhere`、幅制限を主要画面に使用。投稿画像galleryとCalendar UIを320 / 360 / 375 / 390 / 1280pxで確認済み | repository内にviewport別の自動回帰テストはない |
 | アクセシビリティ | 一部実装済み | label、role、aria-live、focus-visible、semantic heading/link/buttonを主要UIに使用。Calendarはcaption、column header、日付ごとのaccessible name、今日・選択日の状態を提供 | 網羅的なkeyboard、contrast、screen readerの自動検証はなく、Calendarの実キーボード操作は未確認 |
 | error handling・loading | 一部実装済み | not-found UI、role alert、empty state、Server Action error、送信中disabledを実装 | route-level `loading.tsx`、error boundary、再試行UIは未整備 |
 | ログ・監視 | 一部実装済み | `/api/health/supabase`は秘密情報を返さず接続状態を返す | 集約ログ、監視、管理操作logはない |
 | 振り返り | MVP後 | profileに総投稿数の基盤はあるが、正式仕様ではPhase 2 | 今月、連続投稿日数、去年の今日、timezone集計なし |
-| 通報・管理者機能 | MVP後 | `accounts.role/status`は基盤として存在 | reports table、管理画面、停止/解除操作、管理履歴なし |
+| 通常投稿・コメントの包括的な通報・管理 | MVP後 | `accounts.role/status`と、Exchange限定通報に将来拡張可能な`reports`基盤は存在 | 通常post / commentへの通報拡張、full admin dashboard、停止/解除操作、管理履歴はPhase 2以降 |
+
+### 4.10 交換日記（Phase 1）
+
+| 項目 | 状態 | 実装概要・根拠 | 残課題 |
+| --- | --- | --- | --- |
+| DB / Storage foundation | 実装済み | E2a〜E2gでstate / participant / invitation / block、operation RPC、entry / tag / redaction、private画像、通知3 type・全体preference・diary mute、report / snapshot、deactivation archive、retention / cleanup / trusted maintenanceをmigration管理。E2h監査のDB / Storage BLOCKERは0件 | Application / UIと運用経路は本項目に含めない |
+| Application / UI | 未実装 | `src/app`にExchangeの招待・一覧・詳細・entry・画像・通報・moderationのrouteはない。現行通知parserは通常4 typeのみ | 後続E3のApplication BLOCKER 7件を実装する |
 
 ## 5. DB・セキュリティ実装状況
 
@@ -208,7 +215,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | 対象 | 状態 | column | 主な制約・index・権限 |
 | --- | --- | --- | --- |
 | `accounts` | 実装済み | `user_id`、`role`、`status`、`timezone`、`created_at`、`updated_at` | Auth userへのcascade FK、role/status/timezone CHECK、IANA timezone validator trigger、本人SELECT、active時のtimezone更新 |
-| `profiles` | 一部実装済み | `user_id`、`username`、`bio`、`avatar_path`、`created_at`、`updated_at` | Auth userへのcascade FK、文字数CHECK、`lower(username)` index、本人更新。avatar利用UIとsuspended対象のSELECT制限は未完成 |
+| `profiles` | 一部実装済み | `user_id`、`username`、`bio`、`avatar_path`、`created_at`、`updated_at` | Auth userへのcascade FK、文字数CHECK、`lower(username)` index、本人更新。suspended対象のSELECTはfail-closed済み。avatar upload / Storage / 表示・編集UIは未実装 |
 | `posts` | 一部実装済み | `id`、`user_id`、`title`、`body`、`mood`、`location_name`、`visibility`、`created_at`、`updated_at`、`deleted_at` | Auth userへのcascade FK、入力値CHECK、partial index、可視性RLS。authenticatedの直接INSERT/UPDATEを閉じ、既存post/tag/image RPCとlocation対応successor RPCだけを一般作成・更新経路とする |
 | `follows` | 実装済み | `follower_id`、`following_id`、`created_at` | 両userへのcascade FK、複合PK、self-follow CHECK、active関係だけのSELECT、following/follower安定順index |
 | `reactions` | 実装済み | `id`、`post_id`、`user_id`、`reaction_type`、`created_at`、`updated_at` | post/accountへのcascade FK、3種類CHECK、投稿×ユーザーUNIQUE、post/type index、可視post連動RLS |
@@ -220,14 +227,30 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 
 Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reaction_type`をtextとCHECK制約で管理している。主要FKはuser削除またはpost削除に対するcascadeを設定している。物理DELETEは一般ユーザーへ付与せず、postとcommentは専用RPCでsoft deleteする。
 
-### 5.2 RLS、function、trigger、ACL
+### 5.2 Exchange / report schema inventory
 
-- 10個のpublic tableすべてでRLSを明示的に有効化している。
-- public tableのpolicyは合計21件で、accounts 2、profiles 2、posts 3、follows 3、reactions 4、comments 2、tags 1、post_tags 1、post_images 1、notifications 2である。加えて`storage.objects`にpost画像用policyが8件（SELECT 4、INSERT 2、DELETE 2）ある。
+Public tableは次の12件である。
+
+| 分類 | table |
+| --- | --- |
+| state / invitation | `exchange_diaries`、`exchange_diary_participants`、`exchange_invitations`、`exchange_invitation_blocks` |
+| entry / image | `exchange_entries`、`exchange_entry_tags`、`exchange_entry_images` |
+| notification setting | `exchange_notification_preferences`、`exchange_diary_mutes` |
+| report / snapshot | `reports`、`report_exchange_entry_snapshots`、`report_snapshot_images` |
+
+Private tableは`my_diary_private.my_diary_exchange_pair_locks`と`my_diary_private.exchange_entry_image_cleanup_candidates`の2件、private Storage bucketは`exchange-entry-images`である。対となるparticipantを固定するpair lock、通常removed画像の7日cleanup candidate、terminal report evidenceの実transition後30日保持を支える。
+
+### 5.3 RLS、function、trigger、ACL
+
+- 22個のpublic tableすべてでRLSを明示的に有効化し、authenticatedの一般table権限はSELECT中心の最小ACLとしている。
+- public tableのeffective policyは33件、`storage.objects`のproject policyは19件（post画像8、Exchange画像11）である。Exchange画像の11件には4件のRESTRICTIVE guardを含み、UPDATE / move / upsertは許可しない。
 - `posts` SELECTは本人、active viewer、active author、follow関係、visibility、`deleted_at`をDB側で評価する。
 - reactionsとcommentsは、参照先postを現在のviewerが閲覧できる場合だけSELECT・mutationできる。
 - post_tagsは可視postだけをSELECTでき、tagsは可視なpost_tagsが存在する場合だけSELECTできる。tags → post_tags → postsの一方向評価とし、private・権限外followers・soft-delete済みpostだけに紐づくtag名を隠す。
 - post_imagesは可視postだけをSELECTできる。`storage.objects`は対応metadataが見える場合、または通常upload / cleanup中の本人所有orphanだけをSELECTできる。INSERT / DELETEはStorage operation context、本人owner、3 UUID segment path、active状態または未参照状態を検査し、UPDATE / upsertは許可しない。標準Storage tableのowner、ACL、owner_idは変更していない。
+- Exchangeの12 public tableはowner=`postgres`、RLS明示有効、authenticatedはSELECTのみ、anonは権限なしで、一般userの直接mutation grantはない。主要mutationは`auth.uid()`、active状態、participant / owner、対象IDと状態遷移を再検証するRPCに限定する。
+- Exchange画像はowner / diary / entry / imageの4 UUID pathを検証し、通常readはactive participant、通報evidence readはactive adminによるexact snapshot pathのみとする。一般userによるconfirmed / candidate画像のDELETEは許可しない。
+- E2h-1aで確認した範囲では、第三者diary read、non-active通常利用、admin whole-diary bypass、report targetへのreport / snapshot漏洩、invite-block専用observable、evidence依存の一般Storage DELETE差、SECURITY DEFINER caller validationの重大欠落、一般userへのmaintenance権限開放は検出されず、期限前evidence purgeは許可されない。
 - `my_diary_is_account_active`と`my_diary_can_view_post`をprivate schemaへ置き、再帰的RLSを避けている。
 - `my_diary_validate_comment_parent`は一般roleから直接実行できないprivate trigger functionで、返信INSERT時にparent rowをlockし、1階層・same-post・未削除・active authorを検証する。ownerは`postgres`、`SECURITY DEFINER`、空search pathである。
 - `my_diary_validate_account_timezone`は`pg_timezone_names`の完全一致を使うprivate trigger functionで、`accounts` INSERTとtimezone UPDATEを検証する。`posix/*`重複treeとIntl非対応の`Factory`を除外し、ownerは`postgres`、`SECURITY INVOKER`、空search path、一般roleの直接EXECUTEなしである。
@@ -243,11 +266,11 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 - `rls_auto_enable()`はevent trigger `ensure_rls`からpublic schemaの新規table、partitioned table、CTAS、SELECT INTOへRLSを有効化する。policyやFORCE RLSは作成しない。
 - `rls_auto_enable()`のEXECUTEは`PUBLIC`、`anon`、`authenticated`、`service_role`、`authenticator`からREVOKEされ、`postgres`だけに残る。
 
-通常triggerは、5 tableの`updated_at`更新、Auth user作成時のaccount/profile作成、follow / reaction / comment / replyのnotification生成に使用する。別にevent trigger `ensure_rls`が存在する。
+通常triggerは、`updated_at`更新、Auth user作成時のaccount/profile作成、通知生成、entry redaction、report retention deadline、deactivation archive等に使用する。別にevent trigger `ensure_rls`が存在する。
 
-### 5.3 未作成の主要table
+### 5.4 未作成の主要table
 
-`notifications`はDB / RLS、4 type生成、一覧・既読UIまで作成済みである。`post_images`はDB・private Storage・新規投稿時のupload / preview / atomic metadata確定 / 失敗cleanup、一覧・詳細への認証付き配信と表示、既存投稿での追加・削除・並び替え、保持identity、atomic更新、DB commit後の旧object cleanupまで作成済みである。長期orphan回収、soft delete画像と保持期間後の物理削除は未実装である。`tags`と`post_tags`はDB読み取り・mutation基盤、利用者向け入力・投稿リンク、タグ一覧・詳細・検索まで作成済みである。Phase 2の`reports`、Phase 3以降のcategories、favorites、communities、plushies、events、albumsと各紐付けtableは未作成である。
+`notifications`は通常4 typeに加えExchange 3 typeのDB生成・preference / muteまで作成済みだが、Application parser / UIは通常4 typeのみである。`reports`、`report_exchange_entry_snapshots`、`report_snapshot_images`はExchange Phase 1の限定通報・証拠保持基盤として作成済みである。通常post / comment通報への拡張はPhase 2以降である。Phase 3以降のcategories、favorites、communities、plushies、events、albumsと各紐付けtableは未作成である。
 
 ## 6. MVP後の機能
 
@@ -267,6 +290,8 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 カテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、専用入力フォーム、AI、プレミアムはこの文書の状態集計で10件の「MVP後」として扱う。コードが存在しないことは現MVPの欠陥には数えない。
 
 ## 7. 実装済みroute一覧
+
+`src/app`配下のpage / route handlerは現在26件である。
 
 | route | 種別 | 役割 |
 | --- | --- | --- |
@@ -299,7 +324,11 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 
 `not-found.tsx`はpost詳細、profile系、tag詳細に存在する。タグrouteには共通`loading.tsx`がある。専用のprotected layoutと`error.tsx`は存在しない。未認証時のpage-level redirectは各pageに残し、non-active accountのstatus確認・session終了はrequestごとに再評価されるProxyと共通helperへ集約している。
 
+Exchange、report submission、admin moderation、trusted maintenanceのApplication routeはまだ存在しない。計画中のrouteは上の実装済み一覧に含めない。
+
 ## 8. migration一覧
+
+repository / local / remoteは30件で一致し、latestは`20260811000900_harden_exchange_image_evidence_retention.sql`である。
 
 | timestamp | ファイル名 | 主な目的 |
 | --- | --- | --- |
@@ -318,11 +347,21 @@ Postgres enumは使用せず、`role`、`status`、`mood`、`visibility`、`reac
 | `20260808000100` | `20260808000100_create_post_images_storage.sql` | private post画像bucket、post_images、最大10枚・順序・path制約、posts RLS委任、Storage SELECT allowとRESTRICTIVE guard、最小ACL |
 | `20260808000200` | `20260808000200_integrate_post_image_uploads.sql` | JPEG / PNG / WebP・6 MiB制限、operation-aware upload / orphan cleanup policy、strict owner path、Storage object row lock、atomic post/tag/image作成RPC、最小ACL |
 | `20260808000300` | `20260808000300_integrate_post_image_edits.sql` | final JSONB image manifest、post row lock、保持画像identity、追加path検証、metadata削除・順序更新をatomicに行う編集RPC、削除旧path返却、最小ACL |
+| `20260808000400` | `20260808000400_fail_close_non_active_accounts.sql` | suspended / deactivated accountのprofile、post、search、Storage orphan経路を既存機能横断でfail-closed化 |
 | `20260809000100` | `20260809000100_add_comment_replies.sql` | nullable parent relation、1階層・same-post・未削除・active parentを検証するlocking trigger、返信取得index、既存RLSを維持した最小INSERT列権限 |
 | `20260809000200` | `20260809000200_create_notifications.sql` | notifications、4 type / target shape / 自己通知CHECK、account・post・commentへのcascade FK、recipient安定順index、active recipient / actorとposts RLSを再評価するSELECT / UPDATE policy、SELECT＋`UPDATE(is_read)`の最小ACL |
 | `20260809000300` | `20260809000300_generate_notifications.sql` | follow / reaction / comment / replyの同一transaction通知生成trigger、trigger専用functionと最小ACL |
 | `20260809000400` | `20260809000400_validate_account_timezones.sql` | PostgreSQL timezone catalogに基づくaccounts INSERT / timezone UPDATE validator、runtime非互換値除外、trigger専用ACL |
 | `20260810000100` | `20260810000100_add_location_name_atomic_mutation.sql` | 既存画像統合RPC互換性を維持したlocation_name対応作成・編集successor RPC、正規化、100 codepoint境界、atomic rollback、最小ACL |
+| `20260811000100` | `20260811000100_create_exchange_diary_state_foundation.sql` | diary / participant / invitation / blockのstate、RLS、ACL基盤 |
+| `20260811000200` | `20260811000200_add_exchange_diary_operation_rpcs.sql` | invitation create / accept / reject / cancel、title変更、archive等のatomic operation RPC |
+| `20260811000300` | `20260811000300_create_exchange_entries.sql` | Exchange entry / entry tag、CRUD、redaction、participant-only取得 |
+| `20260811000400` | `20260811000400_integrate_exchange_entry_images.sql` | private Exchange画像bucket、metadata、upload / read / edit / cleanup境界 |
+| `20260811000500` | `20260811000500_add_exchange_diary_notifications.sql` | Exchange 3通知type、全体new-entry preference、diary mute |
+| `20260811000600` | `20260811000600_create_reports_and_exchange_snapshots.sql` | reports、entry text / image snapshot、対象entry限定のactive-admin moderation境界 |
+| `20260811000700` | `20260811000700_archive_exchange_diaries_on_deactivation.sql` | participant deactivation時のactive diary atomic archiveと`participant_deactivated` cause |
+| `20260811000800` | `20260811000800_harden_exchange_invitation_block_privacy.sql` | block時pending reject、24時間cooldown、privacy oracle、lock順の強化 |
+| `20260811000900` | `20260811000900_harden_exchange_image_evidence_retention.sql` | 通常removed画像7日保持、terminal evidence 30日保持、trusted maintenance、exact-evidence Storage境界 |
 
 Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_user_and_tag_search.sql`を1件追加した。ローカルresetで11件すべてをfresh適用した後、この1件だけをリンク済みのリモート開発DBへ通常適用した。local / remote履歴は11件で一致し、適用後の再dry-runはup to date、pg-deltaによる`public,my_diary_private`のlinked schema diffは空だった。migration transaction内のpostconditionと空のcatalog diffを組み合わせ、両検索RPCとprivate helperのsignature、引数名、return shape、owner、volatility、security属性、固定search path、ACL、および既存tags RLS・policy・table ACLの維持を確認した。適用後のcatalog cache生成では一時CA証明書を参照できない補助warningが発生したが、migration適用は終了コード0で完了し、remote履歴と再dry-runで成功を確認したため再適用していない。リモートfixture・ユーザーデータ操作・Service Roleは使用せず、Git stage・commit・pushも実施していない。
 
@@ -359,9 +398,20 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 | `0019_notification_generation.test.sql` | 48 | 3 trigger functionの属性 / ACL、follow / reaction / comment / reply生成、自己通知防止、解除・更新・再追加、invalid reply generic error、特権fixture境界、atomic rollback |
 | `0020_account_timezone_validation.test.sql` | 31 | timezone validator function / trigger / ACL、IANA値、無効・空・内部timezone拒否、本人・他人・non-active、role / status境界 |
 | `0021_location_name_atomic_mutation.test.sql` | 48 | successor RPC catalog / ACL、NULL・空・trim・100/101境界、active/non-active・所有権・soft delete、tag/image併用とrollback、既存RPC互換性 |
-| 合計 | 1,002 | 21ファイル |
+| `0022_exchange_diary_state_foundation.test.sql` | 83 | diary / participant / invitation / block state、RLS、ACL、suspended / archived境界 |
+| `0023_exchange_diary_operation_rpcs.test.sql` | 95 | invitation・開始・拒否・cancel・archive・title operation RPCと競合境界 |
+| `0024_exchange_entries.test.sql` | 93 | entry / tag、validation、participant-only、redaction、archived mutation境界 |
+| `0025_exchange_entry_images.test.sql` | 86 | Exchange画像metadata / Storage、path、upload / read / edit / delete境界 |
+| `0026_exchange_diary_notifications.test.sql` | 88 | Exchange 3通知type、生成、全体preference、diary mute |
+| `0027_reports_and_exchange_snapshots.test.sql` | 96 | reports / snapshots、reporter / target privacy、対象entry限定admin閲覧 |
+| `0028_archive_exchange_diaries_on_deactivation.test.sql` | 37 | deactivation時archive、cause、復帰禁止、active相手のarchive read |
+| `0029_harden_exchange_invitation_block_privacy.test.sql` | 36 | block時reject、explicit rejectとのobservable / cooldown一致、lock順 |
+| `0030_exchange_image_evidence_retention.test.sql` | 57 | 7日cleanup candidate、30日evidence retention、trusted maintenance、multiple reference保護 |
+| 合計 | 1,673 | 30ファイル |
 
 ### 9.2 実行結果の区別
+
+- 最新確認済み結果は30ファイル・`1,673 / 1,673 PASS`である。内訳はpre-Exchange `0001`〜`0021`が21ファイル・1,002 assertions、Exchange `0022`〜`0030`が9ファイル・671 assertionsである。E2h-1aの最終security auditはstrict read-onlyで、pgTAPを再実行せずこの過去の確認済み結果を根拠とした。
 
 - Phase C4aではDB schema・RLS・migration・pgTAP定義・packageを変更せず、Supabase SSR / PKCEのpassword recoveryをApplication / UIへ接続した。`resetPasswordForEmail()`の利用者向け結果は登録済み・未登録emailで同じgeneric案内とし、callbackは固定same-origin pathだけを使う。インストール済みAuth SDKがPKCE verifierへ保存するrecovery marker由来のruntime `redirectType`を安全なshape guardで読み、JWT `amr=recovery`とactive / non-active account rowの両方を再検証する。recovery sessionはProxyで`/reset-password`以外へ通さず、更新Server Actionも同じcontextを再検証し、`updateUser()`成功後にlocal sign-outして新passwordによる通常loginを要求する。通常UIとlocal Auth / mail captureで登録済み・未登録の同一案内、新規recovery email、callback判定、password入力境界、更新、旧password拒否、新password login、protected route、logout、直接アクセス・code欠損・malformed callback・使用済みlinkのgeneric拒否を確認した。自動Browserではcallback直後の同一redirect chainだけcookie未反映のinvalid表示となり、次の通常requestでは有効なformとなった。Supabase SSRの標準cookie保存実装と次requestの成立、独自1-hopでも同じ挙動だったことからautomation制約として記録し、そのためのproduction workaroundは追加していない。320 / 360 / 375 / 390 / 1280pxは横scrollなし、semantic label・ARIA・focus-visible実装とconsole warning / error 0件を確認した。実キーボード、瞬間的pending目視、期限切れlink、remote Auth / SMTPは未確認である。最終`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`は成功した。DB変更がないためpgTAPは再実行せず、既存`954 / 954 PASS`は過去結果として区別する。local Auth fixtureは通常UIに削除経路がないため残している。Service Role、Auth Admin API、remote DB / Auth、stage、commit、pushは使用・変更・実施していない。
 
@@ -420,75 +470,61 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 4. home timelineは20件forward cursor paginationを実装済みだが、他者投稿とfollow一覧は最新20件、comment一覧は古い順100件で打ち切り、継続取得を実装していない。
 5. home timeline本文は280 codepointsで省略済みである。フォロー中feedのauthor filterは`.in(...)`を使用するため、大量follow時のURL長・query性能を実データで評価する必要がある。
 6. avatar_pathはDB基盤だけで、UIから利用できない。
-7. comment返信と通知はDBからApplication / UIまで実装済みである。通知は現在RLS上見える行だけを一覧・件数・既読更新の対象とするため、不可視だったpost targetが将来再び可視になると過去通知が未読で再表示される場合がある。通報tableは未作成である。
+7. comment返信と通常SNS通知はDBからApplication / UIまで実装済みである。通知は現在RLS上見える行だけを一覧・件数・既読更新の対象とするため、不可視だったpost targetが将来再び可視になると過去通知が未読で再表示される場合がある。Exchange 3通知typeのApplication parserは未実装である。
 8. unit、component、E2E、accessibility、viewport別responsiveの自動回帰がない。
 9. profile件数、timeline補助data、comment件数は複数queryを使う。投稿単位のN+1は避けているが、規模拡大時はRPC、view、集計方式を再評価する必要がある。
 10. root-level `loading.tsx`と`error.tsx`はなく、未認証redirectと一般error handlingはpageごとに一部重複している。non-active status gateはProxyと共通helperへ集約済みで、protected layoutはClient navigation、Server Action、画像Route Handlerを単独では覆えないため追加していない。
 11. 自由タグは入力・投稿リンク・一覧・詳細・検索まで実装済みである。入力順を保存するcolumnはなく、投稿上はcode point順、タグ一覧・検索はDBの`normalized_name`順で表示する。検索の部分一致は現時点で専用indexを追加せず、RLS適用後のscan性能は大規模データで再評価が必要である。最大5個はauthenticatedのRPC経路で保証し、特権roleの直接SQLを禁止するconstraint triggerは置いていない。認証済みブラウザ回帰は完了したが、同一`created_at`の実データ、suspended author、瞬間的loading、実キーボードによるTab / Enterは未確認である。
 12. 投稿検索はNFKC化したtitle / bodyへの部分一致で、専用indexを追加していない。大規模データでRLS適用後のscan性能を再評価する必要がある。cursorはPostgRESTのtimestamp文字列をDateへ変換せず保持する。suspended author / viewerはpgTAPで確認し、通常UIによるブラウザ再現は未実施である。自動ブラウザのTab / Enter key injectionも再現できず、実キーボード確認が残る。
 13. password recoveryの自動Browser検証ではcallbackの同一redirect chain直後だけcookieが見えずinvalid表示となり、次の通常requestでは有効なformとなった。SDKのcallback交換・recovery marker・JWT AMR・account gateは成立し、次requestへcookieが反映されるためautomation制約と判断しているが、公開前に通常の実ブラウザで初回表示を手動確認する。remote SupabaseのSite URL / Redirect URLs・SMTP、期限切れlink、実キーボード操作も未確認である。
+14. `0015_post_image_edit_mutation.test.sql`は`begin;`後に明示的な`rollback;` / `commit;`を置いておらず、他の29 pgTAP fileとfixture isolationの形式が一致しない。テストセッション終了時のrollbackに依存するため、後続maintenanceで明示的な終了を追加する。
 
-## 11. 次Phase候補
+## 11. Exchange完了状態と次Phase
 
-### C1 DB / RLS・application完了状態
+### 11.1 E2a〜E2hの判定
 
-- local DB / RLS: 実装・検証済み。repository / localは19 migration、全pgTAP `923 / 923 PASS`。
-- remote DB: C1a migration適用済み。local / remote履歴16件一致、再dry-run up to date、remote catalog / ACLと3 schemaのlinked diff確認済み。
-- application: C1b session gateをローカル実装・統合検証し、主要実ブラウザシナリオも確認済み。remote DB変更はない。320〜390px、信頼できるTab / Enter、実Auth callback、実画像bytesのnon-active browser表示は未実施。
+- E2a〜E2g DB / Storage foundation: 実装・migration適用・検証済み。
+- E2h-1a final read-only security audit: DB / Storage BLOCKER 0件。
+- 監査で確認した範囲では、第三者diary read、non-active通常利用、admin whole-diary bypass、report targetへのreport / snapshot漏洩、invite-block専用observable、evidence依存の一般Storage DELETE差、一般user direct mutation grant、一般userへのmaintenance権限開放、期限前evidence purgeを許す重大な境界欠落は検出されなかった。
+- この判定はDB / Storage foundationに対するものであり、Exchange Application / UIの完成を意味しない。
 
-### C2 comment replyの実装状態
+### 11.2 E3 Application BLOCKER（7件）
 
-- repository / local DB: `20260809000100_add_comment_replies.sql`を追加・適用し、17 migration。返信は1階層、same-post、存在する未削除・active parentだけをDB triggerで許可する。
-- remote DB: C2a migration適用済みでlocal / remoteとも17 migration。再dry-run、remote catalog、linked schema diffを確認済み。migration repair、resetは未実施。
-- application: 既存top-level comment経路とsoft-delete RPCを再利用し、返信Server Action、1階層親子表示、inline form、削除済み・取得不能な親のneutral placeholder、返信削除を実装済み。reply通知生成と通知UIも実装済み。
+1. Exchange 3通知typeへのparser対応。
+2. private Exchange imageのsame-origin Route Handler。
+3. invitation / list / detailのsecurity-safe hydration。
+4. report submission UI。
+5. 最小限のadmin report queue / snapshot / status更新経路。
+6. moderator exact-evidence Route Handler。
+7. maintenance RPCの安全な実行経路。
 
-### C2c notificationの実装状態
+次の実装候補は、新しいCodexセッションで開始するE3a「exchange read / list / detail + notification parser compatibility」である。E3a開始時もRLSを最終認可とし、Client入力だけでparticipant・対象entry・moderator権限を決定しない。
 
-- repository / local DB: `20260809000200_create_notifications.sql`と`20260809000300_generate_notifications.sql`を追加・fresh適用し、19 migration。4 type、自己通知拒否、target FK / shape、recipient / actor active境界、現在のpost可視性、recipient専用既読更新に加え、follow / reaction / comment / replyのevent単位生成とsource transactionとのatomicityをDBで保証する。
-- remote DB: C2c-2まで19 migration適用済み。C2c-3ではremote schema・data・fixtureを変更していない。
-- application: 通知生成責任はDB triggerへ限定したまま、`/notifications`、20件cursor pagination、actor profile / target commentのbatch hydrate、4 type文言、未読 / 既読、個別・すべて既読、home badge、Server側で再評価するtarget遷移、利用不能targetのneutral表示を実装済み。
+### 11.3 PRE-PUBLICATION（4件）
 
-### C3a timeline継続取得・本文省略の実装状態
+1. maintenance cadence / runbook / retry / failure monitoring。
+2. controlled remote actual Storage API smoke。
+3. reports row / reason / detailsの長期retention policy決定。
+4. E3完成後のbrowser security integration回帰。
 
-- application: following / latestへ`created_at DESC, id DESC`の20件forward cursor paginationを追加し、21件目はnext判定、補助hydrateは表示20件だけへ限定した。opaque cursorはversion・feed・timestamp・UUIDをstrict検証してfeedへbindし、現在のfollow・visibility・RLSを各pageで再評価する。
-- UI: feed切替でcursorを破棄し、通常Linkで次pageへ遷移する。不正cursorと取得失敗はgeneric error、cursor付き0件は先頭へ戻る導線を表示する。homeだけ本文を280 codepointsで省略し、281以上はellipsisと「続きを読む」を表示する。投稿詳細とhome以外は全文を維持する。
-- DB / package: schema、migration、pgTAP定義、packageは変更していない。ローカルresetで19 migrationをfresh適用し、fixture全件0と全pgTAP `923 / 923 PASS`を確認した。
+これらはE3開始を止めるDB blockerではないが、初回公開前に完了または方針確定が必要である。
 
-### C3c-1 Calendar timezone / data foundationの実装状態
+### 11.4 POST-PUBLICATION / MAINTENANCE
 
-- application: `YYYY-MM` / `YYYY-MM-DD`をstrict検証し、存在日、表示monthとの一致、viewer timezone基準の現在月・今日、前月・次月を扱う。malformed parameterはviewer / posts query前にfail-closedとする。
-- timezone: Node / Intlだけを使い、表示local monthと次local monthの開始instantを独立に探索する。1つの固定offsetを月全体へ適用せず、Tokyo、New York、Londonの2026年DST境界を決定的assertionで確認した。
-- data: C3bのviewer timezone helperが返すclaims由来本人IDを使い、通常authenticated clientで本人、UTC half-open range、未削除へ明示的に絞る。`id, title, body, mood, visibility, created_at`だけを`created_at DESC, id DESC`で取得し、既存posts SELECT RLSを最終認可として維持する。
-- shape: 各postへviewer local dateを付与し、日別のpost countと最新postの代表mood、日付別全post集合、任意の選択日post集合を返す。このdata foundationをC3c-2のCalendar UIが利用する。
-- DB / package: schema、migration、pgTAP定義、packageは変更していない。
-
-### C3c-2 Calendar UIの実装状態
-
-- route / navigation: `/calendar`を追加し、queryなしはviewer timezoneの現在月、strictな`month` / `date`はURL stateとして扱う。前月・次月・今月、日付選択、reload、back / forward、年跨ぎに対応し、不正・重複・month不一致parameterはgeneric errorへfail-closedとする。
-- grid / selected posts: semantic tableで7列の月gridを表示し、今日、選択日、投稿件数、最新postの代表moodを区別する。選択日は同日全postを`created_at DESC, id DESC`で、時刻・mood・公開範囲・title・280 codepoint本文excerpt・詳細導線とともに表示する。
-- authorization / timezone: page-level claims gate、claims由来本人ID、通常authenticated client、本人filter、未削除、UTC half-open range、既存posts RLSを維持する。設定timezone変更後は今日・marker・選択日一覧を再計算する。投稿作成・編集・soft delete時は`/calendar`を再検証する。
-- browser: 通常UIで同日3件と3公開範囲、mood未設定を含むfixtureを作成し、月遷移、年跨ぎ、URL保持、不正parameter、timezone境界、詳細遷移、empty state、320 / 360 / 375 / 390 / 1280px、semantic DOM、focus-visible、console warning / error 0件を確認した。fixture投稿は通常UIでsoft deleteしtimezoneを復元した。実キーボードによるTab / Shift+Tab / Enter操作は自動注入が安定せず未確認である。
-- DB / package: schema、migration、pgTAP定義、package、remote DBは変更していない。
-
-### C4a Password Resetの実装状態
-
-- request / enumeration: `/login`から`/forgot-password`へ進み、通常Supabase clientの`resetPasswordForEmail()`を使う。登録済み・未登録emailとも同一のgeneric成功案内とし、raw Auth errorを表示しない。
-- callback / authorization: 既存`/auth/callback`のPKCE交換と通常email-confirmation flowを維持する。固定`flow=recovery`はrecovery候補のfail-closed分岐にだけ使い、SDK runtime `redirectType=recovery`とJWT `amr=recovery`、claims由来user IDに対する通常clientのaccount statusを再検証する。両recovery証拠とactive / non-active account rowが揃う場合だけ`/reset-password`を許可し、row欠損・query失敗は拒否してlocal sessionを終了する。任意`next`やabsolute URLは受け付けない。
-- reset / session: recovery sessionはProxyで`/reset-password`以外の通常Applicationへ通さず、Server Actionでもcontextを再検証する。signupと共有する6文字以上validation、confirmation一致を確認して`updateUser()`し、成功後はlocal sign-out、`/login`、新passwordの通常loginとする。
-- browser / limitations: local Auth / mail captureと通常UIで、同一のenumeration-safe案内、新規link、更新、旧password拒否、新password login、protected route、logout、invalid / malformed / reused link、5幅responsive、semantic / ARIA、console 0件を確認した。callback直後のautomation cookie反映、実キーボード、瞬間的pending、期限切れlink、remote Auth / SMTPは未確認として残す。local Auth fixtureは通常UIに削除経路がないため残存する。
-- DB / package: schema、migration、pgTAP定義、package、remote DB / Authは変更していない。Service RoleとAuth Admin APIは使用していない。
-
-### C4b-2完了後の主な候補
-
-1. profile投稿・follow一覧・ユーザー検索等の固定件数をcursor paginationで改善する。
-2. Google / Apple OAuthとavatarはprovider・Storage設定を含む別Phaseで扱う。
-
-Phase B3dの投稿画像追加・削除・並び替えは完了済みであり、次Phase候補ではない。長期orphan回収、soft delete画像と保持期間後の物理削除は後続maintenanceとして別に扱う。
+- full admin dashboard。
+- cleanup candidate backlog / completion監視。
+- 追加remote concurrency smoke。
+- verifier scriptのfixture cleanup・failure時restore hardening。
+- statistical timing regression。
+- full safety / legal hold workflow。
+- account完全削除lifecycle。
+- shared tag masterのcreated_atを含むmetadata最小化の追加検討。
 
 ## 12. 更新履歴
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-11 | documentation commit前。基準HEAD `5b7d79cd322f5688560306ce967794a10e59b54f` | Phase E2a〜E2gのExchange DB / Storage foundation完了とE2h final read-only auditを同期。DB / Storage BLOCKER 0件、repository / local / remote 30 migration、30 pgTAP・最新確認済み`1,673 / 1,673 PASS`、E3 Application BLOCKER 7件、PRE-PUBLICATION 4件を現在値として整理し、DB / Storage完了とApplication / UI未実装を分離して記録 |
 | 2026-08-10 | commit前。基準HEAD `8a889aa44e4c6875f30b35486162bf243f51987b` | Phase C4b-2として作成・編集formへ任意の場所名を追加し、Unicode codepoint基準のClient / Server validation、trim / NULL解除、location対応successor RPCへの切替、必要なposts取得shape、詳細・home・自他プロフィール投稿・タグ詳細・投稿検索結果の共通metadata表示を実装。既存tag / image manifest、upload / DB結果別cleanup、保持画像identity、pending / disabled、RLS / active-account gateを維持した。認証付きbrowser fixtureと5幅responsive・実キーボードは通常sign-upのローカルAuth rate limitと別browser不在により未実施。lint、typecheck、build、diff checkは成功。DB・migration・package・remote DBは変更せず、pgTAPはDB変更なしのため未再実行。Service Role・Auth Admin API・stage・commit・pushは未使用・未実施 |
 | 2026-08-10 | 基準HEAD `cbfc1669874631fb11d5734041669cf50143619b` | Phase C4b-1として既存Application用画像統合RPCを維持し、location_name対応の作成・編集successor RPC、DB正規化、NULL解除、100 codepoint境界、active owner・未削除・row lock・tag/image rollback、最小EXECUTE ACLを追加。local resetで21 migrationをfresh適用し、新規pgTAP`48 / 48`、全pgTAP`1,002 / 1,002`を確認。新migration 1件をlinked開発DBへ通常適用し、repository / local / remote 21件一致、再dry-run up to date、remote catalog、3 schemaのlinked diff 0件を確認した。pg-delta CA warningはSQL成功後のcatalog cache補助warningと切り分け、repair・再適用なし。UI・Application・package・既存migration・remote fixture / Storageは変更せず、Service RoleとAuth Admin APIは未使用 |
 | 2026-08-09 | commit前。基準HEAD `f23b617f4407245ded6c3c1d147d38a056046f06` | Phase C4aとしてSupabase SSR / PKCEのpassword reset request、account enumerationを避けるgeneric案内、既存callbackのSDK recovery marker＋JWT AMR二重確認、recovery session専用gate、共有password validation、password更新後local sign-outと新password loginを実装。通常UIとlocal Auth / mail captureで登録済み・未登録の同一案内、新規recovery、入力境界、更新、旧password拒否、新password login、protected route、logout、直接・malformed・使用済みlink、5幅responsive、ARIA、console 0件を確認。callback直後の同一redirect chainだけcookie反映が遅れ、次requestは正常だったためautomation制約として記録し、production workaroundは追加していない。実キーボード、瞬間的pending、期限切れlink、remote Auth / SMTPは未確認。lint、typecheck、build、diff checkは成功。DB・migration・pgTAP定義・package・remote DB / Authは変更せず、既存954件は未再実行の過去結果。local fixtureは残存し、Service Role・Auth Admin API・stage・commit・pushは未使用・未実施 |
