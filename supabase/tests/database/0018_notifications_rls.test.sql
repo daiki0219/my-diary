@@ -19,7 +19,10 @@ select columns_are(
     'target_post_id',
     'target_comment_id',
     'is_read',
-    'created_at'
+    'created_at',
+    'exchange_invitation_id',
+    'exchange_diary_id',
+    'exchange_entry_id'
   ],
   'notifications has only the expected columns'
 );
