@@ -32,8 +32,21 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
 });
 
 function getNotificationMessage(notification: NotificationListItem) {
+  if (notification.kind === "unknown") {
+    return "対応していない通知があります";
+  }
+
   if (!notification.actorUsername) {
-    return "この通知の送信者を現在表示できません";
+    switch (notification.notificationType) {
+      case "exchange_invitation":
+        return "交換日記への招待が届きました";
+      case "exchange_invitation_accepted":
+        return "交換日記への招待が承認されました";
+      case "exchange_entry":
+        return "交換日記が更新されました";
+      default:
+        return "この通知の送信者を現在表示できません";
+    }
   }
 
   const username = notification.actorUsername;
@@ -47,6 +60,12 @@ function getNotificationMessage(notification: NotificationListItem) {
       return `${username}さんがあなたの投稿にコメントしました`;
     case "reply":
       return `${username}さんがあなたのコメントに返信しました`;
+    case "exchange_invitation":
+      return `${username}さんから交換日記に招待されました`;
+    case "exchange_invitation_accepted":
+      return `${username}さんが交換日記への招待を承認しました`;
+    case "exchange_entry":
+      return `${username}さんが交換日記を書きました`;
   }
 }
 
@@ -99,7 +118,7 @@ export default async function NotificationsPage({
             通知
           </h1>
           <p className="mt-3 text-sm leading-6 text-stone-600">
-            フォロー、リアクション、コメント、返信を新しい順に確認できます。
+            フォロー、リアクション、コメント、返信、交換日記のお知らせを新しい順に確認できます。
           </p>
           {!hasInvalidCursor && !hasLoadError && (
             <div className="mt-5 flex min-w-0 flex-col gap-3 rounded-2xl border border-orange-100 bg-white/80 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -160,7 +179,7 @@ export default async function NotificationsPage({
                           className={`rounded-full px-3 py-1 text-xs font-bold ${
                             notification.isRead
                               ? "bg-stone-100 text-stone-600"
-                              : "bg-orange-600 text-white"
+                              : "bg-orange-700 text-white"
                           }`}
                         >
                           {notification.isRead ? "既読" : "未読"}
@@ -178,21 +197,23 @@ export default async function NotificationsPage({
                         {message}
                       </p>
 
-                      {!notification.targetAvailable && (
+                      {notification.targetBehavior === "unavailable" && (
                         <p className="mt-2 text-sm leading-6 text-stone-600">
                           この通知の対象は現在表示できません。
                         </p>
                       )}
 
                       <div className="mt-4 flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:flex-wrap">
-                        {notification.targetAvailable && (
+                        {notification.targetBehavior === "open" && (
                           <NotificationOpenAction
                             notificationId={notification.id}
+                            notificationLabel={message}
                           />
                         )}
                         {!notification.isRead && (
                           <NotificationReadAction
                             notificationId={notification.id}
+                            notificationLabel={message}
                           />
                         )}
                       </div>

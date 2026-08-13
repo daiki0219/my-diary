@@ -99,7 +99,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <Link
-              className="rounded-full bg-orange-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              className="rounded-full bg-orange-700 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700"
               href="/posts/new"
             >
               日記を書く
@@ -136,6 +136,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             タグから日記を探す
           </Link>
           <Link
+            className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
+            href="/exchange"
+          >
+            交換日記
+          </Link>
+          <Link
             aria-label={
               unreadNotificationCount !== null && unreadNotificationCount > 0
                 ? `通知、未読${unreadNotificationCount.toLocaleString("ja-JP")}件`
@@ -147,7 +153,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <span>通知</span>
             {unreadNotificationCount !== null &&
               unreadNotificationCount > 0 && (
-                <span className="shrink-0 rounded-full bg-orange-600 px-2.5 py-0.5 text-xs font-bold text-white">
+                <span className="shrink-0 rounded-full bg-orange-700 px-2.5 py-0.5 text-xs font-bold text-white">
                   未読 {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
                 </span>
               )}

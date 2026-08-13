@@ -18,22 +18,23 @@ const initialState: NotificationActionState = {
   revision: 0,
 };
 
-function OpenButton() {
+function OpenButton({ notificationLabel }: { notificationLabel: string }) {
   const { pending } = useFormStatus();
 
   return (
     <button
       aria-disabled={pending}
-      className="min-h-10 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400"
+      className="min-h-10 rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700 disabled:cursor-wait disabled:bg-stone-400"
       disabled={pending}
       type="submit"
     >
+      <span className="sr-only">{notificationLabel}: </span>
       {pending ? "開いています…" : "通知を開く"}
     </button>
   );
 }
 
-function ReadButton() {
+function ReadButton({ notificationLabel }: { notificationLabel: string }) {
   const { pending } = useFormStatus();
 
   return (
@@ -43,6 +44,7 @@ function ReadButton() {
       disabled={pending}
       type="submit"
     >
+      <span className="sr-only">{notificationLabel}: </span>
       {pending ? "更新中…" : "既読にする"}
     </button>
   );
@@ -91,8 +93,10 @@ function ActionMessage({ state }: { state: NotificationActionState }) {
 
 export function NotificationOpenAction({
   notificationId,
+  notificationLabel,
 }: {
   notificationId: string;
+  notificationLabel: string;
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState(openNotification, initialState);
@@ -106,7 +110,7 @@ export function NotificationOpenAction({
   return (
     <form action={formAction}>
       <input name="notificationId" type="hidden" value={notificationId} />
-      <OpenButton />
+      <OpenButton notificationLabel={notificationLabel} />
       <ActionMessage state={state} />
     </form>
   );
@@ -114,8 +118,10 @@ export function NotificationOpenAction({
 
 export function NotificationReadAction({
   notificationId,
+  notificationLabel,
 }: {
   notificationId: string;
+  notificationLabel: string;
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState(
@@ -132,7 +138,7 @@ export function NotificationReadAction({
   return (
     <form action={formAction}>
       <input name="notificationId" type="hidden" value={notificationId} />
-      <ReadButton />
+      <ReadButton notificationLabel={notificationLabel} />
       <ActionMessage state={state} />
     </form>
   );
