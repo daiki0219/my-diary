@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ExchangeProfileActions } from "@/components/exchange/exchange-profile-actions";
 import { PostCard } from "@/components/posts/post-card";
 import { ProfileCard } from "@/components/profile/profile-card";
 import { FollowButton } from "@/components/profile/follow-button";
+import { getExchangeProfileContext } from "@/lib/exchange-data";
 import { getVisiblePostsByUser } from "@/lib/post-data";
 import { getProfileWithCounts, isUuid } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
@@ -40,7 +42,13 @@ export default async function UserProfilePage({
     redirect("/profile");
   }
 
-  const [result, followResult, accountResult, postsResult] = await Promise.all([
+  const [
+    result,
+    followResult,
+    accountResult,
+    postsResult,
+    exchangeContextResult,
+  ] = await Promise.all([
     getProfileWithCounts(supabase, userId),
     supabase
       .from("follows")
@@ -56,6 +64,7 @@ export default async function UserProfilePage({
       .limit(1)
       .maybeSingle<{ status: string }>(),
     getVisiblePostsByUser(supabase, userId, currentUserId),
+    getExchangeProfileContext(supabase, currentUserId, userId),
   ]);
 
   if (result.profileLoadFailed) {
@@ -88,11 +97,31 @@ export default async function UserProfilePage({
         <div className="mt-5">
           <ProfileCard
             actions={
-              <FollowButton
-                canManageFollows={accountResult.data?.status === "active"}
-                isFollowing={Boolean(followResult.data)}
-                targetUserId={userId}
-              />
+              <>
+                <FollowButton
+                  canManageFollows={accountResult.data?.status === "active"}
+                  isFollowing={Boolean(followResult.data)}
+                  targetUserId={userId}
+                />
+                <ExchangeProfileActions
+                  canManageExchange={Boolean(
+                    accountResult.data?.status === "active" &&
+                      exchangeContextResult.data &&
+                      !exchangeContextResult.error,
+                  )}
+                  isBlockingInvitations={
+                    exchangeContextResult.data?.isBlockingInvitations ?? false
+                  }
+                  isMutualFollowing={
+                    exchangeContextResult.data?.isMutualFollowing ?? false
+                  }
+                  pendingDirection={
+                    exchangeContextResult.data?.pendingDirection ?? null
+                  }
+                  targetUserId={userId}
+                  targetUsername={result.profile.username}
+                />
+              </>
             }
             counts={result.counts}
             isOwnProfile={false}

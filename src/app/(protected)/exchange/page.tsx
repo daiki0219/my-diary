@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ExchangeInvitationActions } from "@/components/exchange/exchange-invitation-actions";
 import {
   getExchangeDiaryListPage,
   getPendingExchangeInvitationsPage,
@@ -149,6 +150,19 @@ function InvitationList({ items }: { items: PendingExchangeInvitation[] }) {
                   {dateFormatter.format(new Date(item.createdAt))}
                 </time>
               </p>
+              {item.counterpartProfile && (
+                <Link
+                  className="mt-3 inline-flex min-h-10 items-center rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+                  href={`/users/${item.counterpartUserId}`}
+                >
+                  相手のプロフィールを見る
+                </Link>
+              )}
+              <ExchangeInvitationActions
+                counterpartName={counterpartName}
+                direction={item.direction}
+                invitationId={item.invitationId}
+              />
             </article>
           </li>
         );
@@ -209,6 +223,35 @@ export default async function ExchangePage({
             参加している交換日記と、現在の招待を確認できます。
           </p>
         </div>
+
+        <section
+          aria-labelledby="new-exchange-heading"
+          className="mt-5 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm"
+        >
+          <h2
+            className="text-lg font-bold text-stone-800"
+            id="new-exchange-heading"
+          >
+            新しい交換日記
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            フォロー中の人やユーザー検索から相手のプロフィールを開き、交換日記へ招待できます。
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <Link
+              className="flex min-h-11 items-center justify-center rounded-full border border-orange-300 bg-orange-50 px-4 py-2.5 text-center text-sm font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              href="/profile/following"
+            >
+              フォロー中の人を見る
+            </Link>
+            <Link
+              className="flex min-h-11 items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
+              href="/search?category=users"
+            >
+              ユーザーを検索
+            </Link>
+          </div>
+        </section>
 
         <nav
           aria-label="交換日記の種類"

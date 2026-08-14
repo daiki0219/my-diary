@@ -65,6 +65,12 @@ export type PendingExchangeInvitation = {
   counterpartProfile: ExchangeProfile | null;
 };
 
+export type ExchangeProfileContext = {
+  isMutualFollowing: boolean;
+  pendingDirection: "sent" | "received" | null;
+  isBlockingInvitations: boolean;
+};
+
 export type ExchangeDiaryDetail = {
   diaryId: string;
   title: string | null;
@@ -872,6 +878,158 @@ export async function getPendingExchangeInvitationsPage(
       : null;
 
   return { data, nextCursor, error: null };
+}
+
+export async function getExchangeProfileContext(
+  supabase: SupabaseClient,
+  viewerUserId: string,
+  targetUserId: string,
+) {
+  const viewerId = canonicalizeExchangeUuid(viewerUserId);
+  const targetId = canonicalizeExchangeUuid(targetUserId);
+
+  if (!viewerId || !targetId || viewerId === targetId) {
+    return { data: null, error: EXCHANGE_DATA_ERROR };
+  }
+
+  const [
+    viewerFollowsResult,
+    targetFollowsResult,
+    sentInvitationResult,
+    receivedInvitationResult,
+    blockResult,
+  ] = await Promise.all([
+    supabase
+      .from("follows")
+      .select("follower_id, following_id")
+      .eq("follower_id", viewerId)
+      .eq("following_id", targetId)
+      .limit(1)
+      .maybeSingle<{ follower_id: string; following_id: string }>(),
+    supabase
+      .from("follows")
+      .select("follower_id, following_id")
+      .eq("follower_id", targetId)
+      .eq("following_id", viewerId)
+      .limit(1)
+      .maybeSingle<{ follower_id: string; following_id: string }>(),
+    supabase
+      .from("exchange_invitations")
+      .select("id, inviter_user_id, invitee_user_id")
+      .eq("inviter_user_id", viewerId)
+      .eq("invitee_user_id", targetId)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle<{
+        id: string;
+        inviter_user_id: string;
+        invitee_user_id: string;
+      }>(),
+    supabase
+      .from("exchange_invitations")
+      .select("id, inviter_user_id, invitee_user_id")
+      .eq("inviter_user_id", targetId)
+      .eq("invitee_user_id", viewerId)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle<{
+        id: string;
+        inviter_user_id: string;
+        invitee_user_id: string;
+      }>(),
+    supabase
+      .from("exchange_invitation_blocks")
+      .select("blocker_user_id, blocked_inviter_user_id")
+      .eq("blocker_user_id", viewerId)
+      .eq("blocked_inviter_user_id", targetId)
+      .limit(1)
+      .maybeSingle<{
+        blocker_user_id: string;
+        blocked_inviter_user_id: string;
+      }>(),
+  ]);
+
+  if (
+    viewerFollowsResult.error ||
+    targetFollowsResult.error ||
+    sentInvitationResult.error ||
+    receivedInvitationResult.error ||
+    blockResult.error
+  ) {
+    return {
+      data: null,
+      error:
+        viewerFollowsResult.error ??
+        targetFollowsResult.error ??
+        sentInvitationResult.error ??
+        receivedInvitationResult.error ??
+        blockResult.error ??
+        EXCHANGE_DATA_ERROR,
+    };
+  }
+
+  const viewerFollows = viewerFollowsResult.data;
+  const targetFollows = targetFollowsResult.data;
+  const sentInvitation = sentInvitationResult.data;
+  const receivedInvitation = receivedInvitationResult.data;
+  const block = blockResult.data;
+
+  if (
+    (viewerFollows &&
+      (typeof viewerFollows.follower_id !== "string" ||
+        typeof viewerFollows.following_id !== "string" ||
+        !isUuid(viewerFollows.follower_id) ||
+        !isUuid(viewerFollows.following_id) ||
+        viewerFollows.follower_id.toLowerCase() !== viewerId ||
+        viewerFollows.following_id.toLowerCase() !== targetId)) ||
+    (targetFollows &&
+      (typeof targetFollows.follower_id !== "string" ||
+        typeof targetFollows.following_id !== "string" ||
+        !isUuid(targetFollows.follower_id) ||
+        !isUuid(targetFollows.following_id) ||
+        targetFollows.follower_id.toLowerCase() !== targetId ||
+        targetFollows.following_id.toLowerCase() !== viewerId)) ||
+    (sentInvitation &&
+      (typeof sentInvitation.id !== "string" ||
+        typeof sentInvitation.inviter_user_id !== "string" ||
+        typeof sentInvitation.invitee_user_id !== "string" ||
+        !isUuid(sentInvitation.id) ||
+        !isUuid(sentInvitation.inviter_user_id) ||
+        !isUuid(sentInvitation.invitee_user_id) ||
+        sentInvitation.inviter_user_id.toLowerCase() !== viewerId ||
+        sentInvitation.invitee_user_id.toLowerCase() !== targetId)) ||
+    (receivedInvitation &&
+      (typeof receivedInvitation.id !== "string" ||
+        typeof receivedInvitation.inviter_user_id !== "string" ||
+        typeof receivedInvitation.invitee_user_id !== "string" ||
+        !isUuid(receivedInvitation.id) ||
+        !isUuid(receivedInvitation.inviter_user_id) ||
+        !isUuid(receivedInvitation.invitee_user_id) ||
+        receivedInvitation.inviter_user_id.toLowerCase() !== targetId ||
+        receivedInvitation.invitee_user_id.toLowerCase() !== viewerId)) ||
+    (block &&
+      (typeof block.blocker_user_id !== "string" ||
+        typeof block.blocked_inviter_user_id !== "string" ||
+        !isUuid(block.blocker_user_id) ||
+        !isUuid(block.blocked_inviter_user_id) ||
+        block.blocker_user_id.toLowerCase() !== viewerId ||
+        block.blocked_inviter_user_id.toLowerCase() !== targetId)) ||
+    (sentInvitation && receivedInvitation)
+  ) {
+    return { data: null, error: EXCHANGE_DATA_ERROR };
+  }
+
+  const data: ExchangeProfileContext = {
+    isMutualFollowing: Boolean(viewerFollows && targetFollows),
+    pendingDirection: sentInvitation
+      ? "sent"
+      : receivedInvitation
+        ? "received"
+        : null,
+    isBlockingInvitations: Boolean(block),
+  };
+
+  return { data, error: null };
 }
 
 export async function getExchangeDiaryDetail(
