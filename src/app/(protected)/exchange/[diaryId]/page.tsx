@@ -8,6 +8,7 @@ import {
   DeleteExchangeEntryButton,
 } from "@/components/exchange/delete-exchange-entry-button";
 import { ExchangeDiaryTitleForm } from "@/components/exchange/exchange-diary-title-form";
+import { PostImageGallery } from "@/components/posts/post-image-gallery";
 import {
   getExchangeDiaryDetail,
   getExchangeEntryPage,
@@ -188,9 +189,9 @@ function ActiveEntryArticle({
             気分：{getMoodLabel(entry.mood)}
           </span>
         )}
-        {entry.imageCount > 0 && (
+        {entry.images.length > 0 && (
           <span className="rounded-full bg-stone-100 px-3 py-1 font-medium text-stone-700">
-            画像 {entry.imageCount}枚
+            画像 {entry.images.length}枚
           </span>
         )}
       </div>
@@ -207,6 +208,8 @@ function ActiveEntryArticle({
       <p className="mt-6 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
         {entry.body}
       </p>
+
+      <PostImageGallery images={entry.images} variant="exchange-entry" />
 
       {isOwnEntry && (
         <div className="mt-5 border-t border-stone-100 pt-4">

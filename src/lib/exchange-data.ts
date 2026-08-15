@@ -8,6 +8,10 @@ import {
   type ExchangeEntryMode,
   type ExchangeTopCursor,
 } from "@/lib/exchange-cursor";
+import {
+  getExchangeEntryImagesByEntryIds,
+  type ExchangeEntryImageReference,
+} from "@/lib/exchange-entry-image-data";
 import { isUuid } from "@/lib/profile-data";
 import { isPostSearchTimestamp } from "@/lib/search-cursor";
 
@@ -94,7 +98,7 @@ export type ExchangeActiveEntry = {
   locationName: string | null;
   createdAt: string;
   tags: ExchangeEntryTag[];
-  imageCount: number;
+  images: ExchangeEntryImageReference[];
 };
 
 export type ExchangeDeletedEntry = {
@@ -146,7 +150,7 @@ type InvitationRow = {
   created_at: string;
 };
 
-type ActiveEntryRow = Omit<ExchangeActiveEntry, "tags" | "imageCount">;
+type ActiveEntryRow = Omit<ExchangeActiveEntry, "tags" | "images">;
 type ParsedEntryRow = ActiveEntryRow | ExchangeDeletedEntry;
 
 type TagRow = {
@@ -1068,13 +1072,7 @@ async function hydrateEntries(
           })
           .returns<unknown[]>()
       : Promise.resolve({ data: [] as unknown[], error: null }),
-    activeEntryIds.length > 0
-      ? supabase
-          .from("exchange_entry_images")
-          .select("entry_id")
-          .in("entry_id", activeEntryIds)
-          .returns<unknown[]>()
-      : Promise.resolve({ data: [] as unknown[], error: null }),
+    getExchangeEntryImagesByEntryIds(supabase, activeEntryIds),
   ]);
 
   if (
@@ -1117,41 +1115,13 @@ async function hydrateEntries(
     tagsByEntryId.set(tag.entry_id, entryTags);
   }
 
-  const imageCountsByEntryId = new Map<string, number>();
-
-  for (const value of imagesResult.data) {
-    if (
-      typeof value !== "object" ||
-      value === null ||
-      !("entry_id" in value) ||
-      typeof value.entry_id !== "string" ||
-      !isUuid(value.entry_id)
-    ) {
-      return { data: null, error: EXCHANGE_DATA_ERROR };
-    }
-
-    const entryId = value.entry_id.toLowerCase();
-
-    if (!activeEntryIds.includes(entryId)) {
-      return { data: null, error: EXCHANGE_DATA_ERROR };
-    }
-
-    const imageCount = (imageCountsByEntryId.get(entryId) ?? 0) + 1;
-
-    if (imageCount > 10) {
-      return { data: null, error: EXCHANGE_DATA_ERROR };
-    }
-
-    imageCountsByEntryId.set(entryId, imageCount);
-  }
-
   const data: ExchangeEntry[] = rows.map((entry) =>
     entry.kind === "deleted"
       ? entry
       : {
           ...entry,
           tags: tagsByEntryId.get(entry.entryId) ?? [],
-          imageCount: imageCountsByEntryId.get(entry.entryId) ?? 0,
+          images: imagesResult.data.get(entry.entryId) ?? [],
         },
   );
 

@@ -5,21 +5,41 @@ import { useState } from "react";
 
 import type { PostImageReference } from "@/lib/post-image-data";
 
+type PostImageGalleryVariant = "post" | "exchange-entry";
+
+const galleryPresentation = {
+  post: {
+    imagePathPrefix: "/post-images",
+    label: "投稿画像",
+  },
+  "exchange-entry": {
+    imagePathPrefix: "/exchange-entry-images",
+    label: "交換日記の画像",
+  },
+} as const satisfies Record<
+  PostImageGalleryVariant,
+  { imagePathPrefix: string; label: string }
+>;
+
 function PostImage({
   eager,
   image,
+  imagePathPrefix,
   index,
   isOnlyImage,
+  labelPrefix,
   total,
 }: {
   eager: boolean;
   image: PostImageReference;
+  imagePathPrefix: (typeof galleryPresentation)[PostImageGalleryVariant]["imagePathPrefix"];
   index: number;
   isOnlyImage: boolean;
+  labelPrefix: (typeof galleryPresentation)[PostImageGalleryVariant]["label"];
   total: number;
 }) {
   const [failed, setFailed] = useState(false);
-  const label = `投稿画像 ${index + 1} / ${total}`;
+  const label = `${labelPrefix} ${index + 1} / ${total}`;
 
   return (
     <li
@@ -45,7 +65,7 @@ function PostImage({
               ? "(max-width: 639px) calc(100vw - 72px), 440px"
               : "(max-width: 639px) calc((100vw - 80px) / 2), 145px"
           }
-          src={`/post-images/${image.id}`}
+          src={`${imagePathPrefix}/${image.id}`}
           unoptimized
         />
       )}
@@ -56,9 +76,11 @@ function PostImage({
 export function PostImageGallery({
   eagerFirst = false,
   images,
+  variant = "post",
 }: {
   eagerFirst?: boolean;
   images: readonly PostImageReference[];
+  variant?: PostImageGalleryVariant;
 }) {
   if (images.length === 0) {
     return null;
@@ -70,19 +92,22 @@ export function PostImageGallery({
     : images.length === 2
       ? "grid-cols-2"
       : "grid-cols-2 sm:grid-cols-3";
+  const presentation = galleryPresentation[variant];
 
   return (
     <ol
-      aria-label="投稿画像"
+      aria-label={presentation.label}
       className={`mt-5 grid min-w-0 gap-2 sm:gap-3 ${columns}`}
     >
       {images.map((image, index) => (
         <PostImage
           eager={eagerFirst && index === 0}
           image={image}
+          imagePathPrefix={presentation.imagePathPrefix}
           index={index}
           isOnlyImage={isOnlyImage}
           key={image.id}
+          labelPrefix={presentation.label}
           total={images.length}
         />
       ))}

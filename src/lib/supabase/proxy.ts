@@ -28,8 +28,11 @@ function copyResponseCookies(source: NextResponse, target: NextResponse) {
   return target;
 }
 
-function isPostImagePath(pathname: string) {
-  return pathname.startsWith("/post-images/");
+function isPrivateImagePath(pathname: string) {
+  return (
+    pathname.startsWith("/post-images/") ||
+    pathname.startsWith("/exchange-entry-images/")
+  );
 }
 
 function isPasswordResetPath(pathname: string) {
@@ -153,7 +156,7 @@ export async function updateSession(request: NextRequest) {
 
   await endCurrentAuthSession(supabase);
 
-  if (isPostImagePath(request.nextUrl.pathname)) {
+  if (isPrivateImagePath(request.nextUrl.pathname)) {
     return copyResponseCookies(
       response,
       new NextResponse(null, {
