@@ -25,10 +25,6 @@ const EXCHANGE_MOODS = [
 
 type ExchangeMood = (typeof EXCHANGE_MOODS)[number];
 type ExchangeDiaryState = "active" | "archived";
-export type ExchangeArchiveCause =
-  | "ended_by_participant"
-  | "participant_deactivated"
-  | "unknown";
 
 export type ExchangeProfile = {
   userId: string;
@@ -50,7 +46,6 @@ export type ExchangeDiaryListItem = {
   startedAt: string;
   createdAt: string;
   archivedAt: string | null;
-  archiveCause: ExchangeArchiveCause | null;
   participants: [ExchangeParticipant, ExchangeParticipant];
   counterpart: ExchangeParticipant;
 };
@@ -78,7 +73,6 @@ export type ExchangeDiaryDetail = {
   startedAt: string;
   createdAt: string;
   archivedAt: string | null;
-  archiveCause: ExchangeArchiveCause | null;
   participants: [ExchangeParticipant, ExchangeParticipant];
   viewerParticipant: ExchangeParticipant;
   counterpart: ExchangeParticipant;
@@ -128,7 +122,6 @@ type DiaryRow = {
   state: ExchangeDiaryState;
   started_at: string;
   archived_at: string | null;
-  archive_cause: ExchangeArchiveCause | null;
   created_at: string;
 };
 
@@ -258,29 +251,6 @@ function isExchangeMood(value: unknown): value is ExchangeMood {
   );
 }
 
-function parseArchiveCause(
-  state: ExchangeDiaryState,
-  archivedAt: string | null,
-  value: string | null,
-): ExchangeArchiveCause | null | undefined {
-  if (state === "active") {
-    return archivedAt === null && value === null ? null : undefined;
-  }
-
-  if (!archivedAt || !value || !isBoundedTrimmedString(value, 64)) {
-    return undefined;
-  }
-
-  if (
-    value === "ended_by_participant" ||
-    value === "participant_deactivated"
-  ) {
-    return value;
-  }
-
-  return "unknown";
-}
-
 function parseDiaryRow(value: unknown): DiaryRow | null {
   if (
     typeof value !== "object" ||
@@ -290,7 +260,6 @@ function parseDiaryRow(value: unknown): DiaryRow | null {
     !("state" in value) ||
     !("started_at" in value) ||
     !("archived_at" in value) ||
-    !("archive_cause" in value) ||
     !("created_at" in value) ||
     typeof value.id !== "string" ||
     !isUuid(value.id) ||
@@ -298,19 +267,10 @@ function parseDiaryRow(value: unknown): DiaryRow | null {
     (value.state !== "active" && value.state !== "archived") ||
     !isTimestamp(value.started_at) ||
     (value.archived_at !== null && !isTimestamp(value.archived_at)) ||
-    !isNullableString(value.archive_cause) ||
-    !isTimestamp(value.created_at)
+    !isTimestamp(value.created_at) ||
+    (value.state === "active" && value.archived_at !== null) ||
+    (value.state === "archived" && value.archived_at === null)
   ) {
-    return null;
-  }
-
-  const archiveCause = parseArchiveCause(
-    value.state,
-    value.archived_at,
-    value.archive_cause,
-  );
-
-  if (archiveCause === undefined) {
     return null;
   }
 
@@ -320,7 +280,6 @@ function parseDiaryRow(value: unknown): DiaryRow | null {
     state: value.state,
     started_at: value.started_at,
     archived_at: value.archived_at,
-    archive_cause: archiveCause,
     created_at: value.created_at,
   };
 }
@@ -664,7 +623,7 @@ export async function getExchangeDiaryListPage(
   let query = supabase
     .from("exchange_diaries")
     .select(
-      "id, title, state, started_at, archived_at, archive_cause, created_at",
+      "id, title, state, started_at, archived_at, created_at",
     )
     .eq("state", state)
     .order("created_at", { ascending: false })
@@ -732,7 +691,6 @@ export async function getExchangeDiaryListPage(
       startedAt: diary.started_at,
       createdAt: diary.created_at,
       archivedAt: diary.archived_at,
-      archiveCause: diary.archive_cause,
       participants,
       counterpart: viewerParticipants.counterpart,
     });
@@ -1046,7 +1004,7 @@ export async function getExchangeDiaryDetail(
   const diaryResult = await supabase
     .from("exchange_diaries")
     .select(
-      "id, title, state, started_at, archived_at, archive_cause, created_at",
+      "id, title, state, started_at, archived_at, created_at",
     )
     .eq("id", canonicalDiaryId)
     .limit(2)
@@ -1087,7 +1045,6 @@ export async function getExchangeDiaryDetail(
     startedAt: diary.started_at,
     createdAt: diary.created_at,
     archivedAt: diary.archived_at,
-    archiveCause: diary.archive_cause,
     participants,
     viewerParticipant: viewerParticipants.viewerParticipant,
     counterpart: viewerParticipants.counterpart,
@@ -1199,6 +1156,76 @@ async function hydrateEntries(
   );
 
   return { data, error: null };
+}
+
+export async function getEditableExchangeEntry(
+  supabase: SupabaseClient,
+  diaryId: string,
+  entryId: string,
+  viewerParticipantId: string,
+) {
+  const canonicalDiaryId = canonicalizeExchangeUuid(diaryId);
+  const canonicalEntryId = canonicalizeExchangeUuid(entryId);
+  const canonicalViewerParticipantId =
+    canonicalizeExchangeUuid(viewerParticipantId);
+
+  if (
+    !canonicalDiaryId ||
+    !canonicalEntryId ||
+    !canonicalViewerParticipantId
+  ) {
+    return { status: "not-found" as const };
+  }
+
+  const entryResult = await supabase
+    .from("exchange_entries")
+    .select(
+      "id, diary_id, author_participant_id, title, body, mood, location_name, created_at, deleted_at",
+    )
+    .eq("id", canonicalEntryId)
+    .eq("diary_id", canonicalDiaryId)
+    .eq("author_participant_id", canonicalViewerParticipantId)
+    .is("deleted_at", null)
+    .limit(2)
+    .returns<unknown[]>();
+
+  if (entryResult.error || !entryResult.data) {
+    return { status: "error" as const };
+  }
+
+  if (entryResult.data.length === 0) {
+    return { status: "not-found" as const };
+  }
+
+  if (entryResult.data.length !== 1) {
+    return { status: "error" as const };
+  }
+
+  const parsedEntry = parseEntryRow(entryResult.data[0]);
+
+  if (
+    !parsedEntry ||
+    parsedEntry.kind !== "active" ||
+    parsedEntry.entryId !== canonicalEntryId ||
+    parsedEntry.diaryId !== canonicalDiaryId ||
+    parsedEntry.authorParticipantId !== canonicalViewerParticipantId
+  ) {
+    return { status: "error" as const };
+  }
+
+  const hydrationResult = await hydrateEntries(supabase, [parsedEntry]);
+  const entry = hydrationResult.data?.[0];
+
+  if (
+    hydrationResult.error ||
+    !entry ||
+    entry.kind !== "active" ||
+    entry.entryId !== canonicalEntryId
+  ) {
+    return { status: "error" as const };
+  }
+
+  return { status: "found" as const, data: entry };
 }
 
 export async function getExchangeEntryPage(

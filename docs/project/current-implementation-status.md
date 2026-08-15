@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-15
 - 調査時branch: `main`
-- 調査基準HEAD: `4c5459dab6cd295535fbcb0779401cee9e34521f`
-- 調査基準HEADのmessage: `feat: add exchange diary read experience`
+- 調査基準HEAD: `69d39b153640d6291f2fba4fb953552c928f98da`
+- 調査基準HEADのmessage: `feat: add exchange invitation operations`
 
 ### 更新ルール
 
@@ -51,15 +51,15 @@
 
 現在は、メールアドレスとパスワードによる認証とパスワード再設定、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、任意の場所名、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、従来のコア10 public tableに加え、交換日記・通知設定・通報の12 public table、2 private table、private Storage bucket `exchange-entry-images`がmigration管理されている。公開範囲、active / suspended / deactivated、participant-only、通報対象だけの運営閲覧、evidence保持をRLS・ACL・RPC・trigger・Storage policyで制御する。Exchangeの通常利用者向けApplication / UIはE3aで`/exchange`、`/exchange/[diaryId]`、oldest / latest pagination、削除済みplaceholder、通知3 type parser / target遷移、home導線を実装し、E3bでinvitationのcreate / accept / reject / cancel、user別のblock / unblockを既存RPCへ接続した。DB / Storage foundationの完了と、残るdiary / entry mutation・private画像配信・通報・moderation・maintenanceは状態を分ける。repository / local / remoteは30 migrationで一致し、30 pgTAPの最新全件結果は`1,673 / 1,673 PASS`である。
+DB側では、従来のコア10 public tableに加え、交換日記・通知設定・通報の12 public table、2 private table、private Storage bucket `exchange-entry-images`がmigration管理されている。公開範囲、active / suspended / deactivated、participant-only、通報対象だけの運営閲覧、evidence保持をRLS・ACL・RPC・trigger・Storage policyで制御する。Exchangeの通常利用者向けApplication / UIはE3aで`/exchange`、`/exchange/[diaryId]`、oldest / latest pagination、削除済みplaceholder、通知3 type parser / target遷移、home導線を実装し、E3bでinvitationのcreate / accept / reject / cancel、user別のblock / unblockを既存RPCへ接続した。E3cではentryの作成・本人編集・本人soft delete、diary title変更・archive、確認UI、入力検証、stale / crafted-inputのgeneric failureを既存RPCへ接続した。DB / Storage foundationの完了と、残るprivate画像配信・通報・moderation・maintenanceは状態を分ける。repository / local / remoteは30 migrationで一致し、30 pgTAPの最新全件結果は`1,673 / 1,673 PASS`である。
 
 MVP完了条件との差分では、パスワードリセットと場所名が完了し、OAuthとavatarは未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了し、Phase C3c-1ではstrict month/date validation、DST対応のlocal month境界、本人Calendar posts query、日単位summaryと選択日data shapeを実装した。Phase C3c-2では`/calendar`、月grid、前後月・今月遷移、日別marker、日付選択、選択日投稿一覧、responsive / accessibilityを実装した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
-Phase E2a〜E2gで、交換日記のstate・招待、entry / tag / private画像、通知設定・mute、通報snapshot、deactivated時archive、invite-block privacy、画像evidence retention / cleanup・trusted maintenance基盤を実装した。Phase E2h-1aの最終read-only security auditではDB / Storage BLOCKERは0件だった。Phase E3aでは通知parser / target navigationとparticipant-onlyのread / list / detail Applicationを完了し、Phase E3bでは6 invitation operation、mutual-follow時のinvite UX、invitation専用block preference、generic errorによるprivacy oracle対策を完了した。残るApplication BLOCKERはprivate画像Route、diary / entry mutation UI、report submission、admin moderation、moderator evidence Route、maintenance実行経路の6カテゴリで、公開前には4件の運用・統合確認が残る。
+Phase E2a〜E2gで、交換日記のstate・招待、entry / tag / private画像、通知設定・mute、通報snapshot、deactivated時archive、invite-block privacy、画像evidence retention / cleanup・trusted maintenance基盤を実装した。Phase E2h-1aの最終read-only security auditではDB / Storage BLOCKERは0件だった。Phase E3aでは通知parser / target navigationとparticipant-onlyのread / list / detail Applicationを完了し、Phase E3bでは6 invitation operation、mutual-follow時のinvite UX、invitation専用block preference、generic errorによるprivacy oracle対策を完了した。Phase E3cではdiary / entry mutation UIを既存のoperation RPCへ接続した。残るApplication BLOCKERはprivate画像Route、report submission、admin moderation、moderator evidence Route、maintenance実行経路の5カテゴリで、公開前には4件の運用・統合確認が残る。
 
 Phase C4b-2では、作成・編集formへ任意の場所名を追加し、trim・空欄からNULL・最大100 Unicode codepointsをClientとServer Actionで検証する。画像upload前のClient validationとDB successor RPCの最終境界を併用し、既存tag / image manifest・Storage cleanup順序を維持する。投稿詳細、home、自己・他者投稿一覧、タグ詳細、投稿検索結果は必要なposts SELECTへだけ`location_name`を追加し、共通metadata componentで表示する。Calendar、通知、location検索、package、DB、migrationは変更していない。このセッションの認証付きbrowser fixtureは、通常sign-upがローカルAuthのemail rate limitへ達し、利用可能な別browser sessionもなかったため未実施である。`lint`、`typecheck`、`build`、`git diff --check`は成功した。
 
-正式仕様Ver.2.1で初回公開前のPhase 1機能とされた交換日記は、DB / Storage foundation、E3aのread / list / detail / notification compatibility、E3bのinvitation create / accept / reject / cancel / block / unblockまで実装済みである。diary / entry mutation・private画像表示・通報と、運営向けの最小moderation / maintenance経路は後続E3で実装する。
+正式仕様Ver.2.1で初回公開前のPhase 1機能とされた交換日記は、DB / Storage foundation、E3aのread / list / detail / notification compatibility、E3bのinvitation create / accept / reject / cancel / block / unblock、E3cのdiary / entry mutationまで実装済みである。private画像表示・通報と、運営向けの最小moderation / maintenance経路は後続E3で実装する。
 
 ### 2.1 MVP残差と実装優先順位
 
@@ -86,7 +86,7 @@ Phase C4b-2では、作成・編集formへ任意の場所名を追加し、trim�
 | pgTAP | 30ファイル、plan合計1,673。最新確認済み全回帰`1,673 / 1,673 PASS` | `supabase/tests/database/*.sql` |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 調査基準commit | `4c5459dab6cd295535fbcb0779401cee9e34521f` | `feat: add exchange diary read experience`。Phase E3aまでを含む |
+| 調査基準commit | `69d39b153640d6291f2fba4fb953552c928f98da` | Phase E3bまでを含む。E3cはcommit前 |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -206,7 +206,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
 | DB / Storage foundation | 実装済み | E2a〜E2gでstate / participant / invitation / block、operation RPC、entry / tag / redaction、private画像、通知3 type・全体preference・diary mute、report / snapshot、deactivation archive、retention / cleanup / trusted maintenanceをmigration管理。E2h監査のDB / Storage BLOCKERは0件 | Application / UIと運用経路は本項目に含めない |
-| Application / UI | 一部実装済み | E3aの`/exchange`、`/exchange/[diaryId]`、交換中・招待・終了一覧、participant-only detail、oldest / latest cursor pagination、削除済みplaceholder、通知3 type parser / target navigation、home導線に加え、E3bでinvitation create / accept / reject / cancel、`/users/[userId]`のmutual-follow invite UXとinvitation専用block / unblockを実装。claims由来actorと通常authenticated clientを使い、既存RPC / RLSを最終認可に維持し、stale・第三者・block・cooldown等の失敗をgeneric errorへ統一する | diary / entry mutationはE3c、private画像bytes / 表示はE3d。report、moderation、maintenanceも未実装 |
+| Application / UI | 一部実装済み | E3aのread / list / detail / notification compatibility、E3bのinvitation 6操作とblock / unblockに加え、E3cでentry作成・本人編集・本人soft delete、diary title変更・archive、作成・編集route、確認UI、Unicode codepoint検証、stale / crafted-inputのgeneric failureを実装。claims由来actorと通常authenticated clientを使い、既存RPC / RLSを最終認可に維持する | private画像bytes / 表示はE3d。report、moderation、maintenanceも未実装 |
 
 ## 5. DB・セキュリティ実装状況
 
@@ -291,7 +291,7 @@ Private tableは`my_diary_private.my_diary_exchange_pair_locks`と`my_diary_priv
 
 ## 7. 実装済みroute一覧
 
-`src/app`配下のpage / route handlerは現在28件である。
+`src/app`配下のpage / route handlerは現在30件である。
 
 | route | 種別 | 役割 |
 | --- | --- | --- |
@@ -305,7 +305,9 @@ Private tableは`my_diary_private.my_diary_exchange_pair_locks`と`my_diary_priv
 | `/calendar` | page | viewer timezone基準の本人月別Calendar。前後月・今月遷移、日別件数・最新mood marker、今日・選択日、選択日投稿一覧を表示（`month=YYYY-MM&date=YYYY-MM-DD`） |
 | `/notifications` | page | RLS上見える通知を20件ずつ表示し、未読 / 既読、個別・すべて既読、target遷移を提供 |
 | `/exchange` | page | participant本人の交換中・pending招待・終了済み交換日記を表示し、view別empty stateとpagination、新規交換日記へのfollowing / search導線、receivedのaccept / reject、sentのcancelを提供 |
-| `/exchange/[diaryId]` | dynamic page | participant-onlyの交換日記詳細、oldest / latest entry pagination、削除済みplaceholder、mood・場所・非リンクtag・画像件数を表示 |
+| `/exchange/[diaryId]` | dynamic page | participant-onlyの交換日記詳細、oldest / latest entry pagination、削除済みplaceholder、mood・場所・非リンクtag・画像件数を表示。active時のtitle変更・archive、本人entryの編集・soft delete、archive後の本人entry削除を提供 |
+| `/exchange/[diaryId]/entries/new` | dynamic page | active participant向けentry作成。title・本文・mood・場所・最大5 tagをUnicode codepoint基準で検証し、既存legacy RPCへ接続 |
+| `/exchange/[diaryId]/entries/[entryId]/edit` | dynamic page | active diary内の本人・未削除entryだけをdiary / entry組で再検証して編集し、既存legacy RPCへ接続 |
 | `/settings` | page | viewer本人の現在timezoneを表示し、runtime標準IANA optionから選択してServer Actionで保存 |
 | `/tags` | page | RLS上閲覧可能なタグをcanonical名順に50件ずつ表示 |
 | `/tags/[tagId]` | dynamic page | UUIDで識別したタグと、RLS上閲覧可能な投稿を20件ずつ表示 |
@@ -326,7 +328,7 @@ Private tableは`my_diary_private.my_diary_exchange_pair_locks`と`my_diary_priv
 
 `not-found.tsx`はpost詳細、profile系、tag詳細、Exchange詳細に存在する。タグrouteとExchange routeには`loading.tsx`がある。専用のprotected layoutと`error.tsx`は存在しない。未認証時のpage-level redirectは各pageに残し、non-active accountのstatus確認・session終了はrequestごとに再評価されるProxyと共通helperへ集約している。
 
-Exchange invitation operationはServer Actionから既存RPCへ接続済みである。diary / entry mutation、private画像、report submission、admin moderation、trusted maintenanceのApplication経路はまだ存在しない。計画中のrouteは上の実装済み一覧に含めない。
+Exchange invitation operationとdiary / entry mutationはServer Actionから既存RPCへ接続済みである。private画像、report submission、admin moderation、trusted maintenanceのApplication経路はまだ存在しない。計画中のrouteは上の実装済み一覧に含めない。
 
 ## 8. migration一覧
 
@@ -413,7 +415,9 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 ### 9.2 実行結果の区別
 
-- 最新確認済み結果は30ファイル・`1,673 / 1,673 PASS`である。内訳はpre-Exchange `0001`〜`0021`が21ファイル・1,002 assertions、Exchange `0022`〜`0030`が9ファイル・671 assertionsである。E3b-1cのlocal fixture清掃reset後に全30ファイルを再実行し、Auth / account / invitation / diary / notification fixture 0件とlocal migration 30件を確認した。DB・migration・pgTAP定義は変更していない。
+- 最新確認済み結果は30ファイル・`1,673 / 1,673 PASS`である。内訳はpre-Exchange `0001`〜`0021`が21ファイル・1,002 assertions、Exchange `0022`〜`0030`が9ファイル・671 assertionsである。E3c-1cのlocal fixture清掃reset後に全30ファイルを再実行し、Auth / account / follow / invitation / diary / entry / tag / image / notification fixture 0件とlocal migration 30件を確認した。DB・migration・pgTAP定義は変更していない。
+
+- Phase E3cではDB schema・RLS・migration・pgTAP定義・packageを変更せず、entry作成・本人編集・本人soft delete、diary title変更・archiveを既存RPCへ接続した。Server Actionはclaims由来actorと通常authenticated clientを使い、update / deleteではrouting用`diaryId`と対象entryの所属一致も中立に検証し、RPCを所有権・participant・active状態の最終認可に維持する。local通常sign-up UIでA / B / 第三者Cを作成し、通常UIだけでmutual follow、2冊の交換日記、25 entriesを作成した。本文10,000 / 10,001、title 120 / 121、場所100 / 101、tag 5 / 6、絵文字・改行、任意値の設定 / NULL解除、同一author連続作成、follow解除後継続、oldest / latest `20 / 4` pagination、本人だけの編集・削除、title fallback、two-tab stale edit / title / archive / delete、第三者・malformed・diary / entry mismatchの共通404を確認した。作成二重送信後もentry 1件・通知1件で、全25 entryに対する`exchange_entry`通知は25件、title / edit / archive / deleteの追加通知は0件だった。soft delete 7件は本文等が全てredactされ、tag / image linkは0件、archive後も本人削除とreadを維持した。320 / 360 / 375 / 390 / 1280pxのactive・archived・deleted・validation・generic error・新規 / 編集form・confirmationはすべて横overflow 0で、確認UIの初期focus、Escape / cancel後のfocus復帰、pending live region、error / status、重複しないentry操作名、fresh tabのconsole warning / error 0件を確認した。自動Tab / Shift+Tab注入はactive elementを動かさず、実screen reader announcementと瞬間的pending目視は手動確認へ残す。private画像fixtureは通常UIから作成できないため、legacy update RPCの維持と`0025` / `0030` pgTAPでmetadata / evidence境界を確認した。fixtureは許可済みlocal `supabase db reset`で全削除し、30 migration・全pgTAP`1,673 / 1,673 PASS`、`lint`、`typecheck`、`build`を再確認した。remote DB / Storage、Service Role、Auth Admin API、stage・commit・pushは未使用・未実施である。
 
 - Phase E3bではDB schema・RLS・migration・pgTAP定義・packageを変更せず、invitation create / accept / reject / cancel、invitation専用block / unblock、`/exchange?view=invitations`、`/users/[userId]` Exchange section、mutual-follow invite UXを既存RPCへ接続した。Applicationはclaims由来actorだけを使い、party authorization、active / mutual-follow再確認、pending最大1件、cooldown、block、pair lock、concurrencyをDBへ委任し、RPC errorをgeneric messageへ変換する。local通常認証fixtureでcreate二重送信はpending 1件・通知1件、accept後detail遷移とdiary 1冊、two-tabのaccept / reject / cancel先行処理後のstale操作はneutral failure、block時incoming pendingはrejectedへ収束、unblock再操作、block / unblockによる追加通知0件、Exchange通知parserを確認した。320 / 360 / 375 / 390 / 1280pxの`/exchange`、招待一覧、profile section、detail、confirmation、pending、generic errorはすべて`scrollWidth <= clientWidth`で、50文字連続半角usernameと改行dataでも横overflowはなかった。confirmation open時focus、Escape close後focus復帰、pending中disabled / live region、error `role=alert`、success `role=status`を確認し、console warning / error、React / hydration warningは0件だった。自動Tab / Shift+Tab / Enter injectionはactive elementを動かさず、実キー操作とscreen reader announcementは手動確認へ残す。真の同時multi-session raceは未実施で、DB pair lock / conditional updateと既存pgTAPを根拠とする。
 
@@ -494,18 +498,17 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 - 監査で確認した範囲では、第三者diary read、non-active通常利用、admin whole-diary bypass、report targetへのreport / snapshot漏洩、invite-block専用observable、evidence依存の一般Storage DELETE差、一般user direct mutation grant、一般userへのmaintenance権限開放、期限前evidence purgeを許す重大な境界欠落は検出されなかった。
 - この判定はDB / Storage foundationに対するものであり、Exchange Application / UIの完成を意味しない。
 
-### 11.2 E3 Application BLOCKER（残り6カテゴリ）
+### 11.2 E3 Application BLOCKER（残り5カテゴリ）
 
-E3aでExchange 3通知typeのparser / target navigationとinvitation / list / detailのsecurity-safe read hydration、E3bでinvitation 6操作のApplication / UI接続を解消した。残るBLOCKERは次のとおりである。
+E3aでExchange 3通知typeのparser / target navigationとinvitation / list / detailのsecurity-safe read hydration、E3bでinvitation 6操作、E3cでdiary / entry mutationのApplication / UI接続を解消した。残るBLOCKERは次のとおりである。
 
 1. private Exchange imageのsame-origin Route Handlerと表示。
-2. diary / entryの利用者向けmutation UI。invitation操作の完了と混同せず、E3cで実装する。
-3. report submission UI。
-4. 最小限のadmin report queue / snapshot / status更新経路。
-5. moderator exact-evidence Route Handler。
-6. maintenance RPCの安全な実行経路。
+2. report submission UI。
+3. 最小限のadmin report queue / snapshot / status更新経路。
+4. moderator exact-evidence Route Handler。
+5. maintenance RPCの安全な実行経路。
 
-次の実装候補はE3cのdiary / entry利用者向けmutation UIである。既存RPC / RLSを最終認可とし、Client入力だけでparticipant・対象entry・moderator権限を決定しない。
+次の実装候補はE3dのprivate Exchange image same-origin Route Handlerと表示である。既存RLS / Storage policyを最終認可とし、raw Storage pathや内部errorを利用者へ露出しない。
 
 ### 11.3 PRE-PUBLICATION（4件）
 
@@ -531,6 +534,7 @@ E3aでExchange 3通知typeのparser / target navigationとinvitation / list / de
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-15 | commit前。基準HEAD `69d39b153640d6291f2fba4fb953552c928f98da` | Phase E3cとしてentry作成・本人編集・本人soft delete、diary title変更・archive、作成 / 編集route、Unicode codepoint検証、確認UI、double-submit抑止、pending / error / status、diary / entry所属一致確認を既存RPCへ接続。local通常UIでA / B / C、follow、2 diary、25 entriesを作成し、境界値、任意値解除、同一author連続、follow解除後継続、pagination、本人 / 第三者、two-tab stale、archive後read / delete、共通404、5幅overflow 0、confirmation focus / Escape / cancel、固有accessible name、fresh console 0件を確認した。検証中にCRLF正規化による10,000 codepoint誤拒否と削除成功announcement不足を検出して最小修正。entry 25件に対する通知25件、削除7件の全redact、削除済みtag / image link 0件をlocal DBで確認。許可済みlocal reset後fixture全0件・30 migration、全pgTAP`1,673 / 1,673 PASS`、lint・typecheck・build成功。private画像実fixture、実Tab / Shift+Tab、screen reader、瞬間的pending目視は未確認として区別。DB・migration・pgTAP定義・package・remote DB / Storageは変更せず、Service Role・Auth Admin API・stage・commit・pushは未使用・未実施 |
 | 2026-08-15 | commit前。基準HEAD `4c5459dab6cd295535fbcb0779401cee9e34521f` | Phase E3bとしてinvitation create / accept / reject / cancel、`/users/[userId]`のmutual-follow invite UXとinvitation専用block / unblockを既存RPCへ接続。generic error / privacy oracle対策、two-tab stale、二重送信、block時rejected収束、追加通知0件、Exchange通知parser、5幅の一覧・profile・detail・confirmation・pending・error、focus / Escape / ARIA、console 0件をlocal通常認証fixtureで確認した。長いusernameのconfirmation overflowとblock→unblock後のstale confirmationを最小修正し、成功statusも保持。実Tab / Shift+Tab / Enter、screen reader、真の同時multi-session raceは未実施として区別。local reset後fixture 0件、repository / local / remote 30 migration一致、全pgTAP`1,673 / 1,673 PASS`。DB・migration・pgTAP定義・package変更なし |
 | 2026-08-13 | commit前。基準HEAD `c5c4df10eb99d10d7a7d819717756b4cc9c63b88` | Phase E3aとしてExchange 3通知type parser / target navigation、read-onlyの`/exchange`・`/exchange/[diaryId]`、active / pending / archived一覧、oldest / latest pagination、削除済みplaceholder、mood / location / 非リンクtag / 画像件数、home導線を実装。local通常認証・RLS経路でA/B/C security、follow解除後の継続、共通404、mixed通知、5幅30画面のoverflow 0、semantic DOM、内部値・Storage path非露出、console 0件を確認。自動browserの実キー送出は未確認として区別。DB・migration・pgTAP定義・packageは変更せず、最新全pgTAPは`1,673 / 1,673 PASS` |
 | 2026-08-11 | documentation commit前。基準HEAD `5b7d79cd322f5688560306ce967794a10e59b54f` | Phase E2a〜E2gのExchange DB / Storage foundation完了とE2h final read-only auditを同期。DB / Storage BLOCKER 0件、repository / local / remote 30 migration、30 pgTAP・最新確認済み`1,673 / 1,673 PASS`、E3 Application BLOCKER 7件、PRE-PUBLICATION 4件を現在値として整理し、DB / Storage完了とApplication / UI未実装を分離して記録 |

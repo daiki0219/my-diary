@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ArchiveExchangeDiaryButton } from "@/components/exchange/archive-exchange-diary-button";
+import {
+  DeletedExchangeEntryStatus,
+  DeleteExchangeEntryButton,
+} from "@/components/exchange/delete-exchange-entry-button";
+import { ExchangeDiaryTitleForm } from "@/components/exchange/exchange-diary-title-form";
 import {
   getExchangeDiaryDetail,
   getExchangeEntryPage,
@@ -49,17 +55,6 @@ function getDiaryTitle(diary: ExchangeDiaryDetail) {
   return diary.counterpart.profile
     ? `${diary.counterpart.profile.username}さんとの交換日記`
     : "交換日記";
-}
-
-function getArchiveMessage(diary: ExchangeDiaryDetail) {
-  switch (diary.archiveCause) {
-    case "ended_by_participant":
-      return "参加者の操作により終了しました";
-    case "participant_deactivated":
-      return "利用状況の変更により終了しました";
-    default:
-      return "この交換日記は終了しています";
-  }
 }
 
 function getAuthorName(diary: ExchangeDiaryDetail, participantId: string) {
@@ -140,11 +135,17 @@ function EntryTags({ tags }: { tags: ExchangeActiveEntry["tags"] }) {
 function ActiveEntryArticle({
   diary,
   entry,
+  position,
 }: {
   diary: ExchangeDiaryDetail;
   entry: ExchangeActiveEntry;
+  position: number;
 }) {
   const authorName = getAuthorName(diary, entry.authorParticipantId);
+  const isOwnEntry =
+    entry.authorParticipantId ===
+      diary.viewerParticipant.participantId;
+  const canEdit = diary.state === "active" && isOwnEntry;
 
   if (!authorName) {
     return null;
@@ -152,19 +153,27 @@ function ActiveEntryArticle({
 
   return (
     <article
-      aria-label={`${authorName}の日記`}
+      aria-label={`このページの${position}件目、${authorName}の日記`}
       className="min-w-0 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6"
     >
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <p className="min-w-0 break-words font-semibold text-stone-800 [overflow-wrap:anywhere]">
           {authorName}
         </p>
-        <time
-          className="shrink-0 text-xs text-stone-500"
-          dateTime={entry.createdAt}
-        >
-          {dateFormatter.format(new Date(entry.createdAt))}
-        </time>
+        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+          <time className="text-xs text-stone-500" dateTime={entry.createdAt}>
+            {dateFormatter.format(new Date(entry.createdAt))}
+          </time>
+          {canEdit && (
+            <Link
+              aria-label={`このページの${position}件目、${dateFormatter.format(new Date(entry.createdAt))}の日記を編集`}
+              className="inline-flex min-h-9 items-center rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              href={`/exchange/${diary.diaryId}/entries/${entry.entryId}/edit`}
+            >
+              編集
+            </Link>
+          )}
+        </div>
       </div>
 
       {entry.title && (
@@ -198,6 +207,16 @@ function ActiveEntryArticle({
       <p className="mt-6 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
         {entry.body}
       </p>
+
+      {isOwnEntry && (
+        <div className="mt-5 border-t border-stone-100 pt-4">
+          <DeleteExchangeEntryButton
+            accessibleName={`このページの${position}件目、${dateFormatter.format(new Date(entry.createdAt))}の日記を削除`}
+            diaryId={diary.diaryId}
+            entryId={entry.entryId}
+          />
+        </div>
+      )}
     </article>
   );
 }
@@ -205,9 +224,11 @@ function ActiveEntryArticle({
 function DeletedEntryArticle({
   diary,
   entry,
+  position,
 }: {
   diary: ExchangeDiaryDetail;
   entry: Extract<ExchangeEntry, { kind: "deleted" }>;
+  position: number;
 }) {
   const authorName = getAuthorName(diary, entry.authorParticipantId);
 
@@ -217,7 +238,7 @@ function DeletedEntryArticle({
 
   return (
     <article
-      aria-label={`${authorName}の削除された日記`}
+      aria-label={`このページの${position}件目、${authorName}の削除された日記`}
       className="min-w-0 rounded-3xl border border-stone-200 bg-stone-50 p-5 shadow-sm sm:p-6"
     >
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -231,9 +252,7 @@ function DeletedEntryArticle({
           {dateFormatter.format(new Date(entry.createdAt))}
         </time>
       </div>
-      <p className="mt-4 text-sm leading-6 text-stone-600">
-        この日記は削除されました
-      </p>
+      <DeletedExchangeEntryStatus />
     </article>
   );
 }
@@ -365,7 +384,7 @@ export default async function ExchangeDiaryPage({
           {diary.state === "archived" && diary.archivedAt && (
             <div className="mt-3 rounded-2xl border border-stone-200 bg-white/80 p-4">
               <p className="text-sm leading-6 text-stone-700">
-                {getArchiveMessage(diary)}
+                この交換日記は終了しています
               </p>
               <p className="mt-1 text-xs text-stone-500">
                 終了：
@@ -376,10 +395,29 @@ export default async function ExchangeDiaryPage({
             </div>
           )}
 
+          {diary.state === "active" && (
+            <ExchangeDiaryTitleForm
+              diaryId={canonicalDiaryId}
+              initialTitle={diary.title}
+            />
+          )}
+
           {!hasEntryLoadError && nextTurnMessage && (
             <p className="mt-5 rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm font-bold leading-6 text-orange-900">
               {nextTurnMessage}
             </p>
+          )}
+
+          {diary.state === "active" && (
+            <>
+              <Link
+                className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-orange-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 sm:w-auto"
+                href={`/exchange/${canonicalDiaryId}/entries/new`}
+              >
+                新しい日記を書く
+              </Link>
+              <ArchiveExchangeDiaryButton diaryId={canonicalDiaryId} />
+            </>
           )}
         </header>
 
@@ -428,12 +466,20 @@ export default async function ExchangeDiaryPage({
             </div>
           ) : entriesResult.data && entriesResult.data.length > 0 ? (
             <ul aria-label="交換日記の記録" className="mt-5 min-w-0 space-y-4">
-              {entriesResult.data.map((entry) => (
+              {entriesResult.data.map((entry, index) => (
                 <li className="min-w-0" key={entry.entryId}>
                   {entry.kind === "deleted" ? (
-                    <DeletedEntryArticle diary={diary} entry={entry} />
+                    <DeletedEntryArticle
+                      diary={diary}
+                      entry={entry}
+                      position={index + 1}
+                    />
                   ) : (
-                    <ActiveEntryArticle diary={diary} entry={entry} />
+                    <ActiveEntryArticle
+                      diary={diary}
+                      entry={entry}
+                      position={index + 1}
+                    />
                   )}
                 </li>
               ))}
