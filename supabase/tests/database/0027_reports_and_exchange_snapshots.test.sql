@@ -216,7 +216,7 @@ select ok(
   )
   and pg_catalog.has_function_privilege(
     'authenticated',
-    'public.my_diary_update_report_status(uuid,text)',
+    'public.my_diary_update_report_status(uuid,text,text)',
     'EXECUTE'
   )
   and not pg_catalog.has_function_privilege(
@@ -890,7 +890,8 @@ select throws_ok(
 -- Status RPC and transition trigger.
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2d_main_report')::uuid, 'reviewing'
+    current_setting('my_diary.e2d_main_report')::uuid,
+    'pending', 'reviewing'
   ),
   true,
   'active admin changes pending to reviewing'
@@ -925,7 +926,8 @@ select set_config(
 set local role authenticated;
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2d_main_report')::uuid, 'resolved'
+    current_setting('my_diary.e2d_main_report')::uuid,
+    'reviewing', 'resolved'
   ),
   true,
   'active admin changes reviewing to resolved'
@@ -942,42 +944,48 @@ select ok(
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      current_setting('my_diary.e2d_main_report')::uuid, 'dismissed'
+      current_setting('my_diary.e2d_main_report')::uuid,
+      'resolved', 'dismissed'
     )$$,
   '42501', 'Report status could not be updated.',
   'a terminal report cannot change to another terminal status'
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      current_setting('my_diary.e2d_archived_report')::uuid, 'pending'
+      current_setting('my_diary.e2d_archived_report')::uuid,
+      'pending', 'pending'
     )$$,
   '42501', 'Report status could not be updated.',
   'status RPC never accepts pending as a destination'
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      'd2799999-0000-4000-8000-000000000099', 'resolved'
+      'd2799999-0000-4000-8000-000000000099',
+      'pending', 'resolved'
     )$$,
   '42501', 'Report status could not be updated.',
   'status RPC rejects a nonexistent report generically'
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      current_setting('my_diary.e2d_archived_report')::uuid, null
+      current_setting('my_diary.e2d_archived_report')::uuid,
+      'pending', null
     )$$,
   '42501', 'Report status could not be updated.',
   'status RPC rejects NULL status explicitly'
 );
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2d_archived_report')::uuid, 'resolved'
+    current_setting('my_diary.e2d_archived_report')::uuid,
+    'pending', 'resolved'
   ),
   true,
   'pending can transition directly to resolved'
 );
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2d_user_related_report')::uuid, 'reviewing'
+    current_setting('my_diary.e2d_user_related_report')::uuid,
+    'pending', 'reviewing'
   ),
   true,
   'a user report can transition from pending to reviewing'
@@ -1006,7 +1014,8 @@ select set_config(
 set local role authenticated;
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2d_user_related_report')::uuid, 'dismissed'
+    current_setting('my_diary.e2d_user_related_report')::uuid,
+    'reviewing', 'dismissed'
   ),
   true,
   'a user report can transition from reviewing to dismissed'
@@ -1060,14 +1069,16 @@ select set_config(
 set local role authenticated;
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2d_second_entry_report')::uuid, 'dismissed'
+    current_setting('my_diary.e2d_second_entry_report')::uuid,
+    'pending', 'dismissed'
   ),
   true,
   'pending can transition directly to dismissed'
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      current_setting('my_diary.e2d_second_entry_report')::uuid, 'resolved'
+      current_setting('my_diary.e2d_second_entry_report')::uuid,
+      'dismissed', 'resolved'
     )$$,
   '42501', 'Report status could not be updated.',
   'a dismissed report is terminal'
@@ -1088,7 +1099,8 @@ select lives_ok(
 
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      current_setting('my_diary.e2d_archived_report')::uuid, 'resolved'
+      current_setting('my_diary.e2d_archived_report')::uuid,
+      'resolved', 'resolved'
     )$$,
   '42501', 'Report status could not be updated.',
   'a normal user cannot update report status'
@@ -1102,7 +1114,8 @@ select set_config(
 set local role authenticated;
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      current_setting('my_diary.e2d_archived_report')::uuid, 'resolved'
+      current_setting('my_diary.e2d_archived_report')::uuid,
+      'resolved', 'resolved'
     )$$,
   '42501', 'Report status could not be updated.',
   'a suspended admin cannot update report status'
@@ -1121,7 +1134,8 @@ select set_config(
 set local role authenticated;
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      current_setting('my_diary.e2d_archived_report')::uuid, 'resolved'
+      current_setting('my_diary.e2d_archived_report')::uuid,
+      'resolved', 'resolved'
     )$$,
   '42501', 'Report status could not be updated.',
   'a deactivated admin cannot update report status'

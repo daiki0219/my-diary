@@ -30,10 +30,10 @@ select ok(
     'my_diary_private.my_diary_exchange_entry_image_evidence_select_is_allowed(text)'::pg_catalog.regprocedure
   )) like '%join public.reports as report%'
   and pg_catalog.lower(pg_catalog.pg_get_functiondef(
-    'public.my_diary_update_report_status(uuid,text)'::pg_catalog.regprocedure
+    'public.my_diary_update_report_status(uuid,text,text)'::pg_catalog.regprocedure
   )) like '%report.reported_user_id <> viewer_user_id%'
   and pg_catalog.lower(pg_catalog.pg_get_functiondef(
-    'public.my_diary_update_report_status(uuid,text)'::pg_catalog.regprocedure
+    'public.my_diary_update_report_status(uuid,text,text)'::pg_catalog.regprocedure
   )) like '%report.reporter_user_id is null%'
   and pg_catalog.lower(pg_catalog.pg_get_functiondef(
     'public.my_diary_purge_expired_report_evidence(uuid)'::pg_catalog.regprocedure
@@ -50,7 +50,7 @@ select is(
     from pg_catalog.pg_proc as function_definition
     where function_definition.oid in (
       'my_diary_private.my_diary_exchange_entry_image_evidence_select_is_allowed(text)'::pg_catalog.regprocedure,
-      'public.my_diary_update_report_status(uuid,text)'::pg_catalog.regprocedure,
+      'public.my_diary_update_report_status(uuid,text,text)'::pg_catalog.regprocedure,
       'public.my_diary_purge_expired_report_evidence(uuid)'::pg_catalog.regprocedure
     )
       and function_definition.prosecdef
@@ -70,14 +70,14 @@ select ok(
   )
   and pg_catalog.has_function_privilege(
     'authenticated',
-    'public.my_diary_update_report_status(uuid,text)', 'EXECUTE'
+    'public.my_diary_update_report_status(uuid,text,text)', 'EXECUTE'
   )
   and pg_catalog.has_function_privilege(
     'authenticated',
     'public.my_diary_purge_expired_report_evidence(uuid)', 'EXECUTE'
   )
   and not pg_catalog.has_function_privilege(
-    'anon', 'public.my_diary_update_report_status(uuid,text)', 'EXECUTE'
+    'anon', 'public.my_diary_update_report_status(uuid,text,text)', 'EXECUTE'
   )
   and not pg_catalog.has_function_privilege(
     'service_role',
@@ -256,7 +256,8 @@ select results_eq(
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      '73200000-0000-4000-8000-000000000001', 'reviewing'
+      '73200000-0000-4000-8000-000000000001',
+      'pending', 'reviewing'
     )$$,
   '42501', 'Report status could not be updated.',
   'the reported-user admin cannot update its report status'
@@ -276,7 +277,8 @@ select results_eq(
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      '73200000-0000-4000-8000-000000000002', 'reviewing'
+      '73200000-0000-4000-8000-000000000002',
+      'pending', 'reviewing'
     )$$,
   '42501', 'Report status could not be updated.',
   'the reporter admin cannot update its report status'
@@ -338,7 +340,8 @@ select results_eq(
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      '73200000-0000-4000-8000-000000000003', 'reviewing'
+      '73200000-0000-4000-8000-000000000003',
+      'pending', 'reviewing'
     )$$,
   '42501', 'Report status could not be updated.',
   'an unrelated ordinary user cannot update report status'
@@ -366,7 +369,8 @@ select results_eq(
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      '73200000-0000-4000-8000-000000000003', 'resolved'
+      '73200000-0000-4000-8000-000000000003',
+      'pending', 'resolved'
     )$$,
   '42501', 'Report status could not be updated.',
   'a suspended admin cannot update report status'
@@ -394,7 +398,8 @@ select results_eq(
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      '73200000-0000-4000-8000-000000000003', 'resolved'
+      '73200000-0000-4000-8000-000000000003',
+      'pending', 'resolved'
     )$$,
   '42501', 'Report status could not be updated.',
   'a deactivated admin cannot update report status'
@@ -466,21 +471,24 @@ select results_eq(
 
 select is(
   public.my_diary_update_report_status(
-    '73200000-0000-4000-8000-000000000001', 'reviewing'
+    '73200000-0000-4000-8000-000000000001',
+    'pending', 'reviewing'
   ),
   true,
   'the unrelated active admin moves pending to reviewing'
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      '73200000-0000-4000-8000-000000000001', 'reviewing'
+      '73200000-0000-4000-8000-000000000001',
+      'reviewing', 'reviewing'
     )$$,
   '42501', 'Report status could not be updated.',
   'same-status moderation remains rejected'
 );
 select is(
   public.my_diary_update_report_status(
-    '73200000-0000-4000-8000-000000000001', 'resolved'
+    '73200000-0000-4000-8000-000000000001',
+    'reviewing', 'resolved'
   ),
   true,
   'the unrelated active admin moves reviewing to resolved'
@@ -498,21 +506,24 @@ select ok(
 );
 select throws_ok(
   $$select public.my_diary_update_report_status(
-      '73200000-0000-4000-8000-000000000001', 'dismissed'
+      '73200000-0000-4000-8000-000000000001',
+      'resolved', 'dismissed'
     )$$,
   '42501', 'Report status could not be updated.',
   'terminal-to-terminal moderation remains rejected'
 );
 select is(
   public.my_diary_update_report_status(
-    '73200000-0000-4000-8000-000000000002', 'dismissed'
+    '73200000-0000-4000-8000-000000000002',
+    'pending', 'dismissed'
   ),
   true,
   'the unrelated active admin can dismiss the reporter-admin report'
 );
 select is(
   public.my_diary_update_report_status(
-    '73200000-0000-4000-8000-000000000003', 'resolved'
+    '73200000-0000-4000-8000-000000000003',
+    'pending', 'resolved'
   ),
   true,
   'the unrelated active admin can resolve the NULL-reporter report'

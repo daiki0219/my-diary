@@ -74,7 +74,7 @@ select is(
     select pg_catalog.count(*)
     from pg_catalog.pg_proc as function_definition
     where function_definition.oid in (
-      'public.my_diary_update_report_status(uuid,text)'::pg_catalog.regprocedure,
+      'public.my_diary_update_report_status(uuid,text,text)'::pg_catalog.regprocedure,
       'public.my_diary_purge_expired_report_evidence(uuid)'::pg_catalog.regprocedure,
       'public.my_diary_complete_exchange_image_cleanup(text)'::pg_catalog.regprocedure,
       'my_diary_private.my_diary_exchange_entry_image_maintenance_delete_is_allowed(uuid,text)'::pg_catalog.regprocedure,
@@ -559,7 +559,8 @@ select set_config(
 set local role authenticated;
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2g_entry_report')::uuid, 'reviewing'
+    current_setting('my_diary.e2g_entry_report')::uuid,
+    'pending', 'reviewing'
   ),
   true,
   'active admin moves a pending report to reviewing'
@@ -574,7 +575,8 @@ select ok(
 );
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2g_entry_report')::uuid, 'resolved'
+    current_setting('my_diary.e2g_entry_report')::uuid,
+    'reviewing', 'resolved'
   ),
   true,
   'active admin resolves a reviewing report'
@@ -589,7 +591,8 @@ select ok(
 );
 select is(
   public.my_diary_update_report_status(
-    current_setting('my_diary.e2g_user_report')::uuid, 'dismissed'
+    current_setting('my_diary.e2g_user_report')::uuid,
+    'pending', 'dismissed'
   ),
   true,
   'active admin dismisses a pending report'

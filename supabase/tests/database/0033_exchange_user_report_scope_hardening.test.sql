@@ -574,7 +574,7 @@ select is(
 select throws_ok(
   $$select public.my_diary_update_report_status(
       current_setting('my_diary.e3f3_no_related_report')::uuid,
-      'reviewing'
+      'pending', 'reviewing'
     )$$,
   '42501', 'Report status could not be updated.',
   'the reported-user admin cannot moderate the successor-created report'
@@ -597,7 +597,7 @@ select is(
 select throws_ok(
   $$select public.my_diary_update_report_status(
       current_setting('my_diary.e3f3_no_related_report')::uuid,
-      'reviewing'
+      'pending', 'reviewing'
     )$$,
   '42501', 'Report status could not be updated.',
   'the reporter admin cannot moderate their own successor-created report'
@@ -612,7 +612,7 @@ set local role authenticated;
 select is(
   public.my_diary_update_report_status(
     current_setting('my_diary.e3f3_no_related_report')::uuid,
-    'dismissed'
+    'pending', 'dismissed'
   ),
   true,
   'an unrelated active admin can dismiss the successor-created report'
@@ -756,7 +756,7 @@ set local role authenticated;
 select is(
   public.my_diary_update_report_status(
     current_setting('my_diary.e3f3_related_report')::uuid,
-    'dismissed'
+    'pending', 'dismissed'
   ),
   true,
   'the unrelated admin terminates the related report for archive coverage'
