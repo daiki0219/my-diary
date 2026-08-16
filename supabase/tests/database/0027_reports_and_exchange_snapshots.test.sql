@@ -800,8 +800,8 @@ select is(
 
 select is(
   (select pg_catalog.count(*) from public.reports),
-  9::bigint,
-  'active admin can read reports'
+  8::bigint,
+  'active admin reads reports except the report targeting that admin'
 );
 select is(
   (select pg_catalog.count(*)
