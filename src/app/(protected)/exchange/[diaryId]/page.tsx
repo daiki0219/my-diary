@@ -8,6 +8,7 @@ import {
   DeleteExchangeEntryButton,
 } from "@/components/exchange/delete-exchange-entry-button";
 import { ExchangeDiaryTitleForm } from "@/components/exchange/exchange-diary-title-form";
+import { ReportExchangeEntryButton } from "@/components/exchange/report-exchange-entry-button";
 import { PostImageGallery } from "@/components/posts/post-image-gallery";
 import {
   getExchangeDiaryDetail,
@@ -211,15 +212,21 @@ function ActiveEntryArticle({
 
       <PostImageGallery images={entry.images} variant="exchange-entry" />
 
-      {isOwnEntry && (
-        <div className="mt-5 border-t border-stone-100 pt-4">
+      <div className="mt-5 border-t border-stone-100 pt-4">
+        {isOwnEntry ? (
           <DeleteExchangeEntryButton
             accessibleName={`このページの${position}件目、${dateFormatter.format(new Date(entry.createdAt))}の日記を削除`}
             diaryId={diary.diaryId}
             entryId={entry.entryId}
           />
-        </div>
-      )}
+        ) : (
+          <ReportExchangeEntryButton
+            accessibleName={`このページの${position}件目、${authorName}の${dateFormatter.format(new Date(entry.createdAt))}の日記を通報`}
+            diaryId={diary.diaryId}
+            entryId={entry.entryId}
+          />
+        )}
+      </div>
     </article>
   );
 }
