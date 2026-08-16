@@ -8,6 +8,11 @@ import {
   validateDiaryEntryFormData,
   type DiaryEntryFieldErrors,
 } from "@/lib/diary-entry-validation";
+import {
+  EXCHANGE_ENTRY_IMAGE_MAX_COUNT,
+  isExchangeEntryImageStoragePathFor,
+  parseExchangeEntryImageStoragePath,
+} from "@/lib/exchange-entry-image-input";
 import { isUuid } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,9 +25,15 @@ export type ExchangeActionState = {
 
 export type ExchangeEntryActionState = {
   error: string | null;
-  fieldErrors: DiaryEntryFieldErrors;
+  fieldErrors: DiaryEntryFieldErrors & { images?: string };
   submittedTagValues: string[];
   revision: number;
+  createOutcome?:
+    | "idle"
+    | "safe-to-cleanup"
+    | "unknown-outcome"
+    | "committed";
+  createdEntryId?: string;
 };
 
 export type ExchangeDiaryTitleActionState = {
@@ -51,6 +62,11 @@ const DIARY_MUTATION_ERROR =
   "現在この交換日記を更新できません。状態を更新して、少し時間をおいてもう一度お試しください。";
 const ENTRY_DELETE_ERROR =
   "現在この日記を削除できません。状態を更新して、少し時間をおいてもう一度お試しください。";
+const EXCHANGE_ENTRY_CREATE_ROLLBACK_CODES = new Set([
+  "22023",
+  "40001",
+  "42501",
+]);
 
 function errorState(
   previousState: ExchangeActionState,
@@ -97,6 +113,25 @@ function entryErrorState(
     submittedTagValues:
       options?.submittedTagValues ?? previousState.submittedTagValues,
     revision: previousState.revision + 1,
+  };
+}
+
+function createEntryErrorState(
+  previousState: ExchangeEntryActionState,
+  error: string,
+  createOutcome: "safe-to-cleanup" | "unknown-outcome",
+  options?: {
+    fieldErrors?: ExchangeEntryActionState["fieldErrors"];
+    submittedTagValues?: string[];
+  },
+): ExchangeEntryActionState {
+  return {
+    error,
+    fieldErrors: options?.fieldErrors ?? {},
+    submittedTagValues:
+      options?.submittedTagValues ?? previousState.submittedTagValues,
+    revision: previousState.revision + 1,
+    createOutcome,
   };
 }
 
@@ -206,61 +241,171 @@ export async function createExchangeEntry(
   formData: FormData,
 ): Promise<ExchangeEntryActionState> {
   const diaryId = getUuid(formData, "diaryId");
+  const entryId = getUuid(formData, "entryId");
+  const imagePathEntries = formData.getAll("imagePaths");
+  const imagePaths = imagePathEntries.filter(
+    (entry): entry is string => typeof entry === "string",
+  );
   const validation = validateDiaryEntryFormData(formData);
 
-  if (!diaryId) {
-    return entryErrorState(previousState, INPUT_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+  if (!diaryId || !entryId) {
+    return createEntryErrorState(
+      previousState,
+      INPUT_ERROR,
+      "safe-to-cleanup",
+      {
+        fieldErrors: { images: "画像の送信内容を確認できませんでした。" },
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
+  }
+
+  if (
+    imagePathEntries.length !== imagePaths.length ||
+    imagePaths.length > EXCHANGE_ENTRY_IMAGE_MAX_COUNT ||
+    new Set(imagePaths).size !== imagePaths.length
+  ) {
+    return createEntryErrorState(
+      previousState,
+      "入力内容を確認してください。",
+      "safe-to-cleanup",
+      {
+        fieldErrors: { images: "画像の送信内容を確認できませんでした。" },
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
   if (!validation.data) {
-    return entryErrorState(previousState, "入力内容を確認してください。", {
-      fieldErrors: validation.fieldErrors,
-      submittedTagValues: validation.submittedTagValues,
-    });
+    return createEntryErrorState(
+      previousState,
+      "入力内容を確認してください。",
+      "safe-to-cleanup",
+      {
+        fieldErrors: validation.fieldErrors,
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
   const context = await getAuthenticatedContext();
 
   if (!context) {
-    return entryErrorState(previousState, AUTH_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+    return createEntryErrorState(
+      previousState,
+      AUTH_ERROR,
+      "safe-to-cleanup",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
+  }
+
+  const imagePathsAreValid = imagePaths.every((path) => {
+    const parsed = parseExchangeEntryImageStoragePath(path);
+
+    return (
+      parsed !== null &&
+      isExchangeEntryImageStoragePathFor(path, {
+        ownerUserId: context.currentUserId,
+        diaryId,
+        entryId,
+        imageId: parsed.imageId,
+      })
+    );
+  });
+
+  if (!imagePathsAreValid) {
+    return createEntryErrorState(
+      previousState,
+      "入力内容を確認してください。",
+      "safe-to-cleanup",
+      {
+        fieldErrors: { images: "画像の送信内容を確認できませんでした。" },
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
   let result;
 
   try {
     result = await context.supabase.rpc(
-      "my_diary_create_exchange_entry",
+      "my_diary_create_exchange_entry_with_images",
       {
+        p_entry_id: entryId,
         p_diary_id: diaryId,
         p_title: validation.data.title,
         p_body: validation.data.body,
         p_mood: validation.data.mood,
         p_location_name: validation.data.locationName,
         p_tags: validation.data.tags,
+        p_image_paths: imagePaths,
       },
     );
   } catch {
-    return entryErrorState(previousState, ENTRY_OPERATION_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+    return createEntryErrorState(
+      previousState,
+      "通信が途切れ、保存結果を確認できませんでした。画像は削除していません。交換日記を再読み込みして保存結果を確認してください。",
+      "unknown-outcome",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
+  }
+
+  if (result.error) {
+    const rollbackIsExplicit = EXCHANGE_ENTRY_CREATE_ROLLBACK_CODES.has(
+      result.error.code,
+    );
+
+    return createEntryErrorState(
+      previousState,
+      rollbackIsExplicit
+        ? ENTRY_OPERATION_ERROR
+        : "通信状態のため保存結果を確認できませんでした。画像は削除していません。交換日記を再読み込みして保存結果を確認してください。",
+      rollbackIsExplicit ? "safe-to-cleanup" : "unknown-outcome",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
   if (
-    result.error ||
     typeof result.data !== "string" ||
-    !isUuid(result.data)
+    result.data.toLowerCase() !== entryId
   ) {
-    return entryErrorState(previousState, ENTRY_OPERATION_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+    return createEntryErrorState(
+      previousState,
+      "保存結果を確認できませんでした。画像は削除していません。交換日記を再読み込みして保存結果を確認してください。",
+      "unknown-outcome",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
-  revalidateExchangeEntryViews(diaryId);
-  redirect(`/exchange/${diaryId}?view=latest`);
+  try {
+    revalidateExchangeEntryViews(diaryId);
+  } catch {
+    return createEntryErrorState(
+      previousState,
+      "日記は保存された可能性があります。画像は削除していません。交換日記を再読み込みして保存結果を確認してください。",
+      "unknown-outcome",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
+  }
+
+  return {
+    error: null,
+    fieldErrors: {},
+    submittedTagValues: validation.submittedTagValues,
+    revision: previousState.revision + 1,
+    createOutcome: "committed",
+    createdEntryId: entryId,
+  };
 }
 
 export async function updateExchangeEntry(
