@@ -114,7 +114,7 @@ export default async function EditExchangeEntryPage({
             交換日記を編集
           </h1>
           <p className="mt-3 text-sm leading-6 text-stone-600">
-            保存すると、タイトル・本文・気分・場所・タグの変更が反映されます。
+            保存すると、タイトル・本文・気分・場所・タグ・画像の変更が反映されます。
           </p>
 
           <div className="mt-7">

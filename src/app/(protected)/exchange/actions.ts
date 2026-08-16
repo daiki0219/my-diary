@@ -34,6 +34,12 @@ export type ExchangeEntryActionState = {
     | "unknown-outcome"
     | "committed";
   createdEntryId?: string;
+  updateOutcome?:
+    | "idle"
+    | "safe-to-cleanup"
+    | "unknown-outcome"
+    | "committed";
+  updatedEntryId?: string;
 };
 
 export type ExchangeDiaryTitleActionState = {
@@ -62,11 +68,120 @@ const DIARY_MUTATION_ERROR =
   "現在この交換日記を更新できません。状態を更新して、少し時間をおいてもう一度お試しください。";
 const ENTRY_DELETE_ERROR =
   "現在この日記を削除できません。状態を更新して、少し時間をおいてもう一度お試しください。";
-const EXCHANGE_ENTRY_CREATE_ROLLBACK_CODES = new Set([
+const EXCHANGE_ENTRY_ROLLBACK_CODES = new Set([
   "22023",
   "40001",
   "42501",
 ]);
+
+type ExchangeEntryImageManifestItem =
+  | { existingId: string }
+  | { newPath: string };
+
+function parseExchangeEntryImageManifest(
+  formData: FormData,
+): ExchangeEntryImageManifestItem[] | null {
+  const manifestEntries = formData.getAll("imageManifest");
+
+  if (
+    manifestEntries.length !== 1 ||
+    typeof manifestEntries[0] !== "string"
+  ) {
+    return null;
+  }
+
+  let value: unknown;
+
+  try {
+    value = JSON.parse(manifestEntries[0]);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(value) || value.length > EXCHANGE_ENTRY_IMAGE_MAX_COUNT) {
+    return null;
+  }
+
+  const existingIds = new Set<string>();
+  const newPaths = new Set<string>();
+  const newImageIds = new Set<string>();
+  const manifest: ExchangeEntryImageManifestItem[] = [];
+
+  for (const item of value) {
+    if (
+      typeof item !== "object" ||
+      item === null ||
+      Array.isArray(item)
+    ) {
+      return null;
+    }
+
+    const keys = Object.keys(item);
+
+    if (keys.length !== 1) {
+      return null;
+    }
+
+    if (keys[0] === "existingId" && "existingId" in item) {
+      const existingId = item.existingId;
+
+      if (
+        typeof existingId !== "string" ||
+        !isUuid(existingId) ||
+        existingId !== existingId.toLowerCase() ||
+        existingIds.has(existingId)
+      ) {
+        return null;
+      }
+
+      existingIds.add(existingId);
+      manifest.push({ existingId });
+      continue;
+    }
+
+    if (keys[0] === "newPath" && "newPath" in item) {
+      const newPath = item.newPath;
+      const parsedPath =
+        typeof newPath === "string"
+          ? parseExchangeEntryImageStoragePath(newPath)
+          : null;
+
+      if (
+        !parsedPath ||
+        newPaths.has(newPath as string) ||
+        newImageIds.has(parsedPath.imageId)
+      ) {
+        return null;
+      }
+
+      newPaths.add(newPath as string);
+      newImageIds.add(parsedPath.imageId);
+      manifest.push({ newPath: newPath as string });
+      continue;
+    }
+
+    return null;
+  }
+
+  return manifest;
+}
+
+function parseUpdateExchangeEntryResult(value: unknown, entryId: string) {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.keys(value).length !== 1 ||
+    !("entryId" in value) ||
+    typeof value.entryId !== "string" ||
+    !isUuid(value.entryId) ||
+    value.entryId.toLowerCase() !== entryId
+  ) {
+    return null;
+  }
+
+  return { entryId };
+}
 
 function errorState(
   previousState: ExchangeActionState,
@@ -99,23 +214,6 @@ function getUuid(formData: FormData, fieldName: string) {
     : null;
 }
 
-function entryErrorState(
-  previousState: ExchangeEntryActionState,
-  error: string,
-  options?: {
-    fieldErrors?: DiaryEntryFieldErrors;
-    submittedTagValues?: string[];
-  },
-): ExchangeEntryActionState {
-  return {
-    error,
-    fieldErrors: options?.fieldErrors ?? {},
-    submittedTagValues:
-      options?.submittedTagValues ?? previousState.submittedTagValues,
-    revision: previousState.revision + 1,
-  };
-}
-
 function createEntryErrorState(
   previousState: ExchangeEntryActionState,
   error: string,
@@ -132,6 +230,25 @@ function createEntryErrorState(
       options?.submittedTagValues ?? previousState.submittedTagValues,
     revision: previousState.revision + 1,
     createOutcome,
+  };
+}
+
+function updateEntryErrorState(
+  previousState: ExchangeEntryActionState,
+  error: string,
+  updateOutcome: "safe-to-cleanup" | "unknown-outcome",
+  options?: {
+    fieldErrors?: ExchangeEntryActionState["fieldErrors"];
+    submittedTagValues?: string[];
+  },
+): ExchangeEntryActionState {
+  return {
+    error,
+    fieldErrors: options?.fieldErrors ?? {},
+    submittedTagValues:
+      options?.submittedTagValues ?? previousState.submittedTagValues,
+    revision: previousState.revision + 1,
+    updateOutcome,
   };
 }
 
@@ -355,7 +472,7 @@ export async function createExchangeEntry(
   }
 
   if (result.error) {
-    const rollbackIsExplicit = EXCHANGE_ENTRY_CREATE_ROLLBACK_CODES.has(
+    const rollbackIsExplicit = EXCHANGE_ENTRY_ROLLBACK_CODES.has(
       result.error.code,
     );
 
@@ -414,27 +531,81 @@ export async function updateExchangeEntry(
 ): Promise<ExchangeEntryActionState> {
   const diaryId = getUuid(formData, "diaryId");
   const entryId = getUuid(formData, "entryId");
+  const imageManifest = parseExchangeEntryImageManifest(formData);
   const validation = validateDiaryEntryFormData(formData);
 
   if (!diaryId || !entryId) {
-    return entryErrorState(previousState, INPUT_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+    return updateEntryErrorState(
+      previousState,
+      INPUT_ERROR,
+      "safe-to-cleanup",
+      {
+        fieldErrors: imageManifest
+          ? undefined
+          : { images: "画像の送信内容を確認できませんでした。" },
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
-  if (!validation.data) {
-    return entryErrorState(previousState, "入力内容を確認してください。", {
-      fieldErrors: validation.fieldErrors,
-      submittedTagValues: validation.submittedTagValues,
-    });
+  if (!validation.data || !imageManifest) {
+    return updateEntryErrorState(
+      previousState,
+      "入力内容を確認してください。",
+      "safe-to-cleanup",
+      {
+        fieldErrors: {
+          ...validation.fieldErrors,
+          ...(imageManifest
+            ? {}
+            : { images: "画像の送信内容を確認できませんでした。" }),
+        },
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
+
+  const newImagePaths = imageManifest.flatMap((item) =>
+    "newPath" in item ? [item.newPath] : [],
+  );
 
   const context = await getAuthenticatedContext();
 
   if (!context) {
-    return entryErrorState(previousState, AUTH_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+    return updateEntryErrorState(
+      previousState,
+      AUTH_ERROR,
+      "safe-to-cleanup",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
+  }
+
+  const newImagePathsAreValid = newImagePaths.every((path) => {
+    const parsed = parseExchangeEntryImageStoragePath(path);
+
+    return (
+      parsed !== null &&
+      isExchangeEntryImageStoragePathFor(path, {
+        ownerUserId: context.currentUserId,
+        diaryId,
+        entryId,
+        imageId: parsed.imageId,
+      })
+    );
+  });
+
+  if (!newImagePathsAreValid) {
+    return updateEntryErrorState(
+      previousState,
+      "入力内容を確認してください。",
+      "safe-to-cleanup",
+      {
+        fieldErrors: { images: "画像の送信内容を確認できませんでした。" },
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
   if (
@@ -444,16 +615,21 @@ export async function updateExchangeEntry(
       entryId,
     ))
   ) {
-    return entryErrorState(previousState, ENTRY_OPERATION_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+    return updateEntryErrorState(
+      previousState,
+      ENTRY_OPERATION_ERROR,
+      "safe-to-cleanup",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
   let result;
 
   try {
     result = await context.supabase.rpc(
-      "my_diary_update_exchange_entry",
+      "my_diary_update_exchange_entry_with_images",
       {
         p_entry_id: entryId,
         p_title: validation.data.title,
@@ -461,26 +637,69 @@ export async function updateExchangeEntry(
         p_mood: validation.data.mood,
         p_location_name: validation.data.locationName,
         p_tags: validation.data.tags,
+        p_image_manifest: imageManifest,
       },
     );
   } catch {
-    return entryErrorState(previousState, ENTRY_OPERATION_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+    return updateEntryErrorState(
+      previousState,
+      "通信が途切れ、更新結果を確認できませんでした。画像は削除していません。交換日記を再読み込みして保存結果を確認してください。",
+      "unknown-outcome",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
-  if (
-    result.error ||
-    typeof result.data !== "string" ||
-    result.data.toLowerCase() !== entryId
-  ) {
-    return entryErrorState(previousState, ENTRY_OPERATION_ERROR, {
-      submittedTagValues: validation.submittedTagValues,
-    });
+  if (result.error) {
+    const rollbackIsExplicit = EXCHANGE_ENTRY_ROLLBACK_CODES.has(
+      result.error.code,
+    );
+
+    return updateEntryErrorState(
+      previousState,
+      rollbackIsExplicit
+        ? ENTRY_OPERATION_ERROR
+        : "通信状態のため更新結果を確認できませんでした。画像は削除していません。交換日記を再読み込みして保存結果を確認してください。",
+      rollbackIsExplicit ? "safe-to-cleanup" : "unknown-outcome",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
   }
 
-  revalidateExchangeEntryViews(diaryId);
-  redirect(`/exchange/${diaryId}?view=latest`);
+  if (!parseUpdateExchangeEntryResult(result.data, entryId)) {
+    return updateEntryErrorState(
+      previousState,
+      "更新結果を確認できませんでした。画像は削除していません。交換日記を再読み込みして保存結果を確認してください。",
+      "unknown-outcome",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
+  }
+
+  try {
+    revalidateExchangeEntryViews(diaryId);
+  } catch {
+    return updateEntryErrorState(
+      previousState,
+      "日記は更新された可能性があります。画像は削除していません。交換日記を再読み込みして保存結果を確認してください。",
+      "unknown-outcome",
+      {
+        submittedTagValues: validation.submittedTagValues,
+      },
+    );
+  }
+
+  return {
+    error: null,
+    fieldErrors: {},
+    submittedTagValues: validation.submittedTagValues,
+    revision: previousState.revision + 1,
+    updateOutcome: "committed",
+    updatedEntryId: entryId,
+  };
 }
 
 export async function updateExchangeDiaryTitle(

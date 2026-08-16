@@ -64,27 +64,40 @@ const FIELD_IDS: Record<DiaryEntryField, string> = {
   tags: "exchange-entry-tags",
 };
 
-type SelectedExchangeEntryImage = {
+type ExistingExchangeEntryImage = {
+  id: string;
+  kind: "existing";
+};
+
+type NewExchangeEntryImage = {
   file: File;
   id: string;
+  kind: "new";
   previewUrl: string;
 };
 
-function createImageErrorState(
+type ExchangeEntryImage =
+  | ExistingExchangeEntryImage
+  | NewExchangeEntryImage;
+
+function imageErrorState(
   previousState: ExchangeEntryActionState,
   error: string,
+  mode: "create" | "edit",
 ): ExchangeEntryActionState {
   return {
     error: "画像を保存できませんでした。",
     fieldErrors: { images: error },
     submittedTagValues: previousState.submittedTagValues,
     revision: previousState.revision + 1,
-    createOutcome: "idle",
+    createOutcome: mode === "create" ? "idle" : undefined,
+    updateOutcome: mode === "edit" ? "idle" : undefined,
   };
 }
 
-function unknownCreateOutcomeState(
+function unknownMutationOutcomeState(
   previousState: ExchangeEntryActionState,
+  mode: "create" | "edit",
 ): ExchangeEntryActionState {
   return {
     error:
@@ -92,7 +105,8 @@ function unknownCreateOutcomeState(
     fieldErrors: {},
     submittedTagValues: previousState.submittedTagValues,
     revision: previousState.revision + 1,
-    createOutcome: "unknown-outcome",
+    createOutcome: mode === "create" ? "unknown-outcome" : undefined,
+    updateOutcome: mode === "edit" ? "unknown-outcome" : undefined,
   };
 }
 
@@ -150,22 +164,27 @@ export function ExchangeEntryForm({
   diaryId,
   entry,
 }: ExchangeEntryFormProps) {
+  const initialImages: ExchangeEntryImage[] =
+    mode === "edit"
+      ? [...entry.images]
+          .sort((left, right) => left.sortOrder - right.sortOrder)
+          .map((image) => ({ id: image.id, kind: "existing" }))
+      : [];
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const generalErrorRef = useRef<HTMLParagraphElement>(null);
   const submissionInFlight = useRef(false);
   const submissionBlockedRef = useRef(false);
   const imageSelectionInFlight = useRef(false);
-  const selectedImagesRef = useRef<SelectedExchangeEntryImage[]>([]);
+  const selectedImagesRef = useRef<ExchangeEntryImage[]>(initialImages);
   const [title, setTitle] = useState(entry?.title ?? "");
   const [body, setBody] = useState(entry?.body ?? "");
   const [mood, setMood] = useState(entry?.mood ?? "");
   const [locationName, setLocationName] = useState(
     entry?.locationName ?? "",
   );
-  const [selectedImages, setSelectedImages] = useState<
-    SelectedExchangeEntryImage[]
-  >([]);
+  const [selectedImages, setSelectedImages] =
+    useState<ExchangeEntryImage[]>(initialImages);
   const [clientImageError, setClientImageError] = useState<string | null>(
     null,
   );
@@ -180,6 +199,7 @@ export function ExchangeEntryForm({
     submittedTagValues: entry?.tags.map((tag) => tag.name) ?? [],
     revision: 0,
     createOutcome: mode === "create" ? "idle" : undefined,
+    updateOutcome: mode === "edit" ? "idle" : undefined,
   };
   const submitEntry = useCallback(
     async (
@@ -195,30 +215,40 @@ export function ExchangeEntryForm({
           submittedTagValues: validation.submittedTagValues,
           revision: previousState.revision + 1,
           createOutcome: mode === "create" ? "idle" : undefined,
+          updateOutcome: mode === "edit" ? "idle" : undefined,
         };
       }
 
-      if (mode === "edit") {
-        return updateExchangeEntry(previousState, formData);
+      const images = selectedImagesRef.current;
+      const newImages = images.filter(
+        (image): image is NewExchangeEntryImage => image.kind === "new",
+      );
+
+      if (images.length > EXCHANGE_ENTRY_IMAGE_MAX_COUNT) {
+        return imageErrorState(
+          previousState,
+          `画像は最大${EXCHANGE_ENTRY_IMAGE_MAX_COUNT}枚まで選択できます。`,
+          mode,
+        );
       }
 
-      const images = selectedImagesRef.current;
       const imageValidation = await validateExchangeEntryImageFiles(
-        images.map((image) => image.file),
+        newImages.map((image) => image.file),
       );
 
       if (imageValidation.error) {
-        return createImageErrorState(previousState, imageValidation.error);
+        return imageErrorState(previousState, imageValidation.error, mode);
       }
 
-      const entryId = crypto.randomUUID();
+      const entryId = mode === "create" ? crypto.randomUUID() : entry.entryId;
       const uploadedPaths: string[] = [];
+      const uploadedPathByClientId = new Map<string, string>();
       const supabase = createClient();
 
       try {
         let currentUserId: string | null = null;
 
-        if (images.length > 0) {
+        if (newImages.length > 0) {
           const claimsResult = await supabase.auth.getClaims().catch(() => null);
           const subject = claimsResult?.data?.claims?.sub;
 
@@ -228,16 +258,17 @@ export function ExchangeEntryForm({
             typeof subject !== "string" ||
             !isUuid(subject)
           ) {
-            return createImageErrorState(
+            return imageErrorState(
               previousState,
               "ログイン状態を確認できませんでした。もう一度ログインしてください。",
+              mode,
             );
           }
 
           currentUserId = subject.toLowerCase();
         }
 
-        for (const image of images) {
+        for (const image of newImages) {
           const storagePath = createExchangeEntryImageStoragePath({
             ownerUserId: currentUserId as string,
             diaryId,
@@ -259,32 +290,75 @@ export function ExchangeEntryForm({
               uploadedPaths,
             );
 
-            return createImageErrorState(
+            return imageErrorState(
               previousState,
               cleanupSucceeded
                 ? "画像をアップロードできませんでした。時間をおいてもう一度お試しください。"
                 : "画像のアップロードと後処理を完了できませんでした。時間をおいてもう一度お試しください。",
+              mode,
             );
           }
 
           uploadedPaths.push(storagePath);
+          uploadedPathByClientId.set(image.id, storagePath);
         }
 
-        formData.set("entryId", entryId);
-        formData.delete("imagePaths");
-        uploadedPaths.forEach((path) => formData.append("imagePaths", path));
+        if (mode === "create") {
+          formData.set("entryId", entryId);
+          formData.delete("imagePaths");
+          uploadedPaths.forEach((path) => formData.append("imagePaths", path));
+        } else {
+          const imageManifest: Array<
+            { existingId: string } | { newPath: string }
+          > = [];
+
+          for (const image of images) {
+            if (image.kind === "existing") {
+              imageManifest.push({ existingId: image.id });
+              continue;
+            }
+
+            const uploadedPath = uploadedPathByClientId.get(image.id);
+
+            if (!uploadedPath) {
+              const cleanupSucceeded =
+                await cleanupExchangeEntryImageUploads(
+                  supabase,
+                  uploadedPaths,
+                );
+
+              return imageErrorState(
+                previousState,
+                cleanupSucceeded
+                  ? "画像をアップロードできませんでした。時間をおいてもう一度お試しください。"
+                  : "画像のアップロードと後処理を完了できませんでした。時間をおいてもう一度お試しください。",
+                mode,
+              );
+            }
+
+            imageManifest.push({ newPath: uploadedPath });
+          }
+
+          formData.set("imageManifest", JSON.stringify(imageManifest));
+        }
 
         let result: ExchangeEntryActionState;
 
         try {
-          result = await createExchangeEntry(previousState, formData);
+          result =
+            mode === "create"
+              ? await createExchangeEntry(previousState, formData)
+              : await updateExchangeEntry(previousState, formData);
         } catch {
           submissionBlockedRef.current = true;
           setSubmissionBlocked(true);
-          return unknownCreateOutcomeState(previousState);
+          return unknownMutationOutcomeState(previousState, mode);
         }
 
-        if (result.createOutcome === "safe-to-cleanup") {
+        const outcome =
+          mode === "create" ? result.createOutcome : result.updateOutcome;
+
+        if (outcome === "safe-to-cleanup") {
           const cleanupSucceeded = await cleanupExchangeEntryImageUploads(
             supabase,
             uploadedPaths,
@@ -299,10 +373,10 @@ export function ExchangeEntryForm({
               };
         }
 
-        if (
-          result.createOutcome === "committed" &&
-          result.createdEntryId === entryId
-        ) {
+        const committedEntryId =
+          mode === "create" ? result.createdEntryId : result.updatedEntryId;
+
+        if (outcome === "committed" && committedEntryId === entryId) {
           submissionBlockedRef.current = true;
           setSubmissionBlocked(true);
           router.replace(`/exchange/${diaryId}?view=latest`);
@@ -311,14 +385,14 @@ export function ExchangeEntryForm({
 
         submissionBlockedRef.current = true;
         setSubmissionBlocked(true);
-        return result.createOutcome === "unknown-outcome"
+        return outcome === "unknown-outcome"
           ? result
-          : unknownCreateOutcomeState(previousState);
+          : unknownMutationOutcomeState(previousState, mode);
       } finally {
         submissionInFlight.current = false;
       }
     },
-    [diaryId, mode, router],
+    [diaryId, entry, mode, router],
   );
   const [state, formAction, isPending] = useActionState(
     submitEntry,
@@ -344,7 +418,9 @@ export function ExchangeEntryForm({
   useEffect(() => {
     return () => {
       selectedImagesRef.current.forEach((image) => {
-        URL.revokeObjectURL(image.previewUrl);
+        if (image.kind === "new") {
+          URL.revokeObjectURL(image.previewUrl);
+        }
       });
     };
   }, []);
@@ -388,7 +464,6 @@ export function ExchangeEntryForm({
     event.currentTarget.value = "";
 
     if (
-      mode !== "create" ||
       newFiles.length === 0 ||
       controlsDisabled ||
       imageSelectionInFlight.current
@@ -400,8 +475,26 @@ export function ExchangeEntryForm({
     setIsValidatingImages(true);
 
     try {
+      if (
+        selectedImagesRef.current.length + newFiles.length >
+        EXCHANGE_ENTRY_IMAGE_MAX_COUNT
+      ) {
+        setClientImageError(
+          `画像は最大${EXCHANGE_ENTRY_IMAGE_MAX_COUNT}枚まで選択できます。`,
+        );
+        requestAnimationFrame(() => {
+          formRef.current
+            ?.querySelector<HTMLInputElement>("#exchange-entry-images")
+            ?.focus();
+        });
+        return;
+      }
+
+      const existingNewFiles = selectedImagesRef.current.flatMap((image) =>
+        image.kind === "new" ? [image.file] : [],
+      );
       const combinedFiles = [
-        ...selectedImagesRef.current.map((image) => image.file),
+        ...existingNewFiles,
         ...newFiles,
       ];
       const validation = await validateExchangeEntryImageFiles(combinedFiles);
@@ -419,6 +512,7 @@ export function ExchangeEntryForm({
       const additions = newFiles.map((file) => ({
         file,
         id: crypto.randomUUID(),
+        kind: "new" as const,
         previewUrl: URL.createObjectURL(file),
       }));
       const nextImages = [...selectedImagesRef.current, ...additions];
@@ -435,6 +529,13 @@ export function ExchangeEntryForm({
     }
   }
 
+  function updateImages(nextImages: ExchangeEntryImage[]) {
+    selectedImagesRef.current = nextImages;
+    setSelectedImages(nextImages);
+    setClientImageError(null);
+    setDismissedImageErrorRevision(state.revision);
+  }
+
   function removeImage(imageId: string) {
     if (controlsDisabled) {
       return;
@@ -448,17 +549,36 @@ export function ExchangeEntryForm({
       return;
     }
 
-    URL.revokeObjectURL(imageToRemove.previewUrl);
+    if (imageToRemove.kind === "new") {
+      URL.revokeObjectURL(imageToRemove.previewUrl);
+    }
     const nextImages = selectedImagesRef.current.filter(
       (image) => image.id !== imageId,
     );
-    selectedImagesRef.current = nextImages;
-    setSelectedImages(nextImages);
-    setClientImageError(null);
-    setDismissedImageErrorRevision(state.revision);
+    updateImages(nextImages);
     setImageAnnouncement(
-      `「${imageToRemove.file.name}」を削除しました。現在${nextImages.length}枚です。`,
+      `${imageToRemove.kind === "existing" ? "既存" : "新規"}画像を削除対象にしました。現在${nextImages.length}枚です。`,
     );
+  }
+
+  function moveImage(index: number, direction: -1 | 1) {
+    if (controlsDisabled) {
+      return;
+    }
+
+    const destination = index + direction;
+
+    if (destination < 0 || destination >= selectedImagesRef.current.length) {
+      return;
+    }
+
+    const nextImages = [...selectedImagesRef.current];
+    [nextImages[index], nextImages[destination]] = [
+      nextImages[destination],
+      nextImages[index],
+    ];
+    updateImages(nextImages);
+    setImageAnnouncement(`画像を${destination + 1}番目へ移動しました。`);
   }
 
   return (
@@ -669,12 +789,11 @@ export function ExchangeEntryForm({
           />
         </div>
 
-        {mode === "create" && (
-          <div
-            className="min-w-0 rounded-2xl focus:outline-2 focus:outline-offset-2 focus:outline-red-600"
-            id="exchange-entry-images-section"
-            tabIndex={-1}
-          >
+        <div
+          className="min-w-0 rounded-2xl focus:outline-2 focus:outline-offset-2 focus:outline-red-600"
+          id="exchange-entry-images-section"
+          tabIndex={-1}
+        >
             <label
               className="mb-2 block text-sm font-medium text-stone-700"
               htmlFor="exchange-entry-images"
@@ -706,9 +825,13 @@ export function ExchangeEntryForm({
               className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500"
               id="exchange-entry-images-help"
             >
-              <p>JPEG・PNG・WebP、1枚6MB以下。選択順で最大10枚まで。</p>
+              <p>
+                JPEG・PNG・WebP、1枚6MB以下。
+                {mode === "edit" ? "既存画像と合わせて" : "選択順で"}
+                最大10枚まで。
+              </p>
               <p className="shrink-0">
-                <span className="sr-only">現在の選択数: </span>
+                <span className="sr-only">現在の画像数: </span>
                 {selectedImages.length} / {EXCHANGE_ENTRY_IMAGE_MAX_COUNT}
               </p>
             </div>
@@ -725,7 +848,7 @@ export function ExchangeEntryForm({
 
             {selectedImages.length > 0 && (
               <ol
-                aria-label="選択した交換日記の画像（保存順）"
+                aria-label="交換日記の画像（保存後の順序）"
                 className="mt-4 grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3"
               >
                 {selectedImages.map((image, index) => (
@@ -735,18 +858,23 @@ export function ExchangeEntryForm({
                   >
                     <div className="relative aspect-square overflow-hidden bg-stone-200">
                       <Image
-                        alt={`選択した画像${index + 1}「${image.file.name}」`}
+                        alt={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}${image.kind === "new" ? `「${image.file.name}」` : ""}`}
                         className="object-cover"
                         fill
+                        loading="eager"
                         sizes="(max-width: 639px) 50vw, 33vw"
-                        src={image.previewUrl}
+                        src={
+                          image.kind === "existing"
+                            ? `/exchange-entry-images/${image.id}`
+                            : image.previewUrl
+                        }
                         unoptimized
                       />
                       <span className="absolute left-2 top-2 rounded-full bg-stone-950/75 px-2 py-1 text-xs font-semibold text-white">
                         {index + 1}
                       </span>
                       <button
-                        aria-label={`画像${index + 1}「${image.file.name}」を選択から削除`}
+                        aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を削除`}
                         className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full bg-white/95 text-xl leading-none text-stone-800 shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:text-stone-400"
                         disabled={controlsDisabled}
                         onClick={() => removeImage(image.id)}
@@ -755,9 +883,38 @@ export function ExchangeEntryForm({
                         <span aria-hidden="true">×</span>
                       </button>
                     </div>
-                    <p className="min-w-0 break-words px-3 py-2 text-xs leading-5 text-stone-600 [overflow-wrap:anywhere]">
-                      {image.file.name}
-                    </p>
+                    <div className="space-y-2 px-2 py-2">
+                      <p className="min-w-0 break-words text-xs font-medium leading-5 text-stone-600 [overflow-wrap:anywhere]">
+                        {image.kind === "existing"
+                          ? `既存画像・現在${index + 1}番目`
+                          : `新規画像・現在${index + 1}番目「${image.file.name}」`}
+                      </p>
+                      {mode === "edit" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を前へ移動`}
+                            className="min-h-11 rounded-xl border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                            disabled={controlsDisabled || index === 0}
+                            onClick={() => moveImage(index, -1)}
+                            type="button"
+                          >
+                            前へ
+                          </button>
+                          <button
+                            aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を後ろへ移動`}
+                            className="min-h-11 rounded-xl border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                            disabled={
+                              controlsDisabled ||
+                              index === selectedImages.length - 1
+                            }
+                            onClick={() => moveImage(index, 1)}
+                            type="button"
+                          >
+                            後ろへ
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -766,8 +923,7 @@ export function ExchangeEntryForm({
             <p aria-live="polite" className="sr-only">
               {imageAnnouncement}
             </p>
-          </div>
-        )}
+        </div>
 
         <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
           <Link
