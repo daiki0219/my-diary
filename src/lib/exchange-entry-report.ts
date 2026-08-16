@@ -1,18 +1,15 @@
 import { getUnicodeCodePointCount } from "@/lib/diary-entry-validation";
+import {
+  isReportReason,
+  REPORT_REASONS,
+  type ReportReason,
+} from "@/lib/report";
 
 export const EXCHANGE_ENTRY_REPORT_DETAILS_MAX_CODE_POINTS = 2_000;
 
-export const EXCHANGE_ENTRY_REPORT_REASONS = [
-  "harassment",
-  "spam",
-  "personal_information",
-  "sexual_or_inappropriate",
-  "threat_or_danger",
-  "other",
-] as const;
+export const EXCHANGE_ENTRY_REPORT_REASONS = REPORT_REASONS;
 
-export type ExchangeEntryReportReason =
-  (typeof EXCHANGE_ENTRY_REPORT_REASONS)[number];
+export type ExchangeEntryReportReason = ReportReason;
 
 export const EXCHANGE_ENTRY_REPORT_REASON_OPTIONS: ReadonlyArray<{
   value: ExchangeEntryReportReason;
@@ -46,7 +43,7 @@ export type ExchangeEntryReportValidationResult = {
 export function isExchangeEntryReportReason(
   value: string,
 ): value is ExchangeEntryReportReason {
-  return EXCHANGE_ENTRY_REPORT_REASONS.some((reason) => reason === value);
+  return isReportReason(value);
 }
 
 export function validateExchangeEntryReportValues(
