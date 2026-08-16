@@ -2,7 +2,7 @@
 
 日々の出来事や気持ちを気軽に記録し、必要なときだけ人とゆるくつながれる「ゆる日記SNS」のWebアプリケーションです。
 
-現在はPhase 1の最初の単位として、メールアドレスとパスワードによる認証基盤までを構築しています。機能要件は `my-diary_spec_v2.1.md`、開発ルールは `AGENTS.md` を参照してください。
+現在の正式仕様は [`my-diary_spec_v2.2.md`](my-diary_spec_v2.2.md)、詳細な実装状態と残課題は [`docs/project/current-implementation-status.md`](docs/project/current-implementation-status.md) を参照してください。開発ルールは `AGENTS.md` にあります。
 
 ## 必要な環境
 

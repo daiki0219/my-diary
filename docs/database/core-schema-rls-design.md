@@ -1,17 +1,22 @@
 # コアデータモデル・RLS設計案
 
+> [!IMPORTANT]
+> この文書はコアDB設計と各Phaseの設計根拠を残す履歴・設計資料です。
+> 現在の正式仕様は[`my-diary_spec_v2.2.md`](../../my-diary_spec_v2.2.md)、現在の実装状態は[`current-implementation-status.md`](../project/current-implementation-status.md)を参照してください。
+> 本文中のmigration件数や「未作成」等の記述は、明示した当該Phase時点の記録であり、repositoryの現在値とは限りません。
+
 ## 対象と前提
 
 この設計案は、最初のデータベース単位として `accounts`、`profiles`、
 `posts`、`follows` から開始した。その後、リアクション、コメント、自由タグ、
 投稿画像とStorageを後続migrationで追加し、投稿画像はPhase B3a〜B3dまで完了した。
-Phase C2cで通知DB / RLS基盤、通知生成、通知UIを追加し、Phase C3bでtimezone設定とDB validation境界を追加した。通報は未作成である。自由タグの後続Phase B1設計は本書の
+Phase C2cで通知DB / RLS基盤、通知生成、通知UIを追加し、Phase C3bでtimezone設定とDB validation境界を追加した。この段階では通報は未作成であった。自由タグの後続Phase B1設計は本書の
 「自由タグPhase B1追加設計」と「自由タグPhase B2a atomic mutation設計」に記録する。
 
 全体公開投稿を含めて閲覧はログイン必須とする。`anon` にはpublic application tableの
 権限を付与せず、`authenticated` に対してもRLSと列権限の両方で制御する。
 
-初回schemaからPhase C4b-1までの21件はリンク済みのリモート開発Supabaseへ適用済みである。
+初回schemaからPhase C4b-1までの21件は、当該Phase時点でリンク済みのリモート開発Supabaseへ適用済みである。
 latestは`20260810000100_add_location_name_atomic_mutation.sql`で、repository / local / remoteの
 migration履歴は一致している。
 

@@ -1,13 +1,15 @@
 > [!IMPORTANT]
-> この文書はVer.2.1時点の履歴資料です。
-> 現在の正式なプロダクト仕様は`my-diary_spec_v2.2.md`を参照してください。
-# ゆる日記SNS 統合仕様書 Ver.2.1
+> この文書をmy-diaryの現在の正式なプロダクト仕様とします。
+> Ver.2.1以前の仕様と内容が異なる場合は、本仕様書を優先します。
+# ゆる日記SNS 統合仕様書 Ver.2.2
 
 ## 1. 文書の位置づけ
 
-本仕様書は、既存の「ゆる日記SNS 仕様書（MVP版 Ver.1.0）」とVer.2.0を基礎に、今後追加予定のカテゴリー・推し活・ぬい活・イベント・アルバム・おすすめ機能、および初回公開前に追加する2人限定の交換日記機能を統合した、サービス全体の基準仕様書である。
+本仕様書は、Ver.2.1までに統合した日記SNS、将来拡張、2人限定の交換日記に関するProduct Requirementを継承し、Web初回公開準備、Legal / Privacy Verification、Production Readiness、Design Completion、Operations Handoff、および将来のiOS提供方針を加えた、サービス全体の基準仕様書である。
 
-Ver.2.1では交換日記をPhase 1の正式機能として追加する。交換日記に必要な招待・通知・通報・participant-only認可は初回公開前の範囲とし、それ以外の将来機能についてはMVPの公開範囲と公開後の拡張を明確に分ける。将来機能を記載していても、MVPの完了条件には含めない。
+Ver.2.2では、恒久的なProduct Requirement、Web初回公開前に満たすrelease gate、Web公開後のroadmap、将来のiOS release gate、外部確認が必要なverification gateを区別する。Product implementation phaseに含まれることだけを理由に、その項目をWeb初回公開の必須条件とは扱わない。現在の実装状況は`docs/project/current-implementation-status.md`を正とし、本仕様書へ実装済み・未実装の現在値を重複記載しない。
+
+法令、行政手続、外部provider、App Store等の外部platform要件は変更され得るため、本仕様書では未確認の具体要件を断定しない。Web公開時またはiOS提出時の最新公式情報を確認し、必要な場合は公式窓口・専門家への確認を含めて対応を完了する。
 
 ---
 
@@ -124,6 +126,10 @@ SNSのように映える投稿や数字を競うのではなく、日々の出�
 - 基本的なレスポンシブ対応
 - 基本的なセキュリティ対応
 
+Phase 1はProduct implementation上のMVP範囲を示す。Phase 1の未完了項目がすべてWeb初回公開を停止させるわけではなく、公開可否は§28のWeb Initial Release Gateで判断する。ただし、初回公開対象とした交換日記のparticipant-only認可、限定的な通報・moderation経路等は同Gateの対象とする。
+
+Googleログイン、Appleログイン、avatar、一部のpagination・settings等はProduct roadmapから削除しないが、email / password認証、password recovery等の必須Authが安全に完成している場合、それらの残差だけを理由にWeb初回公開を停止しない。Google / Apple OAuthはWeb公開後もPhase 1残差として継続し、iOS公開前には既存認証仕様と公開時点の最新platform要件を再照合する。
+
 ### MVPで実装しないもの
 
 次の機能は削除するのではなく、MVP公開後の拡張対象とする。
@@ -155,6 +161,12 @@ SNSのように映える投稿や数字を競うのではなく、日々の出�
 - モデレーション改善
 - 利用状況の計測
 - 削除済みデータや通知の扱いの改善
+- サービス全体で一貫したaccount完全削除lifecycle
+- SNS全体のユーザーブロック機能
+
+account完全削除は、Auth、account、profile、posts、images、comments、reactions、follows、notifications、Exchange、reports / evidence、Storageを含む高水準のProduct Requirementとし、具体的なcascade・保持例外・実行経路は実装前の別Phaseで設計する。Exchange参加者の完全削除時semanticsは§7.11.17を正本とし、§19.5はaccess-control上の要約として扱う。完全削除UIが未実装であることだけを理由にWeb初回公開を停止しないが、削除申出等の公開前対応要否はLegal / Privacy Verification Gateで確認する。iOS公開前には最新platform要件と実装要否を再照合する。
+
+SNS全体のユーザーブロックは、§7.11.3の交換日記招待拒否設定とは別機能とする。post、profile、follow、search、comment、reaction、notification、既存Exchange等への具体的な効果はこの版では決定せず、実装前の仕様設計Phaseへ残す。現時点ではWeb初回公開blockerとせず、iOS公開前に最新のUGC / platform要件と再照合する。
 
 ## 5.4 Phase 3：興味・分類基盤
 
@@ -208,6 +220,16 @@ SNSのように映える投稿や数字を競うのではなく、日々の出�
 - カスタマイズ
 - バックアップ、エクスポート
 - 将来的なゲーム要素
+
+## 5.10 Product Phaseとrelease gateの区別
+
+- **Product implementation phase**：サービスとして提供する機能と実装順を定義する。
+- **Web initial release gate**：Web初回公開前に完了・確認すべき品質、security、Legal / Privacy、production、operationsの条件を定義する。
+- **Post-publication roadmap**：Web公開後へ延期できる機能・安全性・privacy強化を定義する。
+- **iOS release gate**：将来iOS Applicationを公開する直前に満たす条件を定義する。
+- **External verification gate**：法令や外部platform規約等、公開・提出時点の最新公式情報で再確認する条件を定義する。
+
+Web初回公開可能とは、初回公開対象のProduct Requirementが安定し、§28の各Gateを満たした状態をいう。Phase番号だけでrelease blockerかどうかを判断しない。
 
 ---
 
@@ -736,7 +758,7 @@ entryは通常日記に近い入力体験とし、少なくとも次を扱う。
 
 ### 7.11.17 アカウント完全削除
 
-将来アカウント完全削除を実装した場合は次とする。
+将来アカウント完全削除を実装する際、交換日記では次のsemanticsを適用する。
 
 - 参加中の交換日記を強制終了する
 - 残存ユーザー側には終了した交換日記として残す
@@ -1818,7 +1840,10 @@ Phase 2以降：
 - 色だけで状態を伝えない
 - 入力欄とボタンにラベルを設定する
 - キーボード操作を考慮する
+- keyboard focusを視覚的に確認できる表示を維持する
 - コントラストを確保する
+- heading、landmark、list、form等のsemantic structureを用い、画面構造と操作対象を理解できるようにする
+- screen reader等の支援技術でも、重要な状態・結果・操作の意味が伝わる名前と通知を提供する
 - 絵文字には必要に応じてテキストを併記する
 - 画像に代替テキストを設定できる設計を検討する
 - 交換日記の招待・拒否・終了・通報など重要操作は、状態と結果を色だけに依存せず伝える
@@ -1830,6 +1855,7 @@ Phase 2以降：
 - 日記本文や個人情報を不用意にログへ出さない
 - 管理操作ログを将来追加できる設計にする
 - 交換日記本文や通報evidenceを通常のapplication / access logへ出力しない
+- credential、token、secret、接続文字列等を通常のapplication / access logへ出力しない
 
 ---
 
@@ -1894,7 +1920,7 @@ AI利用時は、日記本文の取り扱い、同意、保存期間、外部サ
 
 ---
 
-## 23. MVP完了条件
+## 23. Web初回公開対象MVP機能完了条件
 
 - 登録、ログイン、ログアウトができる
 - プロフィールを作成、編集できる
@@ -1929,6 +1955,8 @@ AI利用時は、日記本文の取り扱い、同意、保存期間、外部サ
 カテゴリー、推し活、ぬい活、イベント、アルバム、おすすめ、専用入力フォームは、MVP完了条件には含めない。
 
 交換日記はVer.2.1でPhase 1へ追加されたため、初回公開前の完了条件に含める。交換日記に必要な限定的なentry / user通報も、安全性要件としてPhase 1へ前倒しする。
+
+本節はWeb初回公開対象として選定したMVP機能の完成条件を定義する。Web初回公開可能かどうかは、本節だけでなく§28のWeb Initial Release Gateを満たしたかで判断する。Google / Apple OAuth、avatar、一部pagination・settings等のPhase 1残差とPhase 2以降のroadmap残差は本節の対象外として維持し、それらの未完了だけを理由にWeb初回公開を停止しない。
 
 ---
 
@@ -2040,7 +2068,7 @@ AI利用時は、日記本文の取り扱い、同意、保存期間、外部サ
 
 ---
 
-## 27. Ver.2.1更新概要
+## 27. Ver.2.1更新概要（履歴）
 
 Ver.2.1ではVer.2.0の既存機能・将来ロードマップを維持しながら、初回公開前のPhase 1へ「交換日記」を追加した。
 
@@ -2064,3 +2092,119 @@ Ver.2.1ではVer.2.0の既存機能・将来ロードマップを維持しなが
 - participant-only RLSを独立した認可境界として要求
 
 DB table名、RPC、route名、既存`posts` / `post_images` / `tags` / `notifications`の再利用可否は本仕様では固定せず、既存repositoryをread-only調査したうえで次の設計Phaseで決定する。
+
+---
+
+## 28. Web初回公開準備
+
+### 28.1 公開可能条件
+
+Web初回公開可能とは、§23の初回公開対象MVP機能が安定し、以下のWeb Initial Release Gateをすべて満たした状態をいう。実行手順、具体URL、環境値、command、viewport matrixは本仕様へ重複記載せず、関連checklist / runbookで管理する。
+
+### 28.2 Web Initial Release Gate
+
+- 初回公開対象の主要Product Requirementが安定している
+- ExchangeのPhase 1公開対象と必要なApplication経路が完成している
+- 未解決のsecurity blockerがない
+- §28.3のDesign Completion Gateを満たす
+- §28.4のLegal / Privacy Verification Gateを満たす
+- §28.5のProduction Readiness Gateを満たす
+- §28.6のOperations Handoff Gateを満たす
+- production環境で主要なsign-up、login、logout、password recovery、visibility、Storage、Exchange、§7.11.18〜§7.11.21および§16 Phase 1のExchange限定report / moderation等のE2Eを確認する
+- secrets、credential、token、private dataがclient、repository、通常log、公開responseへ漏れていない
+- `docs/release/web-release-checklist.md`が完了し、未確認事項と延期項目が明示されている
+
+### 28.3 Design Completion Gate
+
+§4のプロダクト原則、§20.3のレスポンシブ、§20.4のアクセシビリティ、§21のUX・デザイン方針をauthoritative sourceとする。Web初回公開前に、auth、home、posts、profile、search、calendar、notifications、settings、Exchange、Exchange限定report / moderation等の主要画面と、empty、loading、validation、error、success、confirmation等の主要状態が、これらの原則を横断的に満たすことを確認する。
+
+新しいデザイン原則をこのGateで再定義しない。route、viewport、長文、keyboard、focus、screen reader、contrast、console等の詳細matrixはWeb release checklistで管理する。
+
+### 28.4 Legal / Privacy Verification Gate
+
+Web初回公開前に、サービス構成へ適用される日本国内の法令・規制、届出・登録等の要否、Exchange等の通信・privacy上の義務、個人情報・個人データの取扱い、利用目的、安全管理、保存・削除、開示・訂正・利用停止等、漏えい時対応、外部送信、Cookie / SDK / third-party data flow、外部provider利用、権利侵害・削除申出、moderation / takedown、未成年者・年齢方針について適用要否と必要な対応を確認する。
+
+必要な対応がある場合はWeb初回公開前に完了する。repository内の情報だけで確定できない事項は`NEEDS EXTERNAL VERIFICATION`として扱い、公開時点の最新公式資料を確認し、必要に応じて公式窓口・専門家へ確認する。特定の法令適用、届出義務、具体的な対象年齢を本仕様だけで断定しない。
+
+Web初回公開前に、少なくとも利用規約、Privacy Policy、問い合わせ手段を利用者へ提示可能な状態にする。削除申出・権利侵害申出の受付方法と、未成年者・年齢に関する方針も公開前に確認・決定する。具体的な法務文面とreview状況は`docs/legal/legal-privacy-checklist.md`で管理する。
+
+### 28.5 Production Readiness Gate
+
+production環境で、HTTPS、authentication / session、Auth callback、email confirmation、password recovery、private visibility、Storage access、Exchange、Phase 1のExchange限定report / moderation、production environmentの整合、secrets非露出、主要E2Eを確認する。AuthについてはSite URL、Redirect URLs、SMTP、実メール配信、production email template、recovery callbackの初回表示、expired recovery link、HTTPS上のCookie / session挙動を公開前に確認する。
+
+logging privacyは§20.5を正本とし、production環境でも同要件を満たす。具体設定値、deploy、smoke、rollback手順はProduction runbookとWeb release checklistで管理する。
+
+### 28.6 Operations Handoff Gate
+
+Web初回公開前に、maintenance実行方法、cadence、retry、failure確認、cleanup backlog確認、incident対応、moderation運用、retention運用、production release / rollback判断について必要なrunbookと責任範囲を整備する。Application実行経路が未実装のmaintenanceを実行可能として扱わず、未実装・未決定事項を明示する。
+
+Exchange画像・evidenceのretention要件は§7.11.20を正本とし、現在実装済みのmaintenance semanticsと実行準備状況はMaintenance runbookおよびCurrent Implementation Statusで管理する。report row、reason、details自体の長期retentionは未決定であり、evidence保持期間へ自動的に合わせない。Legal / PrivacyとOperationsの後続判断として`DECISION REQUIRED`で管理する。
+
+### 28.7 補助文書
+
+- [Web release checklist](docs/release/web-release-checklist.md)
+- [Legal / Privacy checklist](docs/legal/legal-privacy-checklist.md)
+- [Production runbook](docs/operations/production-runbook.md)
+- [Maintenance runbook](docs/operations/maintenance-runbook.md)
+
+---
+
+## 29. 将来プラットフォーム方針
+
+### 29.1 iOS Application
+
+Web版の安定公開後、将来的にiOS Applicationとしての提供を目指す。提供時期、native framework、配布計画はこの版では決定せず、iOS実装開始前のarchitecture Phaseで決定する。
+
+### 29.2 Web / iOS backend共有原則
+
+Webと将来のiOS clientは、可能な限り既存Supabase backendのAuth、Postgres、RLS、Storage、RPC等のsecurity・data資産を共有する。clientの種類にかかわらず、RLSとDB側の認可を最終境界とし、client由来のuser IDやUI非表示を認可根拠にしない。
+
+Next.js Server Action、React component、Tailwind UI、Next.js Route Handlerをnative clientへそのまま流用する前提にはしない。iOS版は単純なWebView wrapperだけを前提とせず、iOS上で適切なApplication体験を提供する方式を実装時に選定する。具体的なtechnologyとarchitectureは別Phaseへ残す。
+
+### 29.3 iOS Release Verification Gate
+
+iOS公開準備時点の最新公式platform要件を確認し、必要な対応を公開前に完了する。少なくとも次を既存Product Requirementと照合する。
+
+- §5.3のgeneral account deletion roadmapと§7.11.17のExchange削除semantics
+- §5.3のSNS全体block roadmapと§7.11.3のExchange招待拒否設定の区別
+- §16の通常SNS report / UGC moderationとExchange限定reportの区別
+- 問い合わせ導線、Privacy Policy、privacy申告、未成年者方針、age / rating
+- §7.1の認証仕様、Apple login、callback / deep link等のiOS認証境界
+- TestFlight等のpre-release確認、App Store review、production monitoring
+- backend共有時のRLS、Storage、RPC、reporter privacy、whole-diary bypass禁止
+
+これらが現在の具体的platform規約で必須であるとは本仕様で断定しない。iOS公開時点の最新公式資料を確認し、必要に応じて`NEEDS EXTERNAL VERIFICATION`として追跡する。具体的な確認項目と完了状態は`docs/release/ios-release-readiness-checklist.md`で管理する。
+
+将来iOS Application内でdigital premium機能を販売する場合は、販売開始時点の最新platform課金要件を確認する。これはpremium / IAPを現在の実装対象へ昇格させるものではない。
+
+---
+
+## 30. requirementと文書の管理
+
+- Product Requirementは本仕様を正本とする。
+- 現在の実装済み・未実装状態は`docs/project/current-implementation-status.md`を正本とする。
+- Web公開作業の完了状態はWeb release checklistで管理する。
+- 法令・Privacyの外部確認状況はLegal / Privacy checklistで管理する。
+- productionとmaintenanceの具体手順は各runbookで管理する。
+- iOS提出時の外部確認状況はiOS release readiness checklistで管理する。
+
+外部条件、具体設定値、secret、command、migration、commit、test件数等は本仕様へ固定しない。checklist / runbookへ記載する場合も秘密値を含めず、未確認事項を完了扱いにしない。
+
+---
+
+## 31. Ver.2.2更新概要
+
+Ver.2.2ではVer.2.1のProduct Requirementを継承し、次を追加・整理した。
+
+- Product implementation phase、Web initial release、post-publication roadmap、iOS release、external verificationの区別
+- OAuth、avatar等のPhase 1残差とWeb初回公開blockerの分離
+- Web Initial Release Gate
+- Design Completion Gate
+- Legal / Privacy Verification Gateと公開前deliverables
+- Production Readiness Gate
+- Operations Handoff Gate
+- general account deletionとSNS全体blockの公開後roadmap
+- 将来iOS Application方針、backend共有原則、iOS Release Verification Gate
+- Product Spec、status、checklist、runbookのsource-of-truth分離
+
+法令・Apple等の外部要件、具体的年齢、general account deletionのcascade、global blockの効果範囲、report row / reason / detailsの長期retention、native technologyは未確定のまま維持し、後続のverificationまたは設計Phaseへ残す。
