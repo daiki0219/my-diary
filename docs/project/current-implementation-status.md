@@ -12,10 +12,10 @@
 - 正式仕様: [`my-diary_spec_v2.1.md`](../../my-diary_spec_v2.1.md)
 - 初期MVPの履歴資料: [`docs/specs/archive/my-diary_MVP_spec_v1.0.md`](../specs/archive/my-diary_MVP_spec_v1.0.md)
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
-- 調査基準日: 2026-08-15
+- 調査基準日: 2026-08-16
 - 調査時branch: `main`
-- 調査基準HEAD: `ff5f1f20c135b70e537d93fdd4f63a91f8c9f3fe`
-- 調査基準HEADのmessage: `feat: add exchange diary entry management`
+- 調査基準HEAD: `58b3460067432561aa1ac2ebd516e446c3b9bb12`
+- 調査基準HEADのmessage: `feat: add private exchange diary images`
 
 ### 更新ルール
 
@@ -51,11 +51,11 @@
 
 現在は、メールアドレスとパスワードによる認証とパスワード再設定、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、任意の場所名、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、従来のコア10 public tableに加え、交換日記・通知設定・通報の12 public table、2 private table、private Storage bucket `exchange-entry-images`がmigration管理されている。公開範囲、active / suspended / deactivated、participant-only、通報対象だけの運営閲覧、evidence保持をRLS・ACL・RPC・trigger・Storage policyで制御する。Exchangeの通常利用者向けApplication / UIはE3aで`/exchange`、`/exchange/[diaryId]`、oldest / latest pagination、削除済みplaceholder、通知3 type parser / target遷移、home導線を実装し、E3bでinvitationのcreate / accept / reject / cancel、user別のblock / unblockを既存RPCへ接続した。E3cではentryの作成・本人編集・本人soft delete、diary title変更・archive、確認UI、入力検証、stale / crafted-inputのgeneric failureを既存RPCへ接続した。E3dではprivate Exchange画像のsame-origin Route Handler、live metadata hydrate、0〜10枚galleryを実装した。DB / Storage foundationと利用者向け画像表示の完了を、残る画像upload / create / edit接続・通報・moderation・maintenanceから分ける。repository / local / remoteは30 migrationで一致し、30 pgTAPの最新全件結果は`1,673 / 1,673 PASS`である。
+DB側では、従来のコア10 public tableに加え、交換日記・通知設定・通報の12 public table、2 private table、private Storage bucket `exchange-entry-images`がmigration管理されている。公開範囲、active / suspended / deactivated、participant-only、通報対象だけの運営閲覧、evidence保持をRLS・ACL・RPC・trigger・Storage policyで制御する。Exchangeの通常利用者向けApplication / UIはE3aで`/exchange`、`/exchange/[diaryId]`、oldest / latest pagination、削除済みplaceholder、通知3 type parser / target遷移、home導線を実装し、E3bでinvitationのcreate / accept / reject / cancel、user別のblock / unblockを既存RPCへ接続した。E3cではentryの作成・本人編集・本人soft delete、diary title変更・archive、確認UI、入力検証、stale / crafted-inputのgeneric failureを既存RPCへ接続した。E3dではprivate Exchange画像のsame-origin Route Handler、live metadata hydrate、0〜10枚galleryを実装した。Phase E3e-0bではnever-confirmed Exchange画像orphanを24時間grace後にtrusted active-admin maintenanceだけが回収できるDB / Storage境界を追加した。DB / Storage foundationと利用者向け画像表示の完了を、残る画像upload / create / edit接続・通報・moderation・maintenance Application経路から分ける。repository / local / remoteは31 migrationで一致し、31 pgTAPの最新確認済みlocal全件結果は`1,718 / 1,718 PASS`である。
 
 MVP完了条件との差分では、パスワードリセットと場所名が完了し、OAuthとavatarは未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了し、Phase C3c-1ではstrict month/date validation、DST対応のlocal month境界、本人Calendar posts query、日単位summaryと選択日data shapeを実装した。Phase C3c-2では`/calendar`、月grid、前後月・今月遷移、日別marker、日付選択、選択日投稿一覧、responsive / accessibilityを実装した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
-Phase E2a〜E2gで、交換日記のstate・招待、entry / tag / private画像、通知設定・mute、通報snapshot、deactivated時archive、invite-block privacy、画像evidence retention / cleanup・trusted maintenance基盤を実装した。Phase E2h-1aの最終read-only security auditではDB / Storage BLOCKERは0件だった。Phase E3aでは通知parser / target navigationとparticipant-onlyのread / list / detail Applicationを完了し、Phase E3bでは6 invitation operation、mutual-follow時のinvite UX、invitation専用block preference、generic errorによるprivacy oracle対策を完了した。Phase E3cではdiary / entry mutation UIを既存のoperation RPCへ接続した。Phase E3dではprivate Exchange画像Routeと表示を完了し、raw Storage path非露出、live metadata / Storage RLS再評価、neutral 404、archived / follow解除後の閲覧、soft delete後不可視、evidence / retention経路分離を確認した。残るApplication BLOCKERは画像upload / create / edit接続、report submission、admin moderation、moderator evidence Route、maintenance実行経路の5カテゴリで、公開前には4件の運用・統合確認が残る。
+Phase E2a〜E2gで、交換日記のstate・招待、entry / tag / private画像、通知設定・mute、通報snapshot、deactivated時archive、invite-block privacy、画像evidence retention / cleanup・trusted maintenance基盤を実装した。Phase E2h-1aの最終read-only security auditではDB / Storage BLOCKERは0件だった。Phase E3aでは通知parser / target navigationとparticipant-onlyのread / list / detail Applicationを完了し、Phase E3bでは6 invitation operation、mutual-follow時のinvite UX、invitation専用block preference、generic errorによるprivacy oracle対策を完了した。Phase E3cではdiary / entry mutation UIを既存のoperation RPCへ接続した。Phase E3dではprivate Exchange画像Routeと表示を完了し、raw Storage path非露出、live metadata / Storage RLS再評価、neutral 404、archived / follow解除後の閲覧、soft delete後不可視、evidence / retention経路分離を確認した。Phase E3e-0bではstrict 4 UUID pathとowner一致を満たすnever-confirmed orphanだけを24時間後に列挙・削除可能とし、live metadata、confirmed cleanup candidate、report snapshot evidenceを除外し、Storage row lockでsuccessor RPCとのraceを直列化した。残るApplication BLOCKERは画像upload / create / edit接続、report submission、admin moderation、moderator evidence Route、maintenance実行経路の5カテゴリで、公開前には4件の運用・統合確認が残る。
 
 Phase C4b-2では、作成・編集formへ任意の場所名を追加し、trim・空欄からNULL・最大100 Unicode codepointsをClientとServer Actionで検証する。画像upload前のClient validationとDB successor RPCの最終境界を併用し、既存tag / image manifest・Storage cleanup順序を維持する。投稿詳細、home、自己・他者投稿一覧、タグ詳細、投稿検索結果は必要なposts SELECTへだけ`location_name`を追加し、共通metadata componentで表示する。Calendar、通知、location検索、package、DB、migrationは変更していない。このセッションの認証付きbrowser fixtureは、通常sign-upがローカルAuthのemail rate limitへ達し、利用可能な別browser sessionもなかったため未実施である。`lint`、`typecheck`、`build`、`git diff --check`は成功した。
 
@@ -81,13 +81,13 @@ Phase C4b-2では、作成・編集formへ任意の場所名を追加し、trim�
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback、request-scoped account status gate | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/account-session.ts`、`src/proxy.ts` |
-| migration | repository / local / remoteは30件で一致。latestは`20260811000900_harden_exchange_image_evidence_retention.sql` | `supabase/migrations/*.sql`、migration list |
+| migration | repository / local / remoteは31件で一致。latestは`20260816000100_harden_unconfirmed_exchange_image_orphan_cleanup.sql` | `supabase/migrations/*.sql`、migration list、linked dry-run |
 | DB table | public 22 table、private 2 table | 既存コア10件、Exchange / report 12件、pair lock / cleanup candidate 2件 |
-| pgTAP | 30ファイル、plan合計1,673。最新確認済み全回帰`1,673 / 1,673 PASS` | `supabase/tests/database/*.sql` |
+| pgTAP | 31ファイル、plan合計1,718。最新確認済みlocal全回帰`1,718 / 1,718 PASS` | `supabase/tests/database/*.sql`。E3e-0b remote適用Phaseでは未再実行 |
 | local Supabase | Windows TCP除外範囲と競合したtracked 5432x portsを5542xへ移動。API `55421`、DB `55422`、Studio `55423`等のconfig / Docker mapping一致とclean start / local reset成功を確認。remote設定には影響なし | `supabase/config.toml`、local Supabase / Docker確認 |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
-| 調査基準commit | `ff5f1f20c135b70e537d93fdd4f63a91f8c9f3fe` | Phase E3cまでを含む。E3dはcommit前 |
+| 調査基準commit | `58b3460067432561aa1ac2ebd516e446c3b9bb12` | Phase E3dまでを含む。E3e-0bはcommit前 |
 
 Server Componentがpageとデータ取得を担当し、入力フォーム、フォロー、リアクション、削除などの操作UIをClient Componentへ分けている。投稿作成・更新はServer Actionからatomic RPCを呼び、SECURITY DEFINER関数内で`auth.uid()`、active状態、所有権、未削除を最終検証する。SELECTとその他の一般mutationはRLSを最終認可としている。タグrouteには共通の`loading.tsx`があり、送信操作のpending表示は各Client Componentの`useFormStatus`で実装されている。
 
@@ -206,7 +206,7 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
-| DB / Storage foundation | 実装済み | E2a〜E2gでstate / participant / invitation / block、operation RPC、entry / tag / redaction、private画像、通知3 type・全体preference・diary mute、report / snapshot、deactivation archive、retention / cleanup / trusted maintenanceをmigration管理。E2h監査のDB / Storage BLOCKERは0件 | Application / UIと運用経路は本項目に含めない |
+| DB / Storage foundation | 実装済み | E2a〜E2gでstate / participant / invitation / block、operation RPC、entry / tag / redaction、private画像、通知3 type・全体preference・diary mute、report / snapshot、deactivation archive、retention / cleanup / trusted maintenanceをmigration管理。E3e-0bでnever-confirmed画像orphanの24時間grace・strict owner-path・reference除外・Storage-first lockを追加。E2h監査とE3e-0b最終reviewのDB / Storage BLOCKERは0件 | Application / UIと運用経路は本項目に含めない |
 | Application / UI | 一部実装済み | E3aのread / list / detail / notification compatibility、E3bのinvitation 6操作とblock / unblock、E3cのentry / diary mutationに加え、E3dでcookie認証付き`/exchange-entry-images/[imageId]`、live metadata hydrate、0〜10枚galleryを実装。画像Routeはlive metadata・entry・author participant・4 UUID path・Storage RLSを再評価し、raw pathをClientへ渡さず全deny / errorをempty 404へ収束する | 画像upload / create / editのApplication接続、report、moderation、maintenanceは未実装 |
 
 ## 5. DB・セキュリティ実装状況
@@ -251,6 +251,7 @@ Private tableは`my_diary_private.my_diary_exchange_pair_locks`と`my_diary_priv
 - post_imagesは可視postだけをSELECTできる。`storage.objects`は対応metadataが見える場合、または通常upload / cleanup中の本人所有orphanだけをSELECTできる。INSERT / DELETEはStorage operation context、本人owner、3 UUID segment path、active状態または未参照状態を検査し、UPDATE / upsertは許可しない。標準Storage tableのowner、ACL、owner_idは変更していない。
 - Exchangeの12 public tableはowner=`postgres`、RLS明示有効、authenticatedはSELECTのみ、anonは権限なしで、一般userの直接mutation grantはない。主要mutationは`auth.uid()`、active状態、participant / owner、対象IDと状態遷移を再検証するRPCに限定する。
 - Exchange画像はowner / diary / entry / imageの4 UUID pathを検証し、通常readはactive participant、通報evidence readはactive adminによるexact snapshot pathのみとする。一般userによるconfirmed / candidate画像のDELETEは許可しない。
+- Phase E3e-0bのnever-confirmed orphan cleanupは、strict 4 UUID path、Storage ownerとpath ownerの一致、24時間grace、live `exchange_entry_images` metadataなし、confirmed cleanup candidateなし、`report_snapshot_images` evidence参照なしをすべて満たす場合だけ、active adminかつ`storage.object.delete_many` contextへ許可する。Storage rowを最初にlockしてから参照を再検証し、create / update successor RPCとのconfirm raceを直列化する。既存のconfirmed画像7日retention、terminal evidence 30日retention、Exchange画像Storage policy 11件（RESTRICTIVE guard 4件）は変更していない。
 - E3dのparticipant向け画像Routeはlive `exchange_entry_images`を唯一の入口とし、同じauthenticated clientでmetadata RLSとStorage RLSを再評価する。report snapshot、evidence、cleanup candidate、retention queueは参照せず、removed・soft-deleted・snapshot-only・evidence-only画像を通常Routeへ戻さない。
 - E2h-1aで確認した範囲では、第三者diary read、non-active通常利用、admin whole-diary bypass、report targetへのreport / snapshot漏洩、invite-block専用observable、evidence依存の一般Storage DELETE差、SECURITY DEFINER caller validationの重大欠落、一般userへのmaintenance権限開放は検出されず、期限前evidence purgeは許可されない。
 - `my_diary_is_account_active`と`my_diary_can_view_post`をprivate schemaへ置き、再帰的RLSを避けている。
@@ -335,7 +336,7 @@ Exchange invitation operationとdiary / entry mutationはServer Actionから既�
 
 ## 8. migration一覧
 
-repository / local / remoteは30件で一致し、latestは`20260811000900_harden_exchange_image_evidence_retention.sql`である。
+repository / local / remoteは31件で一致し、latestは`20260816000100_harden_unconfirmed_exchange_image_orphan_cleanup.sql`である。
 
 | timestamp | ファイル名 | 主な目的 |
 | --- | --- | --- |
@@ -369,6 +370,7 @@ repository / local / remoteは30件で一致し、latestは`20260811000900_harde
 | `20260811000700` | `20260811000700_archive_exchange_diaries_on_deactivation.sql` | participant deactivation時のactive diary atomic archiveと`participant_deactivated` cause |
 | `20260811000800` | `20260811000800_harden_exchange_invitation_block_privacy.sql` | block時pending reject、24時間cooldown、privacy oracle、lock順の強化 |
 | `20260811000900` | `20260811000900_harden_exchange_image_evidence_retention.sql` | 通常removed画像7日保持、terminal evidence 30日保持、trusted maintenance、exact-evidence Storage境界 |
+| `20260816000100` | `20260816000100_harden_unconfirmed_exchange_image_orphan_cleanup.sql` | never-confirmed Exchange画像orphanの24時間grace、strict owner-path、live / confirmed candidate / evidence除外、Storage-first lock、active-admin maintenance境界 |
 
 Phase B2b-3aでは既存10 migrationを変更せず、`20260804000100_extend_user_and_tag_search.sql`を1件追加した。ローカルresetで11件すべてをfresh適用した後、この1件だけをリンク済みのリモート開発DBへ通常適用した。local / remote履歴は11件で一致し、適用後の再dry-runはup to date、pg-deltaによる`public,my_diary_private`のlinked schema diffは空だった。migration transaction内のpostconditionと空のcatalog diffを組み合わせ、両検索RPCとprivate helperのsignature、引数名、return shape、owner、volatility、security属性、固定search path、ACL、および既存tags RLS・policy・table ACLの維持を確認した。適用後のcatalog cache生成では一時CA証明書を参照できない補助warningが発生したが、migration適用は終了コード0で完了し、remote履歴と再dry-runで成功を確認したため再適用していない。リモートfixture・ユーザーデータ操作・Service Roleは使用せず、Git stage・commit・pushも実施していない。
 
@@ -414,11 +416,14 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 | `0028_archive_exchange_diaries_on_deactivation.test.sql` | 37 | deactivation時archive、cause、復帰禁止、active相手のarchive read |
 | `0029_harden_exchange_invitation_block_privacy.test.sql` | 36 | block時reject、explicit rejectとのobservable / cooldown一致、lock順 |
 | `0030_exchange_image_evidence_retention.test.sql` | 57 | 7日cleanup candidate、30日evidence retention、trusted maintenance、multiple reference保護 |
-| 合計 | 1,673 | 30ファイル |
+| `0031_unconfirmed_exchange_image_orphan_cleanup.test.sql` | 45 | 24時間境界、strict owner-path、live / candidate / evidence除外、active-admin ACL、Storage DELETEと保護対象残存 |
+| 合計 | 1,718 | 31ファイル |
 
 ### 9.2 実行結果の区別
 
-- 最新確認済み結果は30ファイル・`1,673 / 1,673 PASS`である。内訳はpre-Exchange `0001`〜`0021`が21ファイル・1,002 assertions、Exchange `0022`〜`0030`が9ファイル・671 assertionsである。E3d完了前のlocal data-volume cleanupとclean rebuildで30 migrationをfresh適用し、Auth / account / post / Exchange / report / cleanup candidate / Storage object fixture 0件とphysical user image 0件を確認した後、全30ファイルを再実行した。DB・migration・pgTAP定義は変更していない。
+- 最新確認済みlocal結果は31ファイル・`1,718 / 1,718 PASS`である。内訳はpre-Exchange `0001`〜`0021`が21ファイル・1,002 assertions、Exchange `0022`〜`0031`が10ファイル・716 assertionsである。前Phaseで31 migrationのfresh適用、新規`0031`の`45 / 45`、既存Exchange画像 / retentionの`268 / 268`、全31ファイルを確認した。Phase E3e-0bのremote適用・status更新時にはpgTAPを再実行しておらず、この件数は過去local結果として継承する。
+
+- Phase E3e-0b COMPLETE。never-confirmed Exchange画像orphan cleanupを、Storage `created_at`基準の24時間grace、strict 4 UUID path / owner-path一致、live metadata・confirmed cleanup candidate・report snapshot evidenceの除外、trusted active-admin maintenanceだけのruntime gateでhardeningした。最終認可はStorage rowを先にlockしてから参照を再検証し、前Phaseの2-session確認ではconfirm-firstが`object=1 / entry=1 / metadata=1 / cleanup delete=0`、cleanup-firstが`object=0 / entry=0 / metadata=0 / successor fail-closed`で、両方の実Lock待機を確認した。repository / local / remote migrationは`31 / 31 / 31`、適用後dry-runはup to date、remote catalogでは新規listing function 1 overload、postgres owner、SECURITY DEFINER、固定search path、authenticated session内のactive-admin再検証、PUBLIC / anon / service_role / authenticatorへの実行権限なし、既存Storage policy 11件・RESTRICTIVE guard 4件、7日 / 30日retentionを確認し、`public,my_diary_private,storage`のlinked schema diffは空だった。remote fixture、Storage upload / DELETE、Auth user mutation、Service Role、Auth Admin APIは使用していない。適用直後のpg-delta catalog cacheには既知のCAファイルwarningが出たが、migration履歴・再dry-run・catalog dump・空のlinked diffでSQL適用成功と切り分け、repairや再適用は行っていない。E3e-1は未着手である。
 
 - Phase E3dではDB schema・RLS・migration・pgTAP定義・packageを変更せず、cookie認証付き`/exchange-entry-images/[imageId]`、live metadataのbounded hydrate、private no-store応答、neutral empty 404、raw Storage path非露出、既存galleryの狭いvariantを実装した。通常authenticated fixtureでparticipant A / Bは200、第三者C・未認証・malformed / nonexistent UUIDは404、follow解除後とarchive後のA / Bは200、soft delete後はA / Bとも404を確認した。0 / 1 / 3 / 10枚、active / archived、reload・back / forward・direct image URL・diary再訪、320 / 360 / 375 / 390 / 1280px、長文・改行・連続半角文字列・長いlocation、通常post画像Route / label / altを確認し、横overflowはなかった。E3d browser回帰後にsourceは変更しておらず、最終status更新Phaseではbrowserを再実行していない。実screen reader、suspended / deactivated sessionのRoute実HTTP、意図的なimage failure fallback再現は未実施である。
 
@@ -505,7 +510,7 @@ Phase B3bでは既存13 migrationを変更せず、`20260808000200_integrate_pos
 
 ### 11.2 E3 Application BLOCKER（残り5カテゴリ）
 
-E3aでExchange 3通知typeのparser / target navigationとinvitation / list / detailのsecurity-safe read hydration、E3bでinvitation 6操作、E3cでdiary / entry mutation、E3dでprivate画像Route / 表示を解消した。残るBLOCKERは次のとおりである。
+E3aでExchange 3通知typeのparser / target navigationとinvitation / list / detailのsecurity-safe read hydration、E3bでinvitation 6操作、E3cでdiary / entry mutation、E3dでprivate画像Route / 表示を解消した。E3e-0bでnever-confirmed画像orphanのDB / Storage cleanup境界を完了したが、maintenanceのApplication実行経路はまだ接続していない。残るBLOCKERは次のとおりである。
 
 1. Exchange画像upload / create / editのApplication接続。
 2. report submission UI。
@@ -539,6 +544,7 @@ E3aでExchange 3通知typeのparser / target navigationとinvitation / list / de
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-16 | commit前。基準HEAD `58b3460067432561aa1ac2ebd516e446c3b9bb12` | Phase E3e-0b COMPLETE。never-confirmed Exchange画像orphanを24時間grace後にtrusted active-admin maintenanceだけが回収できるようhardeningし、strict 4 UUID / owner-path、live metadata・confirmed candidate・全report snapshot evidence除外、Storage-first row lockとsuccessor race protectionを追加した。前Phaseのlocal結果は新規pgTAP`45 / 45`、関連既存`268 / 268`、全31ファイル`1,718 / 1,718 PASS`、2-session confirm-first / cleanup-first実Lock待機で、今回のremote適用Phaseでは再実行していない。リンク先`my-diary-dev`へ新migration 1件だけを通常適用し、repository / local / remote`31 / 31 / 31`、再dry-run up to date、remote catalogのfunction signature / owner / SECURITY DEFINER / volatility / search_path / ACL / overload、active-admin境界、既存11 Storage policy、confirmed 7日・evidence 30日retention、`public,my_diary_private,storage` linked diff 0件を確認した。適用後の既知pg-delta CA warningは履歴・dry-run・catalog・diffで切り分け、repair・再適用なし。remote fixture・Storage / Auth mutation、Service Role、Auth Admin APIは未使用。E3e-1は未着手 |
 | 2026-08-15 | commit前。基準HEAD `ff5f1f20c135b70e537d93fdd4f63a91f8c9f3fe` | Phase E3dとしてcookie認証付きprivate Exchange画像Route、live metadata / entry / author participant / 4 UUID path / Storage RLSの再評価、MIME / magic byte / 0 byte / 6 MiB検証、raw path非露出、neutral empty 404、bounded image reference hydrate、0〜10枚のaccessible / responsive galleryを実装。通常authenticated fixtureでA / B 200、C・未認証・malformed / nonexistent 404、follow解除後・archive後200、soft delete後404を確認し、0 / 1 / 3 / 10枚、5幅、通常post画像回帰を完了。local Supabase portsをWindows TCP除外範囲外の5542xへ移し、config / Docker mapping一致を確認後、project限定data-volume cleanupとclean rebuildで旧physical image 71件を0件化、fixture 0件、30 migration fresh適用、関連`273 / 273`・全pgTAP`1,673 / 1,673 PASS`を確認した。実screen reader、suspended / deactivated sessionのRoute実HTTP、image failure fallbackの実browser再現は未実施。DB・migration・pgTAP定義・package・remote DB / Storage / Authは変更せず、Service Role・Auth Admin APIは未使用 |
 | 2026-08-15 | commit前。基準HEAD `69d39b153640d6291f2fba4fb953552c928f98da` | Phase E3cとしてentry作成・本人編集・本人soft delete、diary title変更・archive、作成 / 編集route、Unicode codepoint検証、確認UI、double-submit抑止、pending / error / status、diary / entry所属一致確認を既存RPCへ接続。local通常UIでA / B / C、follow、2 diary、25 entriesを作成し、境界値、任意値解除、同一author連続、follow解除後継続、pagination、本人 / 第三者、two-tab stale、archive後read / delete、共通404、5幅overflow 0、confirmation focus / Escape / cancel、固有accessible name、fresh console 0件を確認した。検証中にCRLF正規化による10,000 codepoint誤拒否と削除成功announcement不足を検出して最小修正。entry 25件に対する通知25件、削除7件の全redact、削除済みtag / image link 0件をlocal DBで確認。許可済みlocal reset後fixture全0件・30 migration、全pgTAP`1,673 / 1,673 PASS`、lint・typecheck・build成功。private画像実fixture、実Tab / Shift+Tab、screen reader、瞬間的pending目視は未確認として区別。DB・migration・pgTAP定義・package・remote DB / Storageは変更せず、Service Role・Auth Admin API・stage・commit・pushは未使用・未実施 |
 | 2026-08-15 | commit前。基準HEAD `4c5459dab6cd295535fbcb0779401cee9e34521f` | Phase E3bとしてinvitation create / accept / reject / cancel、`/users/[userId]`のmutual-follow invite UXとinvitation専用block / unblockを既存RPCへ接続。generic error / privacy oracle対策、two-tab stale、二重送信、block時rejected収束、追加通知0件、Exchange通知parser、5幅の一覧・profile・detail・confirmation・pending・error、focus / Escape / ARIA、console 0件をlocal通常認証fixtureで確認した。長いusernameのconfirmation overflowとblock→unblock後のstale confirmationを最小修正し、成功statusも保持。実Tab / Shift+Tab / Enter、screen reader、真の同時multi-session raceは未実施として区別。local reset後fixture 0件、repository / local / remote 30 migration一致、全pgTAP`1,673 / 1,673 PASS`。DB・migration・pgTAP定義・package変更なし |
