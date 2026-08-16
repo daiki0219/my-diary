@@ -25,8 +25,8 @@
 - [ ] profile、post、visibility、image、timeline、follow、reaction、comment、search、calendar、notification、settingsの初回公開対象を確認した
 - [ ] Exchangeの初回公開対象を確認した
 - [x] E3f-2 Exchange entry report UIを完了・確認した
-- [ ] E3f-3 Exchange user-report scope hardeningを完了・確認した
-- [ ] E3f-4 Exchange counterpart report UIを完了・確認した
+- [x] E3f-3 Exchange user-report scope hardeningを完了・確認した
+- [x] E3f-4 Exchange counterpart report UIを完了・確認した
 - [ ] admin report queueを実装し、security reviewと回帰確認を完了した
 - [ ] moderator exact-evidence経路を実装し、security reviewと回帰確認を完了した
 - [ ] maintenance実行経路を実装し、security reviewと回帰確認を完了した

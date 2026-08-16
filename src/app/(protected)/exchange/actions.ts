@@ -70,6 +70,8 @@ export type ExchangeEntryReportActionState = {
   revision: number;
 };
 
+export type ExchangeUserReportActionState = ExchangeEntryReportActionState;
+
 const AUTH_ERROR =
   "ログイン状態を確認できませんでした。もう一度ログインしてください。";
 const INPUT_ERROR = "操作の対象を確認できませんでした。";
@@ -82,9 +84,9 @@ const DIARY_MUTATION_ERROR =
   "現在この交換日記を更新できません。状態を更新して、少し時間をおいてもう一度お試しください。";
 const ENTRY_DELETE_ERROR =
   "現在この日記を削除できません。状態を更新して、少し時間をおいてもう一度お試しください。";
-const ENTRY_REPORT_ERROR =
+const EXCHANGE_REPORT_ERROR =
   "現在、通報を受け付けられません。画面を更新して、時間をおいてもう一度お試しください。";
-const ENTRY_REPORT_UNKNOWN_OUTCOME_ERROR =
+const EXCHANGE_REPORT_UNKNOWN_OUTCOME_ERROR =
   "送信結果を確認できませんでした。繰り返し送信せず、画面を更新してから確認してください。";
 const EXCHANGE_ENTRY_ROLLBACK_CODES = new Set([
   "22023",
@@ -233,6 +235,26 @@ function getUuid(formData: FormData, fieldName: string) {
     : null;
 }
 
+function getSingleOptionalUuid(formData: FormData, fieldName: string) {
+  const entries = formData.getAll(fieldName);
+
+  if (entries.length === 0) {
+    return { valid: true as const, value: null };
+  }
+
+  const value = entries[0];
+
+  if (
+    entries.length !== 1 ||
+    typeof value !== "string" ||
+    !isUuid(value)
+  ) {
+    return { valid: false as const, value: null };
+  }
+
+  return { valid: true as const, value: value.toLowerCase() };
+}
+
 function createEntryErrorState(
   previousState: ExchangeEntryActionState,
   error: string,
@@ -361,6 +383,32 @@ async function exchangeEntryBelongsToDiary(
       "id" in result.data[0] &&
       typeof result.data[0].id === "string" &&
       result.data[0].id.toLowerCase() === entryId
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function exchangeDiaryIsVisible(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  diaryId: string,
+) {
+  try {
+    const result = await supabase
+      .from("exchange_diaries")
+      .select("id")
+      .eq("id", diaryId)
+      .limit(2)
+      .returns<unknown[]>();
+
+    return (
+      !result.error &&
+      result.data?.length === 1 &&
+      typeof result.data[0] === "object" &&
+      result.data[0] !== null &&
+      "id" in result.data[0] &&
+      typeof result.data[0].id === "string" &&
+      result.data[0].id.toLowerCase() === diaryId
     );
   } catch {
     return false;
@@ -924,7 +972,7 @@ export async function createExchangeEntryReport(
   const validation = validateExchangeEntryReportFormData(formData);
 
   if (!diaryId || !entryId) {
-    return entryReportErrorState(previousState, ENTRY_REPORT_ERROR, {
+    return entryReportErrorState(previousState, EXCHANGE_REPORT_ERROR, {
       submittedReason: validation.submittedReason,
       submittedDetails: validation.submittedDetails,
     });
@@ -958,7 +1006,7 @@ export async function createExchangeEntryReport(
       entryId,
     ))
   ) {
-    return entryReportErrorState(previousState, ENTRY_REPORT_ERROR, {
+    return entryReportErrorState(previousState, EXCHANGE_REPORT_ERROR, {
       submittedReason: validation.submittedReason,
       submittedDetails: validation.submittedDetails,
     });
@@ -978,7 +1026,7 @@ export async function createExchangeEntryReport(
   } catch {
     return entryReportErrorState(
       previousState,
-      ENTRY_REPORT_UNKNOWN_OUTCOME_ERROR,
+      EXCHANGE_REPORT_UNKNOWN_OUTCOME_ERROR,
       {
         outcome: "unknown-outcome",
         submittedReason: validation.submittedReason,
@@ -995,8 +1043,8 @@ export async function createExchangeEntryReport(
     return entryReportErrorState(
       previousState,
       outcomeIsKnown
-        ? ENTRY_REPORT_ERROR
-        : ENTRY_REPORT_UNKNOWN_OUTCOME_ERROR,
+        ? EXCHANGE_REPORT_ERROR
+        : EXCHANGE_REPORT_UNKNOWN_OUTCOME_ERROR,
       {
         outcome: outcomeIsKnown ? "idle" : "unknown-outcome",
         submittedReason: validation.submittedReason,
@@ -1008,7 +1056,129 @@ export async function createExchangeEntryReport(
   if (typeof result.data !== "string" || !isUuid(result.data)) {
     return entryReportErrorState(
       previousState,
-      ENTRY_REPORT_UNKNOWN_OUTCOME_ERROR,
+      EXCHANGE_REPORT_UNKNOWN_OUTCOME_ERROR,
+      {
+        outcome: "unknown-outcome",
+        submittedReason: validation.submittedReason,
+        submittedDetails: validation.submittedDetails,
+      },
+    );
+  }
+
+  return {
+    error: null,
+    fieldErrors: {},
+    completed: true,
+    outcome: "committed",
+    submittedReason: validation.submittedReason,
+    submittedDetails: validation.submittedDetails,
+    revision: previousState.revision + 1,
+  };
+}
+
+export async function createExchangeUserReport(
+  previousState: ExchangeUserReportActionState,
+  formData: FormData,
+): Promise<ExchangeUserReportActionState> {
+  const diaryIds = formData.getAll("diaryId");
+  const diaryId =
+    diaryIds.length === 1 &&
+    typeof diaryIds[0] === "string" &&
+    isUuid(diaryIds[0])
+      ? diaryIds[0].toLowerCase()
+      : null;
+  const relatedEntry = getSingleOptionalUuid(formData, "relatedEntryId");
+  const validation = validateExchangeEntryReportFormData(formData);
+
+  if (!diaryId || !relatedEntry.valid) {
+    return entryReportErrorState(previousState, EXCHANGE_REPORT_ERROR, {
+      submittedReason: validation.submittedReason,
+      submittedDetails: validation.submittedDetails,
+    });
+  }
+
+  if (!validation.data) {
+    return entryReportErrorState(
+      previousState,
+      "入力内容を確認してください。",
+      {
+        fieldErrors: validation.fieldErrors,
+        submittedReason: validation.submittedReason,
+        submittedDetails: validation.submittedDetails,
+      },
+    );
+  }
+
+  const context = await getAuthenticatedContext();
+
+  if (!context) {
+    return entryReportErrorState(previousState, AUTH_ERROR, {
+      submittedReason: validation.submittedReason,
+      submittedDetails: validation.submittedDetails,
+    });
+  }
+
+  if (
+    !(await exchangeDiaryIsVisible(context.supabase, diaryId)) ||
+    (relatedEntry.value !== null &&
+      !(await exchangeEntryBelongsToDiary(
+        context.supabase,
+        diaryId,
+        relatedEntry.value,
+      )))
+  ) {
+    return entryReportErrorState(previousState, EXCHANGE_REPORT_ERROR, {
+      submittedReason: validation.submittedReason,
+      submittedDetails: validation.submittedDetails,
+    });
+  }
+
+  let result;
+
+  try {
+    result = await context.supabase.rpc(
+      "my_diary_create_exchange_user_report",
+      {
+        p_diary_id: diaryId,
+        p_reason: validation.data.reason,
+        p_details: validation.data.details,
+        p_related_exchange_entry_id: relatedEntry.value,
+      },
+    );
+  } catch {
+    return entryReportErrorState(
+      previousState,
+      EXCHANGE_REPORT_UNKNOWN_OUTCOME_ERROR,
+      {
+        outcome: "unknown-outcome",
+        submittedReason: validation.submittedReason,
+        submittedDetails: validation.submittedDetails,
+      },
+    );
+  }
+
+  if (result.error) {
+    const outcomeIsKnown = EXCHANGE_ENTRY_ROLLBACK_CODES.has(
+      result.error.code,
+    );
+
+    return entryReportErrorState(
+      previousState,
+      outcomeIsKnown
+        ? EXCHANGE_REPORT_ERROR
+        : EXCHANGE_REPORT_UNKNOWN_OUTCOME_ERROR,
+      {
+        outcome: outcomeIsKnown ? "idle" : "unknown-outcome",
+        submittedReason: validation.submittedReason,
+        submittedDetails: validation.submittedDetails,
+      },
+    );
+  }
+
+  if (typeof result.data !== "string" || !isUuid(result.data)) {
+    return entryReportErrorState(
+      previousState,
+      EXCHANGE_REPORT_UNKNOWN_OUTCOME_ERROR,
       {
         outcome: "unknown-outcome",
         submittedReason: validation.submittedReason,

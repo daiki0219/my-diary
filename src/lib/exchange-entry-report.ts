@@ -57,7 +57,9 @@ export function validateExchangeEntryReportValues(
   const submittedReason =
     typeof reasonValue === "string" ? reasonValue : "";
   const submittedDetails =
-    typeof detailsValue === "string" ? detailsValue : "";
+    typeof detailsValue === "string"
+      ? detailsValue.replace(/\r\n?/g, "\n")
+      : "";
 
   if (typeof reasonValue !== "string" || submittedReason === "") {
     fieldErrors.reason = "通報理由を選択してください。";

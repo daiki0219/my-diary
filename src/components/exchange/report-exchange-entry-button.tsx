@@ -10,6 +10,7 @@ import {
 
 import {
   createExchangeEntryReport,
+  createExchangeUserReport,
   type ExchangeEntryReportActionState,
 } from "@/app/(protected)/exchange/actions";
 import {
@@ -29,15 +30,26 @@ const initialState: ExchangeEntryReportActionState = {
   revision: 0,
 };
 
-export function ReportExchangeEntryButton({
-  diaryId,
-  entryId,
-  accessibleName,
-}: {
+type ExchangeReportButtonProps = {
   diaryId: string;
-  entryId: string;
   accessibleName: string;
-}) {
+} & (
+  | {
+      kind: "entry";
+      entryId: string;
+    }
+  | {
+      kind: "user";
+      counterpartName: string;
+      relatedEntryId?: string;
+    }
+);
+
+function ExchangeReportButton({
+  diaryId,
+  accessibleName,
+  ...target
+}: ExchangeReportButtonProps) {
   const confirmationId = useId();
   const titleId = `${confirmationId}-title`;
   const descriptionId = `${confirmationId}-description`;
@@ -46,6 +58,8 @@ export function ReportExchangeEntryButton({
   const detailsId = `${confirmationId}-details`;
   const detailsHelpId = `${confirmationId}-details-help`;
   const detailsErrorId = `${confirmationId}-details-error`;
+  const relatedEntryId = `${confirmationId}-related-entry`;
+  const relatedEntryHelpId = `${confirmationId}-related-entry-help`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const reasonRef = useRef<HTMLSelectElement>(null);
   const detailsRef = useRef<HTMLTextAreaElement>(null);
@@ -54,15 +68,28 @@ export function ReportExchangeEntryButton({
   const [isConfirming, setIsConfirming] = useState(false);
   const [reason, setReason] = useState("");
   const [details, setDetails] = useState("");
+  const [includeRelatedEntry, setIncludeRelatedEntry] = useState(false);
   const [clientFieldErrors, setClientFieldErrors] =
     useState<ExchangeEntryReportFieldErrors | null>(null);
+  const [handledRevision, setHandledRevision] = useState(0);
   const [state, formAction, isPending] = useActionState(
-    createExchangeEntryReport,
+    target.kind === "entry"
+      ? createExchangeEntryReport
+      : createExchangeUserReport,
     initialState,
   );
+
+  if (state.revision !== handledRevision) {
+    setHandledRevision(state.revision);
+    setClientFieldErrors(null);
+    setReason(state.submittedReason);
+    setDetails(state.submittedDetails);
+  }
+
   const fieldErrors = clientFieldErrors ?? state.fieldErrors;
   const detailsCount = Array.from(details.trim()).length;
   const retryIsBlocked = state.outcome === "unknown-outcome";
+  const isUserReport = target.kind === "user";
 
   useEffect(() => {
     if (isConfirming) {
@@ -119,13 +146,17 @@ export function ReportExchangeEntryButton({
           role="dialog"
         >
           <p className="text-sm font-bold leading-6 text-stone-800" id={titleId}>
-            この日記を通報しますか？
+            {isUserReport
+              ? `${target.counterpartName}さんを通報しますか？`
+              : "この日記を通報しますか？"}
           </p>
           <p
             className="mt-1 text-xs leading-5 text-stone-600"
             id={descriptionId}
           >
-            通報理由を選び、必要に応じて詳しい状況を入力してください。
+            {isUserReport
+              ? "この交換日記の相手について運営へ報告します。通報理由を選び、必要に応じて詳しい状況を入力してください。"
+              : "この日記そのものについて運営へ報告します。通報理由を選び、必要に応じて詳しい状況を入力してください。"}
           </p>
 
           <form
@@ -160,7 +191,18 @@ export function ReportExchangeEntryButton({
             }}
           >
             <input name="diaryId" type="hidden" value={diaryId} />
-            <input name="entryId" type="hidden" value={entryId} />
+            {target.kind === "entry" && (
+              <input name="entryId" type="hidden" value={target.entryId} />
+            )}
+            {target.kind === "user" &&
+              target.relatedEntryId &&
+              includeRelatedEntry && (
+                <input
+                  name="relatedEntryId"
+                  type="hidden"
+                  value={target.relatedEntryId}
+                />
+              )}
 
             <div>
               <label
@@ -260,6 +302,36 @@ export function ReportExchangeEntryButton({
               )}
             </div>
 
+            {target.kind === "user" && target.relatedEntryId && (
+              <div className="rounded-xl border border-stone-200 bg-white p-3">
+                <label
+                  className="flex min-h-11 cursor-pointer items-start gap-3 text-sm font-semibold leading-6 text-stone-800"
+                  htmlFor={relatedEntryId}
+                >
+                  <input
+                    aria-describedby={relatedEntryHelpId}
+                    checked={includeRelatedEntry}
+                    className="mt-1.5 h-4 w-4 shrink-0 accent-red-700"
+                    disabled={isPending || retryIsBlocked}
+                    id={relatedEntryId}
+                    onChange={(event) =>
+                      setIncludeRelatedEntry(event.currentTarget.checked)
+                    }
+                    type="checkbox"
+                  />
+                  <span className="min-w-0 break-words">
+                    この日記を関連情報として添付する
+                  </span>
+                </label>
+                <p
+                  className="mt-1 pl-7 text-xs leading-5 text-stone-600"
+                  id={relatedEntryHelpId}
+                >
+                  選択すると、現在表示している相手の日記1件だけを通報時点の関連情報として添付します。
+                </p>
+              </div>
+            )}
+
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 aria-disabled={isPending || retryIsBlocked}
@@ -304,9 +376,50 @@ export function ReportExchangeEntryButton({
           ref={triggerRef}
           type="button"
         >
-          この日記を通報
+          {isUserReport ? "このユーザーを通報" : "この日記を通報"}
         </button>
       )}
     </div>
+  );
+}
+
+export function ReportExchangeEntryButton({
+  diaryId,
+  entryId,
+  accessibleName,
+}: {
+  diaryId: string;
+  entryId: string;
+  accessibleName: string;
+}) {
+  return (
+    <ExchangeReportButton
+      accessibleName={accessibleName}
+      diaryId={diaryId}
+      entryId={entryId}
+      kind="entry"
+    />
+  );
+}
+
+export function ReportExchangeUserButton({
+  diaryId,
+  counterpartName,
+  relatedEntryId,
+  accessibleName,
+}: {
+  diaryId: string;
+  counterpartName: string;
+  relatedEntryId?: string;
+  accessibleName: string;
+}) {
+  return (
+    <ExchangeReportButton
+      accessibleName={accessibleName}
+      counterpartName={counterpartName}
+      diaryId={diaryId}
+      kind="user"
+      relatedEntryId={relatedEntryId}
+    />
   );
 }

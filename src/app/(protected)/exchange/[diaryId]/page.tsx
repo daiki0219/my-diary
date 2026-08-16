@@ -8,7 +8,10 @@ import {
   DeleteExchangeEntryButton,
 } from "@/components/exchange/delete-exchange-entry-button";
 import { ExchangeDiaryTitleForm } from "@/components/exchange/exchange-diary-title-form";
-import { ReportExchangeEntryButton } from "@/components/exchange/report-exchange-entry-button";
+import {
+  ReportExchangeEntryButton,
+  ReportExchangeUserButton,
+} from "@/components/exchange/report-exchange-entry-button";
 import { PostImageGallery } from "@/components/posts/post-image-gallery";
 import {
   getExchangeDiaryDetail,
@@ -220,11 +223,26 @@ function ActiveEntryArticle({
             entryId={entry.entryId}
           />
         ) : (
-          <ReportExchangeEntryButton
-            accessibleName={`このページの${position}件目、${authorName}の${dateFormatter.format(new Date(entry.createdAt))}の日記を通報`}
-            diaryId={diary.diaryId}
-            entryId={entry.entryId}
-          />
+          <div aria-label="安全に関する操作" className="min-w-0 space-y-3" role="group">
+            <p className="text-xs font-semibold text-stone-500">
+              安全に関する操作
+            </p>
+            <div className="flex min-w-0 flex-col items-start gap-3">
+              <ReportExchangeEntryButton
+                accessibleName={`このページの${position}件目、${authorName}の${dateFormatter.format(new Date(entry.createdAt))}の日記そのものを通報`}
+                diaryId={diary.diaryId}
+                entryId={entry.entryId}
+              />
+              {diary.counterpart.profile && (
+                <ReportExchangeUserButton
+                  accessibleName={`このページの${position}件目、${diary.counterpart.profile.username}さんを、この日記を関連情報として添付可能な状態で通報`}
+                  counterpartName={diary.counterpart.profile.username}
+                  diaryId={diary.diaryId}
+                  relatedEntryId={entry.entryId}
+                />
+              )}
+            </div>
+          </div>
         )}
       </div>
     </article>
@@ -402,6 +420,24 @@ export default async function ExchangeDiaryPage({
                   {dateFormatter.format(new Date(diary.archivedAt))}
                 </time>
               </p>
+            </div>
+          )}
+
+          {diary.counterpart.profile && (
+            <div className="mt-5 min-w-0 rounded-2xl border border-stone-200 bg-white/80 p-4">
+              <p className="text-xs font-semibold text-stone-500">
+                安全に関する操作
+              </p>
+              <p className="mt-1 min-w-0 break-words text-sm leading-6 text-stone-700 [overflow-wrap:anywhere]">
+                相手ユーザーについて運営へ報告できます。日記の終了とは別の操作です。
+              </p>
+              <div className="mt-3">
+                <ReportExchangeUserButton
+                  accessibleName={`${diary.counterpart.profile.username}さんを通報`}
+                  counterpartName={diary.counterpart.profile.username}
+                  diaryId={canonicalDiaryId}
+                />
+              </div>
             </div>
           )}
 
