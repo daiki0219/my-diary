@@ -275,8 +275,8 @@ select set_config(
 );
 select set_config(
   'my_diary.e2g_user_report',
-  public.my_diary_create_user_report(
-    'b3000000-0000-4000-8000-000000000002',
+  public.my_diary_create_exchange_user_report(
+    'd3000000-0000-4000-8000-000000000001',
     'threat_or_danger', null,
     'e3000000-0000-4000-8000-000000000001'
   )::text,

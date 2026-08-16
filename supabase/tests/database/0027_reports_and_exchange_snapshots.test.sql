@@ -183,6 +183,7 @@ select is(
     where namespace.nspname = 'public'
       and function_definition.proname in (
         'my_diary_create_exchange_entry_report',
+        'my_diary_create_exchange_user_report',
         'my_diary_create_user_report',
         'my_diary_update_report_status'
       )
@@ -193,8 +194,8 @@ select is(
       and pg_catalog.pg_get_userbyid(function_definition.proowner) =
         'postgres'
   ),
-  3::bigint,
-  'the three exact public report RPCs are hardened without defaults'
+  4::bigint,
+  'the four exact public report RPCs are hardened without defaults'
 );
 
 select ok(
@@ -204,6 +205,11 @@ select ok(
     'EXECUTE'
   )
   and pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.my_diary_create_exchange_user_report(uuid,text,text,uuid)',
+    'EXECUTE'
+  )
+  and not pg_catalog.has_function_privilege(
     'authenticated',
     'public.my_diary_create_user_report(uuid,text,text,uuid)',
     'EXECUTE'
@@ -223,7 +229,7 @@ select ok(
     'public.my_diary_create_user_report(uuid,text,text,uuid)',
     'EXECUTE'
   ),
-  'only authenticated receives exact report RPC EXECUTE'
+  'authenticated receives successor report RPCs but not the generic RPC'
 );
 
 select ok(
@@ -255,6 +261,31 @@ select ok(
   ) = 2,
   'exchange Storage policies, post images, and notifications have expected boundaries'
 );
+
+-- Exercise retained generic internals only through a test-local owner wrapper.
+create function pg_temp.my_diary_create_user_report_internal(
+  p_user_id uuid,
+  p_reason text,
+  p_details text,
+  p_related_exchange_entry_id uuid
+)
+returns uuid
+language sql
+volatile
+security definer
+set search_path = ''
+as $function$
+  select public.my_diary_create_user_report(
+    p_user_id, p_reason, p_details, p_related_exchange_entry_id
+  );
+$function$;
+
+revoke all on function
+  pg_temp.my_diary_create_user_report_internal(uuid, text, text, uuid)
+  from public, anon, authenticated, service_role, authenticator;
+grant execute on function
+  pg_temp.my_diary_create_user_report_internal(uuid, text, text, uuid)
+  to authenticated;
 
 -- Users, moderation roles, diaries, entries, tags, and Storage fixtures.
 insert into auth.users (id, email)
@@ -582,7 +613,7 @@ set local role authenticated;
 
 select set_config(
   'my_diary.e2d_user_related_report',
-  public.my_diary_create_user_report(
+  pg_temp.my_diary_create_user_report_internal(
     'b2700000-0000-4000-8000-000000000002',
     'spam', '   trimmed details   ',
     'e2700000-0000-4000-8000-000000000001'
@@ -596,7 +627,7 @@ select ok(
 
 select set_config(
   'my_diary.e2d_user_null_report',
-  public.my_diary_create_user_report(
+  pg_temp.my_diary_create_user_report_internal(
     'c2700000-0000-4000-8000-000000000003',
     'personal_information', '   ', null
   )::text,
@@ -623,28 +654,28 @@ select throws_ok(
 set local role authenticated;
 
 select lives_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'd2700000-0000-4000-8000-000000000004',
       'sexual_or_inappropriate', null, null
     )$$,
   'sexual_or_inappropriate is accepted'
 );
 select lives_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'e2700000-0000-4000-8000-000000000005',
       'threat_or_danger', null, null
     )$$,
   'a suspended target and threat_or_danger are accepted'
 );
 select lives_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'f2700000-0000-4000-8000-000000000006',
       'other', '  explanation  ', null
     )$$,
   'a deactivated target and other with details are accepted'
 );
 select lives_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'a2710000-0000-4000-8000-000000000007',
       'harassment', null, null
     )$$,
@@ -652,28 +683,28 @@ select lives_ok(
 );
 
 select throws_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'a2700000-0000-4000-8000-000000000001', 'spam', null, null
     )$$,
   '42501', 'Report could not be created.',
   'self user report is rejected generically'
 );
 select throws_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'a2710000-0000-4000-8000-000000000007', null, null, null
     )$$,
   '22023', 'Invalid report input.',
   'NULL user report reason is rejected explicitly'
 );
 select throws_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'a2799999-0000-4000-8000-000000000099', 'spam', null, null
     )$$,
   '42501', 'Report could not be created.',
   'missing user report target is rejected generically'
 );
 select throws_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'c2700000-0000-4000-8000-000000000003', 'spam', null,
       'e2700000-0000-4000-8000-000000000001'
     )$$,
@@ -681,7 +712,7 @@ select throws_ok(
   'a related entry authored by another user is rejected generically'
 );
 select throws_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'b2700000-0000-4000-8000-000000000002', 'spam', null,
       'e2700000-0000-4000-8000-000000000004'
     )$$,
@@ -689,7 +720,7 @@ select throws_ok(
   'an invisible related entry is rejected generically'
 );
 select throws_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'b2700000-0000-4000-8000-000000000002', 'spam', null,
       'e2700000-0000-4000-8000-000000000005'
     )$$,
@@ -697,7 +728,7 @@ select throws_ok(
   'a deleted related entry is rejected generically'
 );
 select throws_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'b2700000-0000-4000-8000-000000000002', 'spam', null, null
     )$$,
   '23505', 'Report could not be created.',
@@ -959,7 +990,7 @@ select set_config(
 );
 set local role authenticated;
 select throws_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'b2700000-0000-4000-8000-000000000002',
       'spam', null, null
     )$$,
@@ -988,7 +1019,7 @@ select set_config(
 );
 set local role authenticated;
 select lives_ok(
-  $$select public.my_diary_create_user_report(
+  $$select pg_temp.my_diary_create_user_report_internal(
       'b2700000-0000-4000-8000-000000000002',
       'spam', null, null
     )$$,
