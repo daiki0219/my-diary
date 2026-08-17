@@ -50,6 +50,7 @@ export type AdminReportPageResult =
       nextCursor: string | null;
     }
   | Exclude<AdminSessionState, { kind: "active-admin" }>
+  | { kind: "invalid-query" }
   | { kind: "error" };
 
 export type AdminReportPageInput = {
@@ -187,20 +188,24 @@ async function loadAdminReportPage(
 }
 
 export async function getAdminReportPage(
-  input: AdminReportPageInput,
+  input: AdminReportPageInput | null,
 ): Promise<AdminReportPageResult> {
   let supabase;
 
   try {
     supabase = await createClient();
   } catch {
-    return { kind: "error" };
+    return { kind: "query-error" };
   }
 
   const adminSession = await getAdminSessionState(supabase);
 
   if (adminSession.kind !== "active-admin") {
     return adminSession;
+  }
+
+  if (input === null) {
+    return { kind: "invalid-query" };
   }
 
   return loadAdminReportPage(supabase, input);

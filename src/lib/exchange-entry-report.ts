@@ -1,6 +1,7 @@
 import { getUnicodeCodePointCount } from "@/lib/diary-entry-validation";
 import {
   isReportReason,
+  REPORT_REASON_LABELS,
   REPORT_REASONS,
   type ReportReason,
 } from "@/lib/report";
@@ -14,14 +15,10 @@ export type ExchangeEntryReportReason = ReportReason;
 export const EXCHANGE_ENTRY_REPORT_REASON_OPTIONS: ReadonlyArray<{
   value: ExchangeEntryReportReason;
   label: string;
-}> = [
-  { value: "harassment", label: "嫌がらせ・誹謗中傷" },
-  { value: "spam", label: "スパム・大量投稿" },
-  { value: "personal_information", label: "個人情報" },
-  { value: "sexual_or_inappropriate", label: "性的・不適切な内容" },
-  { value: "threat_or_danger", label: "脅迫・危険な内容" },
-  { value: "other", label: "その他" },
-];
+}> = REPORT_REASONS.map((value) => ({
+  value,
+  label: REPORT_REASON_LABELS[value],
+}));
 
 export type ExchangeEntryReportFieldErrors = {
   reason?: string;
