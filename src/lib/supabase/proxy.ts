@@ -31,8 +31,26 @@ function copyResponseCookies(source: NextResponse, target: NextResponse) {
 function isPrivateImagePath(pathname: string) {
   return (
     pathname.startsWith("/post-images/") ||
-    pathname.startsWith("/exchange-entry-images/")
+    pathname.startsWith("/exchange-entry-images/") ||
+    isAdminReportEvidencePath(pathname)
   );
+}
+
+function isAdminReportEvidencePath(pathname: string) {
+  return /^\/admin\/reports\/[^/]+\/evidence\/[^/]+\/?$/.test(pathname);
+}
+
+function privateImageNotFoundResponse() {
+  return new NextResponse(null, {
+    headers: {
+      "Cache-Control": "private, no-store, max-age=0",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      "Referrer-Policy": "no-referrer",
+      Vary: "Cookie",
+      "X-Content-Type-Options": "nosniff",
+    },
+    status: 404,
+  });
 }
 
 function isPasswordResetPath(pathname: string) {
@@ -82,6 +100,10 @@ export async function updateSession(request: NextRequest) {
     if (!canUpdatePasswordFromRecovery(sessionContext)) {
       await endCurrentAuthSession(supabase);
 
+      if (isAdminReportEvidencePath(request.nextUrl.pathname)) {
+        return copyResponseCookies(response, privateImageNotFoundResponse());
+      }
+
       if (isPasswordResetPath(request.nextUrl.pathname)) {
         return response;
       }
@@ -114,6 +136,10 @@ export async function updateSession(request: NextRequest) {
       );
 
       return copyResponseCookies(response, invalidRecoveryResponse);
+    }
+
+    if (isAdminReportEvidencePath(request.nextUrl.pathname)) {
+      return copyResponseCookies(response, privateImageNotFoundResponse());
     }
 
     if (isPasswordResetPath(request.nextUrl.pathname)) {
@@ -157,19 +183,7 @@ export async function updateSession(request: NextRequest) {
   await endCurrentAuthSession(supabase);
 
   if (isPrivateImagePath(request.nextUrl.pathname)) {
-    return copyResponseCookies(
-      response,
-      new NextResponse(null, {
-        headers: {
-          "Cache-Control": "private, no-store, max-age=0",
-          "Cross-Origin-Resource-Policy": "same-origin",
-          "Referrer-Policy": "no-referrer",
-          Vary: "Cookie",
-          "X-Content-Type-Options": "nosniff",
-        },
-        status: 404,
-      }),
-    );
+    return copyResponseCookies(response, privateImageNotFoundResponse());
   }
 
   const errorCode = getAccountGateError(accountState);
