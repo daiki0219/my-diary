@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { AdminReportStatusActions } from "@/components/admin/admin-report-status-actions";
 import {
   getAdminReportDetail,
   type AdminReportDetailResult,
@@ -142,7 +143,7 @@ export default async function AdminReportDetailPage({
             通報の詳細
           </h1>
           <p className="mt-3 text-sm leading-6 text-stone-600">
-            通報時点の記録を読み取り専用で表示しています。
+            通報時点の記録と現在の対応状況を表示しています。
           </p>
         </header>
 
@@ -205,6 +206,11 @@ export default async function AdminReportDetailPage({
             )}
           </dl>
         </section>
+
+        <AdminReportStatusActions
+          currentStatus={report.status}
+          reportId={reportId.toLowerCase()}
+        />
 
         <section
           aria-labelledby="report-details-heading"
