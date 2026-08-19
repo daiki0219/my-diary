@@ -44,6 +44,7 @@ const REPORT_SNAPSHOT_SELECT = [
 ].join(", ");
 
 const REPORT_EVIDENCE_SELECT = [
+  "id",
   "sort_order",
   "mime_type",
   "size_bytes",
@@ -52,6 +53,13 @@ const REPORT_EVIDENCE_SELECT = [
 const REPORT_EVIDENCE_MAX_ITEMS = 10;
 const REPORT_EVIDENCE_MAX_SIZE_BYTES = 6 * 1024 * 1024;
 const TAG_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
+
+export type AdminReportEvidenceItem = {
+  evidenceId: string;
+  sortOrder: number;
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+  sizeBytes: number;
+};
 
 export type AdminReportDetail = {
   report: {
@@ -72,11 +80,7 @@ export type AdminReportDetail = {
     locationName: string | null;
     tagNames: string[];
   } | null;
-  evidence: Array<{
-    sortOrder: number;
-    mimeType: "image/jpeg" | "image/png" | "image/webp";
-    sizeBytes: number;
-  }>;
+  evidence: AdminReportEvidenceItem[];
 };
 
 export type AdminReportDetailResult =
@@ -241,10 +245,13 @@ function parseEvidenceRow(
   if (
     typeof value !== "object" ||
     value === null ||
-    !hasExactKeys(value, ["sort_order", "mime_type", "size_bytes"]) ||
+    !hasExactKeys(value, ["id", "sort_order", "mime_type", "size_bytes"]) ||
+    !("id" in value) ||
     !("sort_order" in value) ||
     !("mime_type" in value) ||
     !("size_bytes" in value) ||
+    typeof value.id !== "string" ||
+    !isUuid(value.id) ||
     typeof value.sort_order !== "number" ||
     !Number.isInteger(value.sort_order) ||
     value.sort_order < 0 ||
@@ -261,6 +268,7 @@ function parseEvidenceRow(
   }
 
   return {
+    evidenceId: value.id.toLowerCase(),
     sortOrder: value.sort_order,
     mimeType: value.mime_type,
     sizeBytes: value.size_bytes,
@@ -351,18 +359,21 @@ async function loadReportSnapshotAndEvidence(
   }
 
   const evidence: AdminReportDetail["evidence"] = [];
+  const evidenceIds = new Set<string>();
 
   for (const value of evidenceResult.data) {
     const item = parseEvidenceRow(value);
 
     if (
       !item ||
+      evidenceIds.has(item.evidenceId) ||
       (evidence.length > 0 &&
         evidence[evidence.length - 1].sortOrder >= item.sortOrder)
     ) {
       return { kind: "error" };
     }
 
+    evidenceIds.add(item.evidenceId);
     evidence.push(item);
   }
 

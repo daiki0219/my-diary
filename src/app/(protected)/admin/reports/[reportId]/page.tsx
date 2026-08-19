@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { AdminReportEvidenceGallery } from "@/components/admin/admin-report-evidence-gallery";
 import { AdminReportStatusActions } from "@/components/admin/admin-report-status-actions";
 import {
   getAdminReportDetail,
@@ -25,28 +26,6 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeStyle: "short",
   timeZone: "Asia/Tokyo",
 });
-
-const numberFormatter = new Intl.NumberFormat("ja-JP", {
-  maximumFractionDigits: 1,
-});
-
-const mimeTypeLabels = {
-  "image/jpeg": "JPEG",
-  "image/png": "PNG",
-  "image/webp": "WebP",
-} as const;
-
-function formatFileSize(sizeBytes: number) {
-  if (sizeBytes >= 1024 * 1024) {
-    return `${numberFormatter.format(sizeBytes / (1024 * 1024))} MB`;
-  }
-
-  if (sizeBytes >= 1024) {
-    return `${numberFormatter.format(sizeBytes / 1024)} KB`;
-  }
-
-  return `${numberFormatter.format(sizeBytes)} byte`;
-}
 
 function isUnverifiedFailure(result: AdminReportDetailResult) {
   return result.kind === "account-missing" || result.kind === "query-error";
@@ -343,48 +322,16 @@ export default async function AdminReportDetailPage({
             className="text-xl font-bold text-stone-800"
             id="report-evidence-heading"
           >
-            画像証拠
+            通報時点の証拠画像
           </h2>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            現在確認できる画像証拠は{evidence.length}件です。画像自体はこの画面では表示しません。
+            現在確認できる証拠画像は{evidence.length}件です。
           </p>
 
-          {evidence.length > 0 ? (
-            <ol className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
-              {evidence.map((item, index) => (
-                <li
-                  className="min-w-0 rounded-2xl border border-stone-200 bg-stone-50 p-4"
-                  key={item.sortOrder}
-                >
-                  <h3 className="font-bold text-stone-800">
-                    {index + 1}枚目
-                  </h3>
-                  <dl className="mt-3 grid min-w-0 gap-3">
-                    <div className="min-w-0">
-                      <dt className="text-xs font-semibold text-stone-500">
-                        形式
-                      </dt>
-                      <dd className="mt-1 text-sm font-semibold text-stone-800">
-                        {mimeTypeLabels[item.mimeType]}
-                      </dd>
-                    </div>
-                    <div className="min-w-0">
-                      <dt className="text-xs font-semibold text-stone-500">
-                        サイズ
-                      </dt>
-                      <dd className="mt-1 break-words text-sm text-stone-700 [overflow-wrap:anywhere]">
-                        {formatFileSize(item.sizeBytes)}
-                      </dd>
-                    </div>
-                  </dl>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="mt-5 rounded-2xl bg-stone-50 p-5 text-sm leading-6 text-stone-600">
-              現在確認できる画像証拠の記録はありません。
-            </p>
-          )}
+          <AdminReportEvidenceGallery
+            evidence={evidence}
+            reportId={reportId.toLowerCase()}
+          />
         </section>
       </div>
     </section>
