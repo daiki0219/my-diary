@@ -199,6 +199,12 @@ export default async function AdminReportsPage({
           <p className="mt-3 text-sm leading-6 text-stone-600">
             状態ごとに通報を確認できます。この画面では内容の変更は行いません。
           </p>
+          <Link
+            className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-orange-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 sm:w-auto"
+            href="/admin/maintenance"
+          >
+            メンテナンスを確認
+          </Link>
         </div>
 
         <nav
