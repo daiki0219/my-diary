@@ -10,8 +10,10 @@ import {
   type AdminSessionState,
 } from "@/lib/supabase/admin-session";
 import { createClient } from "@/lib/supabase/server";
+import { parseExchangeEntryImageStoragePath } from "@/lib/exchange-entry-image-input";
 
 export const ADMIN_EVIDENCE_PURGE_BATCH_SIZE = 10;
+export const ADMIN_EXCHANGE_IMAGE_CLEANUP_BATCH_SIZE = 10;
 
 const SUMMARY_KEYS = [
   "due_confirmed_cleanup_candidate_count",
@@ -58,6 +60,10 @@ export type DueReportEvidenceCandidate = {
 export type DueReportEvidenceCandidateResult =
   | { kind: "success"; candidates: DueReportEvidenceCandidate[] }
   | { kind: "error" };
+
+export type DueExchangeImageCleanupCandidateResult =
+  | { kind: "success"; storagePaths: string[] }
+  | { kind: "unavailable" | "failed" | "unknown" };
 
 function hasExactKeys(value: object, expectedKeys: readonly string[]) {
   const keys = Object.keys(value);
@@ -166,6 +172,84 @@ export async function getAdminMaintenanceSummary(): Promise<AdminMaintenanceSumm
   }
 
   return loadAdminMaintenanceSummary(supabase);
+}
+
+function parseDueExchangeImageStoragePaths(value: unknown): string[] | null {
+  if (
+    !Array.isArray(value) ||
+    value.length > ADMIN_EXCHANGE_IMAGE_CLEANUP_BATCH_SIZE
+  ) {
+    return null;
+  }
+
+  const storagePaths: string[] = [];
+  const seenStoragePaths = new Set<string>();
+
+  for (const storagePath of value) {
+    if (
+      typeof storagePath !== "string" ||
+      !parseExchangeEntryImageStoragePath(storagePath) ||
+      seenStoragePaths.has(storagePath)
+    ) {
+      return null;
+    }
+
+    seenStoragePaths.add(storagePath);
+    storagePaths.push(storagePath);
+  }
+
+  return storagePaths;
+}
+
+async function listDueExchangeImageStoragePaths(
+  supabase: SupabaseClient,
+  rpcName:
+    | "my_diary_list_due_exchange_image_cleanup_candidates"
+    | "my_diary_list_due_unconfirmed_exchange_image_orphans",
+): Promise<DueExchangeImageCleanupCandidateResult> {
+  let result;
+
+  try {
+    result = await supabase.rpc(rpcName, {
+      p_limit: ADMIN_EXCHANGE_IMAGE_CLEANUP_BATCH_SIZE,
+    });
+  } catch {
+    return { kind: "unknown" };
+  }
+
+  if (result.error) {
+    if (result.status === 0) {
+      return { kind: "unknown" };
+    }
+
+    return {
+      kind: result.error.code === "42501" ? "unavailable" : "failed",
+    };
+  }
+
+  const storagePaths = parseDueExchangeImageStoragePaths(result.data);
+
+  return storagePaths
+    ? { kind: "success", storagePaths }
+    : { kind: "unknown" };
+}
+
+export function listDueConfirmedExchangeImageCleanupCandidates(
+  supabase: SupabaseClient,
+) {
+  return listDueExchangeImageStoragePaths(
+    supabase,
+    "my_diary_list_due_exchange_image_cleanup_candidates",
+  );
+}
+
+export function listDueUnconfirmedExchangeImageOrphans(
+  supabase: SupabaseClient,
+) {
+  return listDueExchangeImageStoragePaths(
+    supabase,
+    "my_diary_list_due_unconfirmed_exchange_image_orphans",
+  );
 }
 
 function parseCandidateRelation(

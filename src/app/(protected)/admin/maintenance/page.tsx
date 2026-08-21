@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { AdminMaintenanceConfirmedImageCleanup } from "@/components/admin/admin-maintenance-confirmed-image-cleanup";
 import { AdminMaintenanceEvidencePurge } from "@/components/admin/admin-maintenance-evidence-purge";
+import { AdminMaintenanceOrphanImageCleanup } from "@/components/admin/admin-maintenance-orphan-image-cleanup";
 import {
   ADMIN_EVIDENCE_PURGE_BATCH_SIZE,
+  ADMIN_EXCHANGE_IMAGE_CLEANUP_BATCH_SIZE,
   getAdminMaintenanceSummary,
 } from "@/lib/admin-maintenance-data";
 
@@ -15,6 +18,12 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeStyle: "short",
   timeZone: "Asia/Tokyo",
 });
+
+function formatDueLabel(value: string | null) {
+  return value
+    ? `${dateFormatter.format(new Date(value))}（日本時間）`
+    : null;
+}
 
 function NeutralPageFailure() {
   return (
@@ -56,10 +65,10 @@ export default async function AdminMaintenancePage() {
   }
 
   const summary = result.kind === "success" ? result.summary : null;
-  const oldestDueAt = summary?.oldestReportEvidenceDueAt ?? null;
-  const oldestDueLabel = oldestDueAt
-    ? `${dateFormatter.format(new Date(oldestDueAt))}（日本時間）`
-    : null;
+  const oldestConfirmedDueAt =
+    summary?.oldestConfirmedCleanupDueAt ?? null;
+  const oldestOrphanDueAt = summary?.oldestUnconfirmedOrphanDueAt ?? null;
+  const oldestEvidenceDueAt = summary?.oldestReportEvidenceDueAt ?? null;
 
   return (
     <section className="flex min-w-0 flex-1 px-4 py-8 sm:px-8 sm:py-10">
@@ -77,15 +86,27 @@ export default async function AdminMaintenancePage() {
             メンテナンス
           </h1>
           <p className="mt-3 text-sm leading-6 text-stone-600">
-            保持期限を過ぎた通報証拠を、現在の権限と状態を再確認して手動で処理します。
+            保持期限を過ぎた交換日記画像と通報証拠を、現在の権限と状態を再確認して手動で処理します。
           </p>
         </div>
 
+        <AdminMaintenanceConfirmedImageCleanup
+          batchSize={ADMIN_EXCHANGE_IMAGE_CLEANUP_BATCH_SIZE}
+          dueCount={summary?.dueConfirmedCleanupCandidateCount ?? null}
+          oldestDueAt={oldestConfirmedDueAt}
+          oldestDueLabel={formatDueLabel(oldestConfirmedDueAt)}
+        />
+        <AdminMaintenanceOrphanImageCleanup
+          batchSize={ADMIN_EXCHANGE_IMAGE_CLEANUP_BATCH_SIZE}
+          dueCount={summary?.dueUnconfirmedOrphanCount ?? null}
+          oldestDueAt={oldestOrphanDueAt}
+          oldestDueLabel={formatDueLabel(oldestOrphanDueAt)}
+        />
         <AdminMaintenanceEvidencePurge
           batchSize={ADMIN_EVIDENCE_PURGE_BATCH_SIZE}
           dueCount={summary?.dueReportEvidenceCount ?? null}
-          oldestDueAt={oldestDueAt}
-          oldestDueLabel={oldestDueLabel}
+          oldestDueAt={oldestEvidenceDueAt}
+          oldestDueLabel={formatDueLabel(oldestEvidenceDueAt)}
         />
       </div>
     </section>
