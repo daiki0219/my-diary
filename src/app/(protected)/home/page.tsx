@@ -8,6 +8,11 @@ import { TimelinePostCard } from "@/components/posts/timeline-post-card";
 import { ActionLink, Button } from "@/components/ui/actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { Pagination, PaginationLink } from "@/components/ui/pagination";
+import {
+  SegmentedNav,
+  SegmentedNavLink,
+} from "@/components/ui/segmented-nav";
 import { Surface } from "@/components/ui/surface";
 import {
   getTimelinePosts,
@@ -171,33 +176,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </Link>
         </Surface>
 
-        <nav
-          aria-label="タイムラインの種類"
-          className="mt-5 grid grid-cols-2 gap-1 rounded-control bg-surface-muted p-1"
-        >
-          <Link
-            aria-current={feed === "following" ? "page" : undefined}
-            className={`min-w-0 rounded-xl px-3 py-2.5 text-center text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
-              feed === "following"
-                ? "bg-surface-elevated text-brand-primary-hover shadow-surface"
-                : "text-text-secondary hover:bg-surface-elevated/70 hover:text-text-primary"
-            }`}
+        <SegmentedNav aria-label="タイムラインの種類" className="mt-5">
+          <SegmentedNavLink
             href="/home?feed=following"
+            isCurrent={feed === "following"}
           >
             フォロー中
-          </Link>
-          <Link
-            aria-current={feed === "latest" ? "page" : undefined}
-            className={`min-w-0 rounded-xl px-3 py-2.5 text-center text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
-              feed === "latest"
-                ? "bg-surface-elevated text-brand-primary-hover shadow-surface"
-                : "text-text-secondary hover:bg-surface-elevated/70 hover:text-text-primary"
-            }`}
+          </SegmentedNavLink>
+          <SegmentedNavLink
             href="/home?feed=latest"
+            isCurrent={feed === "latest"}
           >
             最新投稿
-          </Link>
-        </nav>
+          </SegmentedNavLink>
+        </SegmentedNav>
         <p className="mt-3 text-sm leading-6 text-stone-600">
           {currentFeedContent.description}
         </p>
@@ -231,14 +223,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               ))}
             </ul>
             {nextCursor && (
-              <nav aria-label="タイムラインのページ移動" className="mt-6">
-                <Link
-                  className="flex min-h-11 w-full items-center justify-center rounded-full border border-orange-300 bg-orange-50 px-5 py-3 text-center font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              <Pagination
+                aria-label="タイムラインのページ移動"
+                className="mt-6"
+              >
+                <PaginationLink
+                  className="w-full"
                   href={`/home?feed=${feed}&cursor=${encodeURIComponent(nextCursor)}`}
                 >
-                  次の投稿を見る →
-                </Link>
-              </nav>
+                  <span>次の投稿を見る</span>
+                  <span aria-hidden="true">→</span>
+                </PaginationLink>
+              </Pagination>
             )}
             {!nextCursor && cursor && (
               <p className="mt-6 text-center text-sm text-stone-500">
