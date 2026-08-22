@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { updatePasswordFromRecovery } from "@/app/auth/actions";
 import { PasswordUpdateForm } from "@/components/auth/password-update-form";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import {
   canUpdatePasswordFromRecovery,
   getAuthSessionContext,
@@ -37,12 +38,9 @@ export default async function ResetPasswordPage() {
           </>
         ) : (
           <div className="mt-6 space-y-5">
-            <p
-              className="break-words rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
-              role="alert"
-            >
+            <FeedbackPanel role="alert" variant="error">
               パスワード再設定のリンクを確認できませんでした。リンクの期限が切れているか、すでに使用されている可能性があります。
-            </p>
+            </FeedbackPanel>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 className="rounded-full bg-orange-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"

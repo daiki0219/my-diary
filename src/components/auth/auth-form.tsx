@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 
 import type { AuthActionState } from "@/app/auth/actions";
 import { Button } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { FormInput } from "@/components/ui/form-controls";
 
 type AuthFormProps = {
@@ -92,13 +93,13 @@ export function AuthForm({ action, mode }: AuthFormProps) {
       </div>
 
       {state.error && (
-        <p
+        <FeedbackPanel
           aria-live="polite"
-          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
           role="alert"
+          variant="error"
         >
           {state.error}
-        </p>
+        </FeedbackPanel>
       )}
 
       <SubmitButton label={isLogin ? "ログイン" : "新規登録"} />

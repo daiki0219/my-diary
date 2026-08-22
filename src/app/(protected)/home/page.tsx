@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { logout } from "@/app/auth/actions";
 import { TimelinePostCard } from "@/components/posts/timeline-post-card";
 import { ActionLink, Button } from "@/components/ui/actions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { Surface } from "@/components/ui/surface";
 import {
   getTimelinePosts,
@@ -200,26 +203,24 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </p>
 
         {params.error === "logout-failed" && (
-          <p
-            className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          <FeedbackPanel
+            className="mt-5"
             role="alert"
+            variant="error"
           >
             ログアウトに失敗しました。時間をおいてもう一度お試しください。
-          </p>
+          </FeedbackPanel>
         )}
 
         {postsError ? (
-          <div
-            className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5"
+          <FeedbackPanel
+            className="mt-5"
             role="alert"
+            title="タイムラインを読み込めませんでした"
+            variant="error"
           >
-            <h2 className="font-semibold text-stone-800">
-              タイムラインを読み込めませんでした
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-red-700">
-              時間をおいて、もう一度お試しください。
-            </p>
-          </div>
+            時間をおいて、もう一度お試しください。
+          </FeedbackPanel>
         ) : posts && posts.length > 0 ? (
           <>
             <ul aria-label="タイムラインの投稿" className="mt-5 space-y-4">
@@ -246,35 +247,37 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             )}
           </>
         ) : cursor ? (
-          <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-            <h2 className="text-lg font-bold text-stone-800">
-              現在表示できる投稿はありません
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-stone-500">
-              フォロー関係や公開範囲が変更された可能性があります。
-            </p>
-            <Link
-              className="mt-5 inline-flex rounded-full border border-orange-300 bg-orange-50 px-5 py-3 font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-              href={`/home?feed=${feed}`}
-            >
-              最初のページへ戻る
-            </Link>
-          </div>
+          <EmptyState
+            action={
+              <ActionLink href={`/home?feed=${feed}`} variant="neutral">
+                最初のページへ戻る
+              </ActionLink>
+            }
+            className="mt-5"
+            description="フォロー関係や公開範囲が変更された可能性があります。"
+            title="現在表示できる投稿はありません"
+          />
         ) : (
-          <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-            <h2 className="text-lg font-bold text-stone-800">
-              {currentFeedContent.emptyTitle}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-stone-500">
-              {currentFeedContent.emptyDescription}
-            </p>
-            <Link
-              className="mt-5 inline-flex rounded-full border border-orange-300 bg-orange-50 px-5 py-3 font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-              href="/posts/new"
-            >
-              日記を書く
-            </Link>
-          </div>
+          <EmptyState
+            action={
+              <ActionLink href="/posts/new" variant="secondary">
+                日記を書く
+              </ActionLink>
+            }
+            className="mt-5"
+            decoration={
+              <Image
+                alt=""
+                aria-hidden="true"
+                className="mx-auto h-auto w-14 opacity-70"
+                height={60}
+                src="/images/brand/diary-sprig.png"
+                width={56}
+              />
+            }
+            description={currentFeedContent.emptyDescription}
+            title={currentFeedContent.emptyTitle}
+          />
         )}
 
         <form action={logout} className="mt-8">

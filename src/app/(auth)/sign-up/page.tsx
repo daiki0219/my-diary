@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { signUp } from "@/app/auth/actions";
 import { AuthForm } from "@/components/auth/auth-form";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { Surface } from "@/components/ui/surface";
 import { createClient } from "@/lib/supabase/server";
 
@@ -39,12 +40,13 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
         </p>
 
         {shouldCheckEmail && (
-          <p
+          <FeedbackPanel
             aria-live="polite"
-            className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm leading-6 text-green-800"
+            className="mt-5"
+            variant="success"
           >
             確認メールを送信しました。メール内のリンクを開いて登録を完了してください。
-          </p>
+          </FeedbackPanel>
         )}
 
         <AuthForm action={signUp} mode="sign-up" />

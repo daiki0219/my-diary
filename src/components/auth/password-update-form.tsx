@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { PasswordUpdateActionState } from "@/app/auth/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REQUIREMENTS_MESSAGE,
@@ -95,13 +96,13 @@ export function PasswordUpdateForm({ action }: PasswordUpdateFormProps) {
       </div>
 
       {state.error && (
-        <p
-          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+        <FeedbackPanel
           id="reset-password-error"
           role="alert"
+          variant="error"
         >
           {state.error}
-        </p>
+        </FeedbackPanel>
       )}
 
       <SubmitButton />

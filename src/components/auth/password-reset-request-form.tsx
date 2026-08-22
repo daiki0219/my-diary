@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { PasswordResetRequestActionState } from "@/app/auth/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 
 type PasswordResetRequestFormProps = {
   action: (
@@ -72,22 +73,19 @@ export function PasswordResetRequestForm({
       </div>
 
       {state.error && (
-        <p
-          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+        <FeedbackPanel
           id="forgot-password-email-error"
           role="alert"
+          variant="error"
         >
           {state.error}
-        </p>
+        </FeedbackPanel>
       )}
 
       {state.success && (
-        <p
-          className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm leading-6 text-green-800"
-          role="status"
-        >
+        <FeedbackPanel role="status" variant="success">
           入力されたメールアドレスが登録されている場合、パスワード再設定の案内を送信します。
-        </p>
+        </FeedbackPanel>
       )}
 
       <SubmitButton />

@@ -18,6 +18,7 @@ import {
 } from "@/app/(protected)/posts/actions";
 import { TagInput } from "@/components/posts/tag-input";
 import { ActionLink, Button } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import {
   FormInput,
   FormSelect,
@@ -361,13 +362,13 @@ export function PostForm() {
     <form action={formAction}>
       <fieldset className="min-w-0 space-y-6" disabled={isPending}>
       {state.error && (
-        <p
+        <FeedbackPanel
           aria-live="polite"
-          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
           role="alert"
+          variant="error"
         >
           {state.error}
-        </p>
+        </FeedbackPanel>
       )}
 
       <div>

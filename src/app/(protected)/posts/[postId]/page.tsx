@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { CommentForm } from "@/components/posts/comment-form";
 import { CommentList } from "@/components/posts/comment-list";
 import { PostDetail } from "@/components/posts/post-detail";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { getCommentsForPost } from "@/lib/comment-data";
 import { getPostDetail } from "@/lib/post-data";
 import { isUuid } from "@/lib/profile-data";
@@ -54,12 +55,13 @@ export default async function PostDetailPage({
   if (result.status === "error") {
     return (
       <section className="flex flex-1 items-center px-4 py-10 sm:px-8">
-        <p
-          className="mx-auto w-full max-w-lg rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+        <FeedbackPanel
+          className="mx-auto w-full max-w-lg"
           role="alert"
+          variant="error"
         >
           日記を読み込めませんでした。時間をおいてもう一度お試しください。
-        </p>
+        </FeedbackPanel>
       </section>
     );
   }
@@ -82,20 +84,14 @@ export default async function PostDetailPage({
     <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
       <div className="mx-auto w-full max-w-lg">
         {query.status === "updated" && (
-          <p
-            className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800"
-            role="status"
-          >
+          <FeedbackPanel className="mb-5" role="status" variant="success">
             投稿を更新しました。
-          </p>
+          </FeedbackPanel>
         )}
         {query.status === "updated" && query.imageCleanup === "partial" && (
-          <p
-            className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"
-            role="status"
-          >
+          <FeedbackPanel className="mb-5" role="status" variant="warning">
             投稿内容は保存済みですが、不要になった一部の画像を整理できませんでした。
-          </p>
+          </FeedbackPanel>
         )}
         <PostDetail
           canEditPost={canEditPost}

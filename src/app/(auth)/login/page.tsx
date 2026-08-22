@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { login } from "@/app/auth/actions";
 import { AuthForm } from "@/components/auth/auth-form";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { Surface } from "@/components/ui/surface";
 import {
   ACCOUNT_CHECK_FAILED_ERROR,
@@ -57,22 +58,24 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </p>
 
         {statusMessage && (
-          <p
+          <FeedbackPanel
             aria-live="polite"
-            className="mt-5 rounded-2xl bg-stone-100 px-4 py-3 text-sm leading-6 text-stone-700"
+            className="mt-5"
             role="status"
+            variant="neutral"
           >
             {statusMessage}
-          </p>
+          </FeedbackPanel>
         )}
 
         {errorMessage && (
-          <p
-            className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+          <FeedbackPanel
+            className="mt-5"
             role="alert"
+            variant="error"
           >
             {errorMessage}
-          </p>
+          </FeedbackPanel>
         )}
 
         <AuthForm action={login} mode="login" />
