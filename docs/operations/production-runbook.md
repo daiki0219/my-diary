@@ -11,6 +11,8 @@
 - Release判定: [`web-release-checklist.md`](../release/web-release-checklist.md)
 - Hosting platform: Netlify。実際のproduction site / team / deploy設定は公開前に確認する。
 - Backend: Supabase。実際のproject、Auth、Database、Storage設定は公開前に確認する。
+- linked `my-diary-dev`はdevelopment remoteであり、production Supabase projectではない。
+- production Supabase project、Netlify site / team、production branch mapping、NetlifyからSupabaseへのmapping、production active-adminは`NOT YET VERIFIED`である。
 
 ## 2. Roles and approvals
 
@@ -84,6 +86,26 @@ Netlifyの具体的なproject操作・権限・deploy方式はproduction設定�
 
 ## 8. Production smoke / E2E
 
+### 8.1 Development remote smokeとの責務分離
+
+Maintenance-4のcontrolled development remote smokeは、linked `my-diary-dev`でauthenticated admin path、Storage RLS、server-side candidate selection、cleanup action、remaining / reloadを確認する。現時点では`NOT YET VERIFIED`であり、このdocs-only Phaseでは実行しない。
+
+development smokeではconfirmed 1 objectとorphan 1 objectだけを扱い、通常Application / authenticated publishable clientでfixtureを準備して実際に7日 / 24時間待つ。Service Role、Auth Admin API、privileged SQL timestamp rewrite、migrationによるdue化、production user dataは使わない。development smokeの成功をproduction wiringの確認済みとは扱わない。
+
+### 8.2 Production E2E
+
+production deploy後、次のproduction mappingとruntime境界を実測する。
+
+- [ ] production Netlify site / team / branch mapping
+- [ ] production Supabase projectとNetlify environmentのmapping
+- [ ] actual production domain / HTTPS
+- [ ] production cookie / session
+- [ ] production active-admin
+- [ ] production Storage configuration / RLS
+- [ ] `/admin/reports`、exact evidence Routeの認可smoke
+- [ ] `/admin/maintenance`へactive-adminだけが到達でき、summary、zero state、confirmation、reloadを非破壊で確認できる
+- [ ] physical cleanupがproduction確認に必要な場合だけ、別途承認された専用fixture 1件以下で実施し、既存production dataを対象にしない
+
 - [ ] sign-up / email confirmation
 - [ ] login / logout / session refresh
 - [ ] password recovery
@@ -95,9 +117,19 @@ Netlifyの具体的なproject操作・権限・deploy方式はproduction設定�
 - [ ] third party / non-active / malformed inputのfail-closed
 - [ ] §20.5のlogging privacy
 
-production dataを破壊するfixtureや特権操作は、別途承認された安全なtest計画なしに実行しない。
+production maintenance smokeの標準範囲はroute / authorization / summary / zero state / confirmation / reloadの非破壊確認とする。physical cleanupは別途承認された専用fixture計画がある場合だけ実行し、既存production data、Service Role、Auth Admin API、privileged timestamp rewriteを使用しない。
 
-## 9. Logs / monitoring / incident
+## 9. Manual maintenance handoff
+
+初回productionのmaintenanceは、active-admin humanが`/admin/maintenance`から1日1回実行する。Netlify Scheduled Functions、Supabase Cron、machine principal、Service Role、Auth Admin APIは使用しない。対象選択はserver-side、実行principalは同じauthenticated admin、最終認可はRLS / Storage RLSである。
+
+通常sign-upはadminを作成しない。production公開前にapproved active-adminが既に存在し、本人が通常loginできることを確認する。adminを準備できない場合はmaintenanceを迂回せず、Production Readiness / Operations Handoffを未完了としてreleaseを停止する。
+
+標準順は`Evidence → Confirmed → Orphan`。各categoryは最大10件 / runで、追加runを同日継続できるのはoutcomeが`success`かつremainingが0より大きい場合だけである。その場合もfull reloadし、current summaryを確認してから新しいrunを実行する。`partial`、`changed`、`unavailable`、explicit failure、`unknown`、summary failure、authorization failureはremainingがあってもこのmulti-run ruleを適用せず、outcome別retry、COI、record、escalation、stop conditionを含めて[`maintenance-runbook.md`](maintenance-runbook.md)の個別handling ruleに従う。特に`partial`は同日retryせず、affected categoryを停止して調査する。
+
+daily manual backlog checkを初回公開のprimary detection mechanismとし、external monitoringとmaintenance history DB tableは必須化しない。operator recordへはenvironment、date / time、category、before / after count、outcome、follow-upだけを残し、ID、path、本文、evidence、raw error、secretを残さない。
+
+## 10. Logs / monitoring / incident
 
 - [ ] Netlify access / function logの取得範囲とretentionを確認した
 - [ ] Supabase Auth / Database / Storage logの確認方法と権限を確認した
@@ -105,7 +137,7 @@ production dataを破壊するfixtureや特権操作は、別途承認された�
 - [ ] health、5xx、Auth、upload、maintenance failureの監視方法を決定した
 - [ ] incident severity、初動、連絡、記録、外部確認の流れを決定した
 
-## 10. Rollback
+## 11. Rollback
 
 - Rollback条件: `DECISION REQUIRED`
 - Rollback実行者: `DECISION REQUIRED`
@@ -114,7 +146,7 @@ production dataを破壊するfixtureや特権操作は、別途承認された�
 
 DBを破壊的に戻すことを通常rollbackとしない。既存commitの改変、force push、無断migration repair / resetを行わない。
 
-## 11. Closeout
+## 12. Closeout
 
 - [ ] Web release checklistへ証拠と結果を反映した
 - [ ] 未完了項目とrisk acceptanceを記録した

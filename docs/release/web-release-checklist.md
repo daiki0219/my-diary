@@ -27,9 +27,9 @@
 - [x] E3f-2 Exchange entry report UIを完了・確認した
 - [x] E3f-3 Exchange user-report scope hardeningを完了・確認した
 - [x] E3f-4 Exchange counterpart report UIを完了・確認した
-- [ ] admin report queueを実装し、security reviewと回帰確認を完了した
-- [ ] moderator exact-evidence経路を実装し、security reviewと回帰確認を完了した
-- [ ] maintenance実行経路を実装し、security reviewと回帰確認を完了した
+- [x] active-admin専用の`/admin/reports` queueと`/admin/reports/[reportId]` detail / status mutationを実装し、COI・RLS境界を確認した
+- [x] moderator exact-evidence Route `/admin/reports/[reportId]/evidence/[evidenceId]`とevidence galleryを実装し、whole-diary accessを付与しない境界を確認した
+- [x] `/admin/maintenance`へbacklog summary、manual evidence purge、manual confirmed image cleanup、manual orphan cleanupを実装し、server-side target selectionとRLS / Storage RLS境界を確認した
 - [ ] OAuth、avatar、pagination、settings等のdeferred itemを明示した
 - [ ] account完全削除とglobal user blockがWeb公開後roadmapであることをrelease判断へ反映した
 
@@ -85,6 +85,8 @@
 
 ## 6. Production
 
+- [ ] production Supabase project、Netlify site / team、production branch mapping、NetlifyからSupabaseへのmappingを確認した
+- [ ] production active-adminとmaintenance ownerを確認した
 - [ ] production domainとHTTPSを確認した
 - [ ] production environment variable名・設定先・責任者を確認した
 - [ ] Auth Site URL / Redirect URLs / callbackを確認した
@@ -92,6 +94,8 @@
 - [ ] recovery callback初回表示とexpired recovery linkを確認した
 - [ ] HTTPS上のsession / Cookie挙動を確認した
 - [ ] private Storage accessとraw path非露出を確認した
+- [ ] production active-adminで`/admin/maintenance`のroute / summary / zero state / confirmation / reloadを非破壊で確認した
+- [ ] production physical cleanupを確認する場合、既存dataを使わない別途承認済みfixture計画と結果を記録した
 - [ ] production buildとdeployを確認した
 - [ ] sign-up、login、logout、recovery、visibility、Storage、Exchange、Exchange限定report / moderationのproduction E2Eを確認した
 - [ ] §20.5のlogging privacyをproductionでも満たす
@@ -101,12 +105,15 @@
 ## 7. Operations
 
 - [ ] production release / rollback判断がrunbook化されている
-- [ ] maintenance実行経路と権限境界が確認されている
-- [ ] cadence、retry、failure handling、backlog monitoringが決定されている
+- [x] maintenance実行経路と権限境界がrunbook化されている
+- [x] manual daily cadence、`Evidence → Confirmed → Orphan`、最大10件 / run、multi-run、retry、unknown、backlog monitoringが決定されている
+- [x] Primary operatorをactive-admin humanとし、COI / 48時間不在時の独立backup方針を決定した
+- [ ] Operations handoffのowner確認と最終verificationを完了した
+- [ ] linked `my-diary-dev`でcontrolled development remote Storage smokeを完了した（現在`NOT YET VERIFIED`）
 - [ ] incident escalationと連絡先が決定されている
 - [ ] moderationとtakedownの運用が決定されている
-- [ ] retention / purge運用が決定されている
-- [ ] report row / reason / detailsの長期retention判断を記録した
+- [x] Exchange image / report evidenceの24時間・7日・30日をminimum eligibilityとしてmanual retention / purge運用を決定した
+- [ ] report row / reason / detailsの長期retention判断を完了した（`DECISION REQUIRED BEFORE PUBLIC RELEASE`）
 
 詳細は[`maintenance-runbook.md`](../operations/maintenance-runbook.md)を参照する。
 

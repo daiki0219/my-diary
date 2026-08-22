@@ -1,103 +1,151 @@
 # Maintenance runbook
 
 > [!IMPORTANT]
-> この文書はmaintenance運用の骨格です。現在、Applicationからのtrusted maintenance実行経路は未実装であり、`NOT YET OPERATIONAL`です。
-> 存在しないcommandや未確認の権限経路を推測して実行しません。
+> 初回公開時のmaintenanceは、active-adminの人間が`/admin/maintenance`から1日1回実行するmanual operationです。
+> これは実装漏れではなく、初回productionで採用する運用設計です。対象選択はserver-sideで行い、同じauthenticated principalに対するRLS / Storage RLSを最終認可境界とします。
 
-## 1. Security boundary
+## 1. Architectureと禁止事項
 
-- maintenanceは通常userのApplication権限から分離する。
-- active admin等の既存trusted境界、RLS、ACL、Storage policy、RPC内の再検証を迂回しない。
-- Service Role、Auth Admin API、Dashboard直操作を、このrunbookだけを根拠に使用しない。
-- report moderationではtarget / reporter本人のadminを除外し、whole-diary accessを付与しない。
-- destructive cleanupは対象、grace / retention、reference、lock、結果を確認してから行う。
+- Primary operator: daily maintenanceを担当するapproved active-admin human。
+- Application path: `/admin/maintenance`。
+- ApplicationはClientからreport ID、Storage path、user ID等を受け取らず、対象をserver-sideで選択する。
+- Server Actionはoperatorと同じauthenticated Supabase principalを使用し、DB / Storageのactive-admin、COI、reference protectionを迂回しない。
+- Netlify Scheduled Functions、Supabase Cron、machine principal、Service Role、Auth Admin APIは使用しない。
+- Dashboard直操作、手動SQL、credential共有、同一人物の別accountによるCOI迂回を標準手順にしない。
+- external monitoringとmaintenance history DB tableは初回公開の必須条件にしない。daily manual backlog checkをprimary detection mechanismとする。
 
-## 2. 現在確定しているlifecycle
+毎回の開始前に、対象environment / projectを識別できること、current sessionがapproved active-adminであること、summaryを取得できること、active incidentやmigration作業と競合しないことを確認する。通常sign-upはadminを作成しないため、approved active-adminが存在しないenvironmentでは実行せず、production / operations ownerへescalateする。
 
-| 対象 | 既存semantics | 備考 |
-| --- | --- | --- |
-| never-confirmed Exchange image orphan | Storage `created_at`基準で24時間後 | live metadata、confirmed candidate、report snapshot evidenceを除外 |
-| confirmed removed Exchange image | relation解除後7日 | 通常participantから即不可視、trusted cleanup対象 |
-| terminal report evidence | 実際の`resolved` / `dismissed`遷移後30日 | snapshot本文・tag・image metadata・underlying evidence bytesが対象 |
+## 2. Retentionの読み方
 
-次は同じ30日へ合わせない。
+24時間、7日、30日は、削除・purge可能になる最短時刻であり、exact automatic deletion deadlineではない。通常は期限到達後の次回daily maintenanceで処理する。incident、unknown outcome、別reference、COI、その他のfail-closedな保護により、追加保持される場合がある。
 
-- report row
-- reason
-- details
+| category | eligibility | 1 runの上限 | action |
+| --- | --- | ---: | --- |
+| Report evidence | reportが実際に`resolved` / `dismissed`へ遷移してから30日 | 10 reports | snapshot rowとsnapshot image relationをatomic RPCでpurgeする。report rowとStorage physical bytesは削除しない |
+| Confirmed removed Exchange image | live relation解除後7日 | 10 objects | 1 pathずつStorage DELETEし、completion RPCでcandidateを完了する。relation解除後はparticipantから即不可視 |
+| Never-confirmed orphan | upload後、metadataへconfirmされないまま24時間 | 10 objects | 1 pathずつStorage DELETEする。live metadata、confirmed candidate、report evidence referenceは対象外 |
 
-これらの長期retentionは`DECISION REQUIRED`であり、Legal / Privacy reviewとOperations判断で決定する。
+report row、reason、details、status、resolved_at等の長期retentionはevidenceの30日へ合わせない。retention purpose、期間、削除申出との関係、incident / legal hold、moderation recordとして必要なminimum dataは`DECISION REQUIRED BEFORE PUBLIC RELEASE`である。
 
-## 3. Trusted execution path
+## 3. Daily cadenceと実行順
 
-- Application実行経路: `NOT YET IMPLEMENTED`
-- 実行主体・権限: `DECISION REQUIRED`
-- 呼び出す既存RPC / functionとexact signature: 実装Phaseでrepository・catalogを確認して記録する
-- dry-run / listing方法: `DECISION REQUIRED`
-- 実行結果とaudit記録の保存先: `DECISION REQUIRED`
+標準cadenceは1日1回。開始時に3 categoryの`due count`と`oldest due at`を確認する。標準実行順は次のとおり。
 
-実行経路の実装・security review・回帰確認が完了するまで、手動SQLや推測したcommandで代替しない。
+1. Evidence
+2. Confirmed
+3. Orphan
 
-## 4. Cadence
+Evidenceを先にpurgeすると、そのevidence relationだけに保護されていたStorage objectが既存Exchange cleanup lifecycleへ収束できる。ただしevidence purge自体はphysical DELETEではない。confirmed candidateの7日未到達、live relation、別report evidence等が残るobjectは削除されない。
 
-| 対象 | cadence | owner |
-| --- | --- | --- |
-| never-confirmed orphan確認 | DECISION REQUIRED | DECISION REQUIRED |
-| confirmed cleanup candidate | DECISION REQUIRED | DECISION REQUIRED |
-| terminal evidence purge | DECISION REQUIRED | DECISION REQUIRED |
-| cleanup backlog / completion監視 | DECISION REQUIRED | DECISION REQUIRED |
-| report / moderation queue | DECISION REQUIRED | DECISION REQUIRED |
+現在のUI表示順は`Confirmed → Orphan → Evidence`で、標準運用順と異なる。この既知のLOW operational riskは、本runbookに従って`Evidence → Confirmed → Orphan`の順に操作することで吸収する。UI変更は後続Design Phaseで扱う。
 
-## 5. Preflight for every run
+終了時に各categoryの`remaining`、`oldest`、`outcome`、unknown / failureの有無を確認する。
 
-- [ ] 対象environmentとprojectを確認した
-- [ ] 実行者の権限とconflict-of-interest境界を確認した
-- [ ] 対象categoryとretention thresholdを確認した
-- [ ] listing結果の件数・最古日時・reference除外を確認した
-- [ ] active incident、legal hold、known migration中断がないことを確認した
-- [ ] concurrent create / updateとのlock・race境界を確認した
-- [ ] rollback不能な影響と停止条件を確認した
+## 4. Multi-run rule
 
-## 6. Retry / failure handling
+最大10件は`per run`であり`per day`ではない。success後にremainingが残る場合は、full reloadまたはcurrent summaryの更新を確認してから同categoryを追加runできる。必要run数の目安は`ceil(due count / 10)`だが、固定回数を連打せず、各runの前後にcurrent stateを再評価する。
 
-- automatic retry policy: `DECISION REQUIRED`
-- retry上限・backoff: `DECISION REQUIRED`
-- partial successの記録方法: `DECISION REQUIRED`
-- unknown outcome時の扱い: 通常retryや追加DELETEを停止し、対象と結果を再確認する
-- permission / reference / lock failure: fail-closedとして削除せず記録する
-- repeated failure escalation: `DECISION REQUIRED`
+## 5. Outcome別handling
 
-## 7. Backlog monitoring
+| outcome | operator handling |
+| --- | --- |
+| `success` | remainingを確認し、0より大きければreload後に次run |
+| `empty` | 正常終了。次回dailyまで待つ |
+| `changed` | full reloadし、current backlogを再確認。dueが残る場合だけ新しいrunを最大1回 |
+| `partial` | 完了済み分はrollbackしない。UIではunavailableとfailedを個別判別できないため、reload後にaffected categoryを停止して調査し、同日retryしない |
+| `unavailable` | `partial`に含まれる。UI aggregateから原因を推測せず、連続retryしない |
+| explicit failure / `error` | reload後のcontrolled retryは最大1回。同じfailureならaffected categoryを停止 |
+| `unknown` | §6に従う |
+| summary failure | 全categoryを実行しない。reloadを1回行い、再発ならmaintenance全停止 |
+| authorization failure | 通常loginで再認証する。role変更、Dashboard操作、credential workaroundで迂回しない。継続する場合はmaintenance全停止 |
 
-- [ ] candidate件数とage distributionを確認した
-- [ ] 実行前後の件数と成功・拒否・失敗を記録した
-- [ ] live metadata / evidence除外件数を区別した
-- [ ] grace / retention未到達を失敗扱いしていない
-- [ ] 閾値超過時のalertとownerを決定した
+Applicationではindividual `unavailable` / `failed`が区別されず、aggregateの`partial`として表示される。表示されたaggregate countを用い、個別対象のIDやpathを調べるために境界を迂回しない。
 
-thresholdとalerting methodは`DECISION REQUIRED`である。
+## 6. Unknown outcome
 
-## 8. Evidence purge / Storage cleanup
+1. 即再submitしない。
+2. `selected / processed / reconciled / remaining`等のaggregateだけを記録し、IDやpathは記録しない。
+3. full reloadする。
+4. count、oldest、remainingを再確認する。
+5. backlogが減少または消失している場合、確定済み分を再処理しない。
+6. summary、environment、admin境界が正常でdueが残る場合だけ、新しいrunを1回許可する。
+7. 同categoryで再度unknownになった場合は、そのcategoryを停止してescalateする。
 
-- [ ] reportが実際にterminal stateへ遷移した日時を基準にした
-- [ ] target / reporter本人adminをpurge主体から除外した
-- [ ] 期限前evidenceを削除していない
-- [ ] whole diaryや無関係entryを対象にしていない
-- [ ] same Storage objectへの複数referenceを再評価した
-- [ ] metadataとphysical bytesの結果を区別して記録した
-- [ ] participant向けlive image routeへevidenceを戻していない
+Category固有の扱い：
 
-## 9. Incident escalation
+- Confirmed: Storage DELETE outcomeが不明なとき、ApplicationはDELETEをretryせずcompletion-only reconciliationを試みる。operatorは`processed / reconciled`のaggregateを確認し、即DELETE retryをしない。
+- Evidence: purge RPCはatomic。commit済みなら次回candidateから消え、未commitならdueのまま残る。
+- Orphan: separate ledger / completion RPCはない。reload後のStorage-backed backlogを正とし、残る場合だけ新しいrunで再選択させる。
 
-- severityとowner: `DECISION REQUIRED`
-- cleanup誤対象・data loss疑い: 実行停止、対象保全、incident ownerへ連絡
-- privacy / security疑い: 通常logへ本文やevidenceを転載せず、承認済み経路でescalateする
-- 法令・通知要否: `NEEDS EXTERNAL VERIFICATION`
+## 7. Daily record
 
-## 10. Post-run record
+operator記録には次だけを残す。
 
-- [ ] environment、実行者、開始・終了時刻を記録した
-- [ ] 対象category、threshold、candidate件数を記録した
-- [ ] success / rejected / failed / unknownを分離した
-- [ ] secret、本文、evidence、個人データを通常記録へ含めていない
-- [ ] follow-up ownerと期限を記録した
+- environment
+- date / time
+- category
+- before count
+- after count
+- outcome
+- follow-up
+
+report ID、Storage path、user / entry / diary / evidence ID、日記本文、evidence内容、raw error、credential、tokenは記録しない。
+
+## 8. Monitoring、capacity、escalation
+
+### 即時に全maintenance停止
+
+- project / environmentを判別できない
+- authorization boundaryに異常がある
+- summaryをreload後も取得できない
+- protected / live / evidence objectを削除した疑いがある
+- Browserへinternal ID、Storage path、raw errorが露出した
+- backlogが予期せず急増した
+- active migrationまたはincident対応と競合している
+
+### affected categoryを同日停止・調査
+
+- unknownがreload後の新しいrunでも再発した
+- 同じexplicit failureが2回続いた
+- Storage categoryだけが繰り返し失敗する
+
+daily window内にbacklogをdrainできなかった場合は24時間以内に調査する。oldest dueが48時間以上超過した場合、または同categoryでcountが減らない・oldest dueが前進しない状態が2回のdaily windowで続く場合はincidentとして扱う。
+
+次のいずれかを満たしたらmanual dailyのcapacityを再reviewする。
+
+- 同categoryで3 run以上を2日連続で必要とする
+- 処理後もcountが増加し続ける
+- oldest dueが48時間以上古い
+
+このreviewはautomation導入を自動決定しない。batch capacity、cadence、automation、monitoringを別Phaseで再設計する。
+
+## 9. Owner、backup、COI
+
+- Primary operatorはdaily maintenanceを担当するactive-admin humanとする。個人名は承認済み外部運用記録で管理する。
+- dailyの常時backupは必須ではない。ただしCOIまたは48時間超の不在に備え、独立したapproved active-admin operatorを推奨する。
+- credential共有は禁止する。
+
+Evidence purgeでは、current adminがreporterまたはreported userであるreportはsummary、candidate、purgeから除外される。unrelated active-adminへhandoffする。独立operatorがいない場合は処理せずevidenceを保持し、release / operational decisionへescalateする。Service Roleや同一人物の別accountで迂回しない。
+
+Exchange image cleanupではApplicationがreport COIを推測しない。report evidence relationが残る限りStorage RLSがDELETEを拒否する。operatorはreport内容からeligibilityを判断せず、DB / Storage reference protectionへ委ねる。
+
+## 10. Controlled development remote smoke（未実施）
+
+linked `my-diary-dev`はdevelopment remoteであり、controlled remote Storage smokeは`NOT YET VERIFIED`である。実施には別Phaseの明示許可が必要。
+
+- 通常sign-upではadminにならない。既存のdedicated test accountとapproved active-adminを使い、credentialを共有しない。
+- approved smoke commit、linked project identity、repository / remote migration historyの一致を確認し、対象bucketを`exchange-entry-images`へ限定する。値を推測せず、確認できなければ停止する。
+- fixture ownerとなるdedicated participant accountとmaintenance operatorを区別し、既存production userや本人用accountをfixtureにしない。
+- baselineのrelevant due categoryが0であることを確認する。server-side target selectionのため、既存dueがあればfixtureを狙い撃ちできないので停止する。
+- Confirmedは通常Applicationで画像付きentryを作成し、editでremoveして7日待つ。
+- Orphanは通常authenticated publishable clientでstrict pathへ1 objectだけuploadし、metadataへconfirmせず24時間待つ。
+- evidenceは30日待機が必要でStorage physical DELETEも検証しないため、最小Storage smokeには含めない。
+- remote timestampを書き換えて即due化しない。Service Role、Auth Admin API、privileged SQL、migration、production user dataをfixture accelerationに使わない。
+- remoteでlocalの`12 → 10 → 2`を再現せず、confirmed 1 objectとorphan 1 objectだけを確認する。
+- 各categoryでbaseline `0 → 1`、実行後`remaining 0`を確認し、smoke対象の2 Storage objectが存在しないことをauthenticated経路で確認する。対象objectの残存は成功扱いにしない。
+- 通常UIでsoft delete / archiveできるfixtureは終了時に整理する。特権cleanupなしでは残るAuth / diary等のDB residualはIDや個人情報なしで記録し、Storage objectの必須不存在とは区別する。
+
+## 11. Productionとの分離
+
+development smokeはauthenticated admin path、Storage RLS、candidate selection、cleanup action、remaining / reloadを確認するが、production wiringの証明にはならない。production deploy後はProduction runbookに従い、production Netlify、production Supabase、production cookie / session、production active-admin、production Storage設定、actual domainを明示的に確認する。

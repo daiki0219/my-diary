@@ -59,7 +59,7 @@
 ## 6. User-facing deliverables
 
 - [ ] 利用規約を作成・reviewし、提示箇所を確認した
-- [ ] Privacy Policyを作成・reviewし、提示箇所を確認した
+- [ ] Privacy Policyを作成・reviewし、提示箇所を確認した（`NOT YET COMPLETE / REQUIRED BEFORE RELEASE`）
 - [ ] 問い合わせ手段を決定し、提示箇所と運用担当を確認した
 - [ ] 削除申出の受付方法を決定した
 - [ ] 権利侵害申出・takedownの受付方法を決定した
@@ -80,14 +80,22 @@
 
 ## 8. Retention decisions
 
-既存Exchange lifecycleとして、never-confirmed orphanは24時間、confirmed removed imageは7日、terminal report evidenceは実際のterminal遷移後30日というsemanticsがある。
+既存Exchange lifecycleとして、never-confirmed orphanは24時間、confirmed removed imageは7日、terminal report evidenceは実際のterminal遷移後30日というsemanticsがある。これらは削除・purge可能になる最短時刻であり、automatic deletion deadlineではない。通常は期限到達後の次回daily maintenanceで処理し、incident、unknown outcome、reference protection等により追加保持される場合がある。
 
-次は別対象であり、現在`DECISION REQUIRED`である。
+次は別対象であり、現在`DECISION REQUIRED BEFORE PUBLIC RELEASE`である。Maintenance-2の30日purgeはsnapshot rowとsnapshot image relationを削除し、reports rowとStorage physical bytesは削除しない。referenceが外れたbytesは、他の保護referenceと各eligibilityを再評価したうえでconfirmed / orphan cleanup lifecycleへ収束する。
 
 - report row
 - reason
 - details
-- legal holdまたは通常期限を超える保持の適用条件
+- status / resolved_at等のmoderation record
+
+公開前に次を決定する。
+
+- retention purpose
+- retention period
+- 削除申出との関係
+- incident / legal holdまたは通常期限を超える保持の適用条件
+- moderation recordとして必要なminimum data
 
 ## 9. Completion gate
 

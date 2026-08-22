@@ -812,6 +812,8 @@ entryは通常日記に近い入力体験とし、少なくとも次を扱う。
 - 一度正式にentryへ確定されたremoved imageは、evidence有無にかかわらず通常ユーザーのphysical cleanup結果を同じにし、7日経過後も通常ユーザーへDELETEを再許可しない
 - 重大なsafety案件や法的要件により、将来通常期限を超えて保持できる拡張余地を残す
 
+本節の7日・30日は、削除またはpurge対象になり得る最短時刻であり、exact automatic deletion deadlineではない。通常は期限到達後の次回maintenanceで処理し、incident、unknown outcome、reference protection等により追加保持される場合がある。
+
 ### 7.11.21 運営の閲覧境界
 
 交換日記は通常時、参加者2人だけのprivateな内容とする。
