@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { PostForm } from "@/components/posts/post-form";
+import { Surface } from "@/components/ui/surface";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -27,7 +28,7 @@ export default async function NewPostPage() {
           ← 自分の日記へ戻る
         </Link>
 
-        <div className="mt-5 rounded-card border border-border-subtle bg-surface-elevated p-5 shadow-surface sm:p-7">
+        <Surface className="mt-5 p-5 sm:p-7" variant="elevated">
           <p className="text-sm font-medium text-brand-primary-hover">今日の記録</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text-primary">
             日記を書く
@@ -39,7 +40,7 @@ export default async function NewPostPage() {
           <div className="mt-7">
             <PostForm />
           </div>
-        </div>
+        </Surface>
       </div>
     </section>
   );

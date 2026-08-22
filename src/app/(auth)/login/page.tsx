@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { login } from "@/app/auth/actions";
 import { AuthForm } from "@/components/auth/auth-form";
+import { Surface } from "@/components/ui/surface";
 import {
   ACCOUNT_CHECK_FAILED_ERROR,
   ACCOUNT_UNAVAILABLE_ERROR,
@@ -46,7 +47,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <section className="flex flex-1 items-center px-5 py-10 sm:px-8">
-      <div className="mx-auto w-full max-w-md rounded-card border border-border-subtle bg-surface-elevated p-6 shadow-surface sm:p-8">
+      <Surface className="mx-auto w-full max-w-md p-6 sm:p-8" variant="elevated">
         <p className="text-sm font-medium text-brand-primary-hover">おかえりなさい</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text-primary">
           ログイン
@@ -75,7 +76,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         )}
 
         <AuthForm action={login} mode="login" />
-      </div>
+      </Surface>
     </section>
   );
 }

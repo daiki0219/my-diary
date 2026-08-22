@@ -5,6 +5,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { AuthActionState } from "@/app/auth/actions";
+import { Button } from "@/components/ui/actions";
+import { FormInput } from "@/components/ui/form-controls";
 
 type AuthFormProps = {
   action: (
@@ -18,14 +20,15 @@ function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
 
   return (
-    <button
-      className="w-full rounded-control bg-brand-primary px-5 py-3 font-semibold text-white transition hover:bg-brand-primary-hover disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text"
+    <Button
+      className="w-full"
       aria-disabled={pending}
       disabled={pending}
       type="submit"
+      variant="primary"
     >
       {pending ? "送信中…" : label}
-    </button>
+    </Button>
   );
 }
 
@@ -45,9 +48,8 @@ export function AuthForm({ action, mode }: AuthFormProps) {
         >
           メールアドレス
         </label>
-        <input
+        <FormInput
           autoComplete="email"
-          className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition placeholder:text-text-muted focus:border-focus"
           id={`${mode}-email`}
           inputMode="email"
           name="email"
@@ -64,9 +66,8 @@ export function AuthForm({ action, mode }: AuthFormProps) {
         >
           パスワード
         </label>
-        <input
+        <FormInput
           autoComplete={isLogin ? "current-password" : "new-password"}
-          className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition placeholder:text-text-muted focus:border-focus"
           id={`${mode}-password`}
           minLength={6}
           name="password"

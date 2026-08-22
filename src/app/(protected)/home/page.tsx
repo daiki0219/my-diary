@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 
 import { logout } from "@/app/auth/actions";
 import { TimelinePostCard } from "@/components/posts/timeline-post-card";
+import { ActionLink, Button } from "@/components/ui/actions";
+import { Surface } from "@/components/ui/surface";
 import {
   getTimelinePosts,
   type TimelineFeed,
@@ -87,7 +89,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
       <div className="mx-auto w-full max-w-lg">
-        <div className="rounded-card bg-surface-muted p-5 shadow-surface sm:p-7">
+        <Surface className="p-5 shadow-surface sm:p-7" variant="muted">
           <p className="text-sm font-medium text-brand-primary-hover">
             みんなの新しい記録
           </p>
@@ -98,18 +100,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             あなたが閲覧できる日記を、新しい順に表示します。
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <Link
-              className="rounded-control bg-brand-primary px-5 py-3 text-center font-semibold text-white transition hover:bg-brand-primary-hover"
+            <ActionLink
               href="/posts/new"
+              variant="primary"
             >
               日記を書く
-            </Link>
-            <Link
-              className="rounded-control border border-border-subtle bg-surface-elevated px-5 py-3 text-center font-semibold text-brand-primary-hover transition hover:bg-brand-soft"
+            </ActionLink>
+            <ActionLink
               href="/profile/posts"
+              variant="secondary"
             >
               自分の日記
-            </Link>
+            </ActionLink>
           </div>
           <Link
             className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
@@ -164,7 +166,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           >
             設定
           </Link>
-        </div>
+        </Surface>
 
         <nav
           aria-label="タイムラインの種類"
@@ -276,12 +278,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         )}
 
         <form action={logout} className="mt-8">
-          <button
-            className="w-full rounded-full border border-stone-300 bg-white px-5 py-3 font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-            type="submit"
-          >
+          <Button className="w-full" type="submit" variant="quiet">
             ログアウト
-          </button>
+          </Button>
         </form>
       </div>
     </section>

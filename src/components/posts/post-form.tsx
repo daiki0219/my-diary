@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useActionState,
@@ -18,6 +17,12 @@ import {
   type CreatePostActionState,
 } from "@/app/(protected)/posts/actions";
 import { TagInput } from "@/components/posts/tag-input";
+import { ActionLink, Button } from "@/components/ui/actions";
+import {
+  FormInput,
+  FormSelect,
+  FormTextarea,
+} from "@/components/ui/form-controls";
 import {
   POST_MOOD_OPTIONS,
   POST_VISIBILITY_OPTIONS,
@@ -92,14 +97,15 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <Button
       aria-disabled={pending}
-      className="w-full rounded-control bg-brand-primary px-5 py-3 font-semibold text-white transition hover:bg-brand-primary-hover disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text sm:w-auto sm:min-w-36"
+      className="w-full sm:w-auto sm:min-w-36"
       disabled={pending}
       type="submit"
+      variant="primary"
     >
       {pending ? "投稿中…" : "投稿する"}
-    </button>
+    </Button>
   );
 }
 
@@ -372,14 +378,13 @@ export function PostForm() {
           タイトル
           <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
         </label>
-        <input
+        <FormInput
           aria-describedby={
             state.fieldErrors.title
               ? "post-title-help post-title-error"
               : "post-title-help"
           }
           aria-invalid={Boolean(state.fieldErrors.title)}
-          className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition focus:border-focus"
           id="post-title"
           maxLength={120}
           name="title"
@@ -411,14 +416,14 @@ export function PostForm() {
         >
           本文
         </label>
-        <textarea
+        <FormTextarea
           aria-describedby={
             state.fieldErrors.body
               ? "post-body-help post-body-error"
               : "post-body-help"
           }
           aria-invalid={Boolean(state.fieldErrors.body)}
-          className="min-h-64 w-full resize-y rounded-control border border-border-control bg-surface px-4 py-3 text-base leading-7 text-text-primary transition focus:border-focus"
+          className="min-h-64 resize-y leading-7"
           id="post-body"
           maxLength={10000}
           name="body"
@@ -451,14 +456,14 @@ export function PostForm() {
           場所
           <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
         </label>
-        <input
+        <FormInput
           aria-describedby={
             displayedLocationError
               ? "post-location-help post-location-error"
               : "post-location-help"
           }
           aria-invalid={Boolean(displayedLocationError)}
-          className="w-full min-w-0 rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition focus:border-focus"
+          className="min-w-0"
           id="post-location"
           name="locationName"
           onChange={(event) => {
@@ -597,12 +602,11 @@ export function PostForm() {
           >
             気分
           </label>
-          <select
+          <FormSelect
             aria-describedby={
               state.fieldErrors.mood ? "post-mood-error" : undefined
             }
             aria-invalid={Boolean(state.fieldErrors.mood)}
-            className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition focus:border-focus"
             defaultValue=""
             id="post-mood"
             name="mood"
@@ -613,7 +617,7 @@ export function PostForm() {
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
           {state.fieldErrors.mood && (
             <p
               className="mt-2 text-sm text-red-700"
@@ -632,14 +636,13 @@ export function PostForm() {
           >
             公開範囲
           </label>
-          <select
+          <FormSelect
             aria-describedby={
               state.fieldErrors.visibility
                 ? "post-visibility-error"
                 : "post-visibility-help"
             }
             aria-invalid={Boolean(state.fieldErrors.visibility)}
-            className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition focus:border-focus"
             defaultValue="private"
             id="post-visibility"
             name="visibility"
@@ -649,7 +652,7 @@ export function PostForm() {
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
           <p
             className="mt-2 text-xs leading-5 text-stone-500"
             id="post-visibility-help"
@@ -669,14 +672,15 @@ export function PostForm() {
       </div>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Link
+        <ActionLink
           aria-disabled={isPending}
-          className={`rounded-control border border-border-subtle bg-surface px-5 py-3 text-center font-semibold text-text-secondary transition sm:min-w-36 ${isPending ? "pointer-events-none opacity-60" : "hover:bg-surface-muted"}`}
+          className="sm:min-w-36"
           href="/profile/posts"
           tabIndex={isPending ? -1 : undefined}
+          variant="neutral"
         >
           キャンセル
-        </Link>
+        </ActionLink>
         <SubmitButton />
       </div>
       </fieldset>

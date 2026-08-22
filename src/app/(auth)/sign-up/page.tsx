@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { signUp } from "@/app/auth/actions";
 import { AuthForm } from "@/components/auth/auth-form";
+import { Surface } from "@/components/ui/surface";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
 
   return (
     <section className="flex flex-1 items-center px-5 py-10 sm:px-8">
-      <div className="mx-auto w-full max-w-md rounded-card border border-border-subtle bg-surface-elevated p-6 shadow-surface sm:p-8">
+      <Surface className="mx-auto w-full max-w-md p-6 sm:p-8" variant="elevated">
         <p className="text-sm font-medium text-brand-primary-hover">はじめまして</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text-primary">
           新規登録
@@ -47,7 +48,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
         )}
 
         <AuthForm action={signUp} mode="sign-up" />
-      </div>
+      </Surface>
     </section>
   );
 }

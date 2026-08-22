@@ -1,10 +1,15 @@
 import Image from "next/image";
-import Link from "next/link";
+
+import { ActionLink } from "@/components/ui/actions";
+import { Surface } from "@/components/ui/surface";
 
 export default function Home() {
   return (
     <section className="flex flex-1 items-center px-5 py-12 sm:px-8">
-      <div className="w-full rounded-card bg-surface-muted px-6 py-10 text-center shadow-surface sm:px-10 sm:py-14">
+      <Surface
+        className="w-full px-6 py-10 text-center shadow-surface sm:px-10 sm:py-14"
+        variant="muted"
+      >
         <Image
           alt=""
           aria-hidden="true"
@@ -26,20 +31,22 @@ export default function Home() {
           ありのままの毎日を気軽に記録し、必要なときだけ誰かとゆるくつながれる場所です。
         </p>
         <div className="mx-auto mt-8 flex max-w-sm flex-col gap-3 sm:flex-row">
-          <Link
-            className="flex-1 rounded-control bg-brand-primary px-5 py-3 font-semibold text-white transition hover:bg-brand-primary-hover"
+          <ActionLink
+            className="flex-1"
             href="/sign-up"
+            variant="primary"
           >
             新規登録
-          </Link>
-          <Link
-            className="flex-1 rounded-control border border-border-subtle bg-surface-elevated px-5 py-3 font-semibold text-brand-primary-hover transition hover:bg-brand-soft"
+          </ActionLink>
+          <ActionLink
+            className="flex-1"
             href="/login"
+            variant="secondary"
           >
             ログイン
-          </Link>
+          </ActionLink>
         </div>
-      </div>
+      </Surface>
     </section>
   );
 }
