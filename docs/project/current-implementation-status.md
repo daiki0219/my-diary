@@ -14,8 +14,8 @@
 - DB設計資料: [`docs/database/core-schema-rls-design.md`](../database/core-schema-rls-design.md)
 - 調査基準日: 2026-08-22
 - 調査時branch: `main`
-- 調査基準HEAD: `acc5ef0b4ca799ca9e296f688af92ab23d5176e6`
-- 調査基準HEADのmessage: `feat: add manual exchange image maintenance`
+- 調査基準HEAD: `dec7ab65096e3fb1de185ad990d2f4a431b4c5bb`
+- 調査基準HEADのmessage: `docs: update maintenance operations`
 
 ### 更新ルール
 
@@ -51,21 +51,21 @@
 
 現在は、メールアドレスとパスワードによる認証とパスワード再設定、non-active accountのapplication session gate、プロフィールの表示・編集、日記の作成・詳細・編集・soft delete、6種類の気分、任意の場所名、自由タグの入力・保存・投稿上のリンク表示・タグ一覧・タグ詳細・部分一致検索、3段階の公開範囲、フォロー中・最新投稿の2種類のタイムライン、private Storage画像の新規投稿upload・認証付き表示・既存投稿での追加・削除・並び替え、3種類のリアクション、コメントの投稿・1階層返信・親子表示・soft delete、フォロー・解除・一覧、ユーザー名検索、閲覧可能な投稿のtitle・body部分一致検索まで実装されている。
 
-DB側では、従来のコア10 public tableに加え、交換日記・通知設定・通報の12 public table、2 private table、private Storage bucket `exchange-entry-images`がmigration管理されている。公開範囲、active / suspended / deactivated、participant-only、通報対象だけの運営閲覧、evidence保持をRLS・ACL・RPC・trigger・Storage policyで制御する。Exchangeの通常利用者向けApplication / UI、entry / counterpart user report submissionに加え、active-admin専用のreport queue、detail、status mutation、exact evidence Route / galleryを実装済みである。Maintenance-1〜3で`/admin/maintenance`のbacklog summary、manual evidence purge、manual confirmed image cleanup、manual orphan cleanupを実装した。Maintenance-3完了時点の確定値はrepository / local / remote migration `35 / 35 / 35`、全35 pgTAP `1,891 / 1,891 PASS`である。このMaintenance-4bではDB検証を再実行していない。
+DB側では、従来のコア10 public tableに加え、交換日記・通知設定・通報の12 public table、2 private table、private Storage bucket `exchange-entry-images`がmigration管理されている。公開範囲、active / suspended / deactivated、participant-only、通報対象だけの運営閲覧、evidence保持をRLS・ACL・RPC・trigger・Storage policyで制御する。Exchangeの通常利用者向けApplication / UI、entry / counterpart user report submissionに加え、active-admin専用のreport queue、detail、status mutation、exact evidence Route / galleryを実装済みである。Maintenance-1〜3で`/admin/maintenance`のbacklog summary、manual evidence purge、manual confirmed image cleanup、manual orphan cleanupを実装した。Maintenance-3完了時点の確定値はrepository / local / remote migration `35 / 35 / 35`、全35 pgTAP `1,891 / 1,891 PASS`である。Maintenance-4 finalizationはdocs-onlyのためDB検証を再実行していない。
 
 MVP完了条件との差分では、パスワードリセットと場所名が完了し、OAuthとavatarは未完成である。home timelineの20件forward cursor paginationと本文省略はPhase C3aで完了した。timezone DB integrity、viewer timezone helper、`/settings`の表示・変更はPhase C3bで完了し、Phase C3c-1ではstrict month/date validation、DST対応のlocal month境界、本人Calendar posts query、日単位summaryと選択日data shapeを実装した。Phase C3c-2では`/calendar`、月grid、前後月・今月遷移、日別marker、日付選択、選択日投稿一覧、responsive / accessibilityを実装した。non-active accountのDB / RLS境界とapplication session gateはPhase C1a / C1bで完了し、1階層コメント返信はPhase C2a / C2bでDBからApplication / UIまで完了した。通知はDB / RLS基盤、follow / reaction / comment / reply生成、一覧・未読/既読・target遷移までPhase C2c-1〜C2c-3で完了した。投稿画像の新規作成・表示・編集要件はPhase B3a〜B3dで完了した。MVP後のカテゴリー、推し活、コミュニティ、ぬい活、イベント、アルバム、おすすめ、AI、プレミアムは未着手であり、現時点のMVP欠陥としては扱わない。
 
-Phase E2a〜E3f-4でExchange、report submission、COI hardeningを実装した後、admin report read foundation、queue、detail、status mutation、exact evidence Route / galleryをApplicationへ接続した。Maintenance-1〜3はactive-admin session、server-side target selection、same authenticated principal、RLS / Storage RLSを維持してmanual maintenanceを接続した。Application / DBに既知の新しいsecurity BLOCKERはない。公開前残差はOperations Handoff最終確認、controlled development remote smoke、production environment / Auth / SMTP / E2E、Legal / Privacy Gateである。
+Phase E2a〜E3f-4でExchange、report submission、COI hardeningを実装した後、admin report read foundation、queue、detail、status mutation、exact evidence Route / galleryをApplicationへ接続した。Maintenance-1〜3はactive-admin session、server-side target selection、same authenticated principal、RLS / Storage RLSを維持してmanual maintenanceを接続した。Application / DBに既知の新しいsecurity BLOCKERはない。Maintenance-4ではcontrolled development remote destructive Storage smokeを`ACCEPTED DEFER`とし、Hosted最小smokeをfinal Production E2Eへ統合した。公開前残差はOperations Handoff owner / 最終確認、production environment / Auth / SMTP / Hosted E2E、Legal / Privacy Gateである。
 
 Phase C4b-2では、作成・編集formへ任意の場所名を追加し、trim・空欄からNULL・最大100 Unicode codepointsをClientとServer Actionで検証する。画像upload前のClient validationとDB successor RPCの最終境界を併用し、既存tag / image manifest・Storage cleanup順序を維持する。投稿詳細、home、自己・他者投稿一覧、タグ詳細、投稿検索結果は必要なposts SELECTへだけ`location_name`を追加し、共通metadata componentで表示する。Calendar、通知、location検索、package、DB、migrationは変更していない。このセッションの認証付きbrowser fixtureは、通常sign-upがローカルAuthのemail rate limitへ達し、利用可能な別browser sessionもなかったため未実施である。`lint`、`typecheck`、`build`、`git diff --check`は成功した。
 
-正式仕様Ver.2.2で初回公開対象として維持された交換日記、限定report submission、admin moderation、exact evidence、manual maintenanceのApplication経路は実装済みである。これらの実装完了は、controlled remote smoke、production wiring、Legal / Privacy、Design、Operations Handoff各Gateの完了を意味しない。
+正式仕様Ver.2.2で初回公開対象として維持された交換日記、限定report submission、admin moderation、exact evidence、manual maintenanceのApplication経路は実装済みである。development remote destructive smokeは未実施のaccepted deferであり、これらの実装完了やdefer決定は、production wiring / Hosted smoke、Legal / Privacy、Design、Operations Handoff各Gateの完了を意味しない。
 
 ### 2.1 MVP残差と実装優先順位
 
 正式仕様上のProduct phaseと、Ver.2.2のWeb Initial Release Gateは別に管理する。
 
-- 公開前に重要: Operations Handoff最終確認、controlled development remote smoke、production mapping / AuthのSite URL / Redirect URLs / SMTP / 実メール / E2E、Legal / Privacy Gateを完了する
+- 公開前に重要: Operations Handoff owner / 最終確認、production mapping / AuthのSite URL / Redirect URLs / SMTP / 実メール / Hosted maintenance smokeを含むProduction E2E、Legal / Privacy Gateを完了する
 - 強く推奨: follow / profile / user検索等の固定件数改善
 - MVP対象だが後順位: Google login、Apple login、avatar、timezone以外のsettings、profile / follow list等のpagination
 - MVP後またはmaintenanceへ延期可能: 通常post画像の長期orphan cleanup・soft-delete後physical delete、正式仕様のPhase 2以降の機能
@@ -81,9 +81,9 @@ Google / Apple OAuth、avatar、一部pagination・settingsの未完成だけで
 | styling | Tailwind CSS 4、mobile-firstのutility class | `package.json`、`src/app/globals.css`、各component |
 | backend | Supabase Auth、Postgres、RLS、Supabase SSR | `@supabase/ssr`、`@supabase/supabase-js`、migration |
 | 認証方式 | email/password、SSR cookie session、認証callback、request-scoped account status gate | `src/app/auth/actions.ts`、`src/app/auth/callback/route.ts`、`src/lib/supabase/account-session.ts`、`src/proxy.ts` |
-| migration | Maintenance-3完了時点でrepository / local / remoteは35件で一致。latestは`20260820000100_add_maintenance_backlog_summary.sql` | `supabase/migrations/*.sql`、Maintenance-3の確認記録 |
+| migration | Maintenance-3完了時点でrepository / local / remoteは35件で一致。latestは`20260820000100_add_maintenance_backlog_summary.sql` | `supabase/migrations/*.sql`、Maintenance-3の確認記録。Maintenance-4 finalizationでは未再実行 |
 | DB table | public 22 table、private 2 table | 既存コア10件、Exchange / report 12件、pair lock / cleanup candidate 2件 |
-| pgTAP | 35ファイル、plan合計1,891。Maintenance-3の最新確認済みlocal全回帰`1,891 / 1,891 PASS` | `supabase/tests/database/*.sql`。Maintenance-4bでは未再実行 |
+| pgTAP | 35ファイル、plan合計1,891。Maintenance-3の最新確認済みlocal全回帰`1,891 / 1,891 PASS` | `supabase/tests/database/*.sql`。Maintenance-4 finalizationでは未再実行 |
 | local Supabase | Windows TCP除外範囲と競合したtracked 5432x portsを5542xへ移動。API `55421`、DB `55422`、Studio `55423`等のconfig / Docker mapping一致とclean start / local reset成功を確認。remote設定には影響なし | `supabase/config.toml`、local Supabase / Docker確認 |
 | その他の自動テスト | repository内では未確認 | unit、component、E2Eのtest fileは存在しない |
 | npm検証 | `lint`、`typecheck`、`build` | `package.json` |
@@ -206,8 +206,8 @@ RLSは権限のない投稿、soft-deleted投稿、suspended投稿者の投稿�
 
 | 項目 | 状態 | 実装概要・根拠 | 残課題 |
 | --- | --- | --- | --- |
-| DB / Storage foundation | 実装済み | E2a〜E2gでstate / participant / invitation / block、operation RPC、entry / tag / redaction、private画像、通知3 type・全体preference・diary mute、report / snapshot、deactivation archive、retention / cleanup / trusted maintenanceをmigration管理。E3e-0bでnever-confirmed画像orphanの24時間grace・strict owner-path・reference除外・Storage-first lockを追加。E3f-1でreport / snapshot / exact evidence / status / purgeのCOIをrepository / local / remoteでhardeningし、E3f-3でExchange user-report target導出とold generic ACL閉鎖をrepository / local / remoteへ追加した | controlled remote smoke、production、Operations / Legal gateは別管理 |
-| Application / UI | 実装済み | Exchange read / invitation / diary・entry mutation / private画像 / report submissionに加え、`/admin/reports` queue、detail、status mutation、exact evidence Route / gallery、`/admin/maintenance`のbacklog summaryと3 manual actionを実装した。active-admin、COI、whole-diary禁止、server-side target selection、same authenticated principal、RLS / Storage RLSを維持する | remote smoke、production / operations / legal gateは別管理 |
+| DB / Storage foundation | 実装済み | E2a〜E2gでstate / participant / invitation / block、operation RPC、entry / tag / redaction、private画像、通知3 type・全体preference・diary mute、report / snapshot、deactivation archive、retention / cleanup / trusted maintenanceをmigration管理。E3e-0bでnever-confirmed画像orphanの24時間grace・strict owner-path・reference除外・Storage-first lockを追加。E3f-1でreport / snapshot / exact evidence / status / purgeのCOIをrepository / local / remoteでhardeningし、E3f-3でExchange user-report target導出とold generic ACL閉鎖をrepository / local / remoteへ追加した | development destructive smokeはaccepted defer。Production E2E、Operations / Legal gateは別管理 |
+| Application / UI | 実装済み | Exchange read / invitation / diary・entry mutation / private画像 / report submissionに加え、`/admin/reports` queue、detail、status mutation、exact evidence Route / gallery、`/admin/maintenance`のbacklog summaryと3 manual actionを実装した。active-admin、COI、whole-diary禁止、server-side target selection、same authenticated principal、RLS / Storage RLSを維持する | development destructive smokeはaccepted defer。Hosted Production E2E / Operations / Legal gateは別管理 |
 
 ## 5. DB・セキュリティ実装状況
 
@@ -340,7 +340,7 @@ Exchange invitation operationとdiary / entry mutationはServer Actionから既�
 
 ## 8. migration一覧
 
-Maintenance-3完了時点でrepository / local / remoteは35件で一致し、latestは`20260820000100_add_maintenance_backlog_summary.sql`である。このMaintenance-4bではremote migration状態を再検証していない。
+Maintenance-3完了時点でrepository / local / remoteは35件で一致し、latestは`20260820000100_add_maintenance_backlog_summary.sql`である。Maintenance-4 finalizationではremote migration状態を再検証していない。
 
 | timestamp | ファイル名 | 主な目的 |
 | --- | --- | --- |
@@ -548,16 +548,17 @@ E3f-0〜E3f-4のreport submissionとDB hardeningは`COMPLETE`。後続Phaseで�
 
 これらはactive-admin session、target / reporter COI、whole-diary access禁止、server-side target selection、same authenticated principal、RLS / Storage RLSを維持する。Maintenance-3 final securityはBLOCKER / HIGH / MEDIUM / LOWすべて0件。Application実装残差としての旧「3カテゴリBLOCKER」は解消済みである。
 
-### 11.3 PRE-PUBLICATION（4件）
+Maintenance-4ではmanual daily operation modelをfinalizeし、development remoteのproject / Auth / active-admin summary read pathをnon-destructiveに確認した。自然retention待機を開発blockingにしないためcontrolled development remote destructive Storage smokeは未実施の`ACCEPTED DEFER`とし、Hosted最小smokeをfinal Production E2Eへ移した。temporary admin roleとlocalhost callback 2件は元へ戻し、新規account、fixture、Storage objectは作成していない。これにより`Maintenance-4 COMPLETE`、かつMaintenance-1〜4は`COMPLETE`であるが、Web release readyではない。
+
+### 11.3 PRE-PUBLICATION（3件）
 
 1. Operations Handoffのowner確認とrunbook最終verification。
-2. controlled development remote actual Storage API smoke。
-3. reports row / reason / details / status / resolved_at等の長期retention policyとLegal / Privacy Gate。
-4. production mapping、Auth / SMTP、deploy後のbrowser security integration / production E2E。
+2. reports row / reason / details / status / resolved_at等の長期retention policyとLegal / Privacy Gate。
+3. production mapping、Auth / SMTP、deploy後のbrowser security integration、Hosted maintenance最小smokeを含むProduction E2E。
 
 これらはE3開始を止めるDB blockerではないが、初回公開前に完了または方針確定が必要である。
 
-Maintenance-4bでmanual daily cadence、execution order、retry / unknown、monitoring、escalation、owner / COIをrunbookへ同期した。ただし各release Gateは未完了であり、docs更新だけで公開可能とは判定しない。
+Maintenance-4でmanual daily cadence、execution order、retry / unknown、monitoring、escalation、owner / COIをrunbookへ同期し、development destructive smokeのaccepted deferとProduction E2Eへの移管を確定した。ただし各release Gateは未完了であり、docs更新だけで公開可能とは判定しない。
 
 ### 11.4 POST-PUBLICATION / MAINTENANCE
 
@@ -579,7 +580,7 @@ Maintenance-4bでmanual daily cadence、execution order、retry / unknown、moni
 | Design Completion Gate | 一部実装済み / 未完了 | 主要UIに既存対応はあるが横断release review未完了 |
 | Legal / Privacy Verification Gate | 未確認 | 法的結論、Terms、Privacy Policy、問い合わせ手段は完成扱いにしない |
 | Production Readiness Gate | 未確認 | remote Auth、実メール、production E2E等が残る |
-| Operations Handoff Gate | 一部完了 / 未完了 | manual operation modelは文書化済み。owner確認、controlled remote smoke、最終handoff verificationが残る |
+| Operations Handoff Gate | 一部完了 / 未完了 | manual operation modelは文書化済み。owner確認、最終handoff verification、Production E2EのHosted maintenance smokeが残る |
 | general account deletion | 未実装 | Web公開後roadmap。Exchange既存semanticsとは別 |
 | SNS全体のglobal user block | 未実装 | Exchange invitation blockとは別 |
 | 将来iOS Application | 未着手 | roadmapとexternal verification gateのみ |
@@ -590,6 +591,7 @@ Maintenance-4bでmanual daily cadence、execution order、retry / unknown、moni
 
 | 日付 | HEAD | 内容 |
 | --- | --- | --- |
+| 2026-08-22 | 基準HEAD `dec7ab65096e3fb1de185ad990d2f4a431b4c5bb` | Maintenance-4 finalization。`my-diary-dev`のtemporary admin roleとlocalhost callback 2件を復元し、Auth user 1件、新規controlled account / Exchange fixture / Storage objectなしを確認。development remote destructive Storage smokeを未実施の`ACCEPTED DEFER`とし、local deep integration・全35 pgTAP `1,891 / 1,891 PASS`・remote non-destructive wiringを代替保証として、Hosted最小smokeをfinal Production E2Eへ統合した。Application / DB / migration / packageは変更せず、docs-onlyでMaintenance-4を完了 |
 | 2026-08-22 | 基準HEAD `acc5ef0b4ca799ca9e296f688af92ab23d5176e6` | Maintenance-4b docs-only。Maintenance-1〜3、admin report queue / detail / status、exact evidence Route / galleryを現在状態へ同期し、manual daily operation model、development remote smokeとProduction E2Eの分離、残るLegal / Privacy / production gateを明記。Maintenance-3確定値のmigration `35 / 35 / 35`、pgTAP `1,891 / 1,891 PASS`は過去結果として記載し、このPhaseでは再実行していない。Application / DB / migration / package / remote環境は変更せず、stage / commit / push未実施 |
 | 2026-08-16 | commit前。基準HEAD `70400f556417c2eb61e6d587b8bb3c080868b1df` | Phase E3f-4 COMPLETE。diary-levelとcounterpart active entry contextへExchange user report UIを追加し、target / reporter ID非送信、claims actor、RLS precheck、E3f-3 successorのDB最終認可、optional related checkbox、generic duplicate、unknown outcome lock、UUID / snapshot / evidence非露出、notification不変を維持。local通常UIのA / B / C fixtureでactive / archived / follow解除後、related ON / OFF、own / deleted、third-party 404、same / cross entry point duplicate、entry report回帰、2,000 codepoint・CRLF、5幅、focus / ARIA、navigation、console 0件を確認。固定UUIDだけを選択的cleanupしfixture 0件・既存本人user残存を確認。`0033 / 0032 / 0027`は`203 / 203 PASS`、lint・typecheck・build・diff check PASS、security全severity 0件。DB / migration / pgTAP定義 / package、remote DB / Storage / Auth、Service Role / Auth Admin APIは変更・使用せず、commit / push前 |
 | 2026-08-16 | commit前。基準HEAD `e3b0dad0be2dd9ea3ed710983c3c4ac7fe75e5d2` | Phase E3f-3 remote確定 PASS。Exchange diary IDだけからcaller participantとcounterpartをDB導出する`my_diary_create_exchange_user_report`を追加し、optional related entryをsame diary・counterpart author・未削除へ固定した。existing genericのsnapshot / duplicate / atomicityを内部再利用しつつ、authenticated / anon / service_role / authenticatorからold genericのdirect EXECUTEを閉鎖した。local 33 migration fresh apply、新規`70 / 70`、関連`260 / 260`、全33 pgTAP`1,825 / 1,825 PASS`を確認後、linked `my-diary-dev`へ新migration 1件だけを通常適用した。repository / local / remoteは`33 / 33 / 33`、再dry-run up to date、remote catalog一致、3 schemaのlinked diff空を確認した。既知pg-delta CA warningは独立証拠でSQL成功と切り分け、repair・再適用なし。Application / package / 既存migrationは変更せず、migration以外のremote DB mutation、remote Storage / Auth mutation、Service Role、Auth Admin APIは未実施。E3f-4は未着手 |

@@ -88,9 +88,9 @@ Netlifyの具体的なproject操作・権限・deploy方式はproduction設定�
 
 ### 8.1 Development remote smokeとの責務分離
 
-Maintenance-4のcontrolled development remote smokeは、linked `my-diary-dev`でauthenticated admin path、Storage RLS、server-side candidate selection、cleanup action、remaining / reloadを確認する。現時点では`NOT YET VERIFIED`であり、このdocs-only Phaseでは実行しない。
+Maintenance-4では、linked `my-diary-dev`のcontrolled development remote destructive Storage smokeを`ACCEPTED DEFER`とした。confirmedの7日・orphanの24時間という自然待機で開発を停止させないためであり、failureまたは実施済みとは扱わない。development remoteではproject / Auth mapping、通常のactive-admin session、`/admin/maintenance`のauthorizationとsummary / zero stateまでをnon-destructiveに確認し、fixture、Storage upload / DELETE、maintenance destructive actionは実施していない。
 
-development smokeではconfirmed 1 objectとorphan 1 objectだけを扱い、通常Application / authenticated publishable clientでfixtureを準備して実際に7日 / 24時間待つ。Service Role、Auth Admin API、privileged SQL timestamp rewrite、migrationによるdue化、production user dataは使わない。development smokeの成功をproduction wiringの確認済みとは扱わない。
+local deep integrationと全pgTAPの確定結果を代替保証とし、Hosted environmentの最小maintenance smokeはfinal Production E2Eへ統合する。development remoteで未実施のphysical cleanupをproductionで自動的に必須化せず、必要かつ安全な専用fixture計画が別途承認された場合だけ最小1件を確認する。Service Role、Auth Admin API、privileged SQL timestamp rewrite、migrationによるdue化、既存production dataは使わない。
 
 ### 8.2 Production E2E
 
@@ -104,7 +104,7 @@ production deploy後、次のproduction mappingとruntime境界を実測する�
 - [ ] production Storage configuration / RLS
 - [ ] `/admin/reports`、exact evidence Routeの認可smoke
 - [ ] `/admin/maintenance`へactive-adminだけが到達でき、summary、zero state、confirmation、reloadを非破壊で確認できる
-- [ ] physical cleanupがproduction確認に必要な場合だけ、別途承認された専用fixture 1件以下で実施し、既存production dataを対象にしない
+- [ ] Hosted physical cleanupがproduction確認に必要な場合だけ、別途承認された専用fixtureで最小1件を実施し、既存production dataを対象にしない
 
 - [ ] sign-up / email confirmation
 - [ ] login / logout / session refresh

@@ -109,7 +109,7 @@
 - [x] manual daily cadence、`Evidence → Confirmed → Orphan`、最大10件 / run、multi-run、retry、unknown、backlog monitoringが決定されている
 - [x] Primary operatorをactive-admin humanとし、COI / 48時間不在時の独立backup方針を決定した
 - [ ] Operations handoffのowner確認と最終verificationを完了した
-- [ ] linked `my-diary-dev`でcontrolled development remote Storage smokeを完了した（現在`NOT YET VERIFIED`）
+- [x] linked `my-diary-dev`のcontrolled development remote destructive Storage smokeを`ACCEPTED DEFER`とし、未実施のままfinal Production E2EのHosted最小smokeへ統合した
 - [ ] incident escalationと連絡先が決定されている
 - [ ] moderationとtakedownの運用が決定されている
 - [x] Exchange image / report evidenceの24時間・7日・30日をminimum eligibilityとしてmanual retention / purge運用を決定した

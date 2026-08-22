@@ -130,22 +130,20 @@ Evidence purgeでは、current adminがreporterまたはreported userであるre
 
 Exchange image cleanupではApplicationがreport COIを推測しない。report evidence relationが残る限りStorage RLSがDELETEを拒否する。operatorはreport内容からeligibilityを判断せず、DB / Storage reference protectionへ委ねる。
 
-## 10. Controlled development remote smoke（未実施）
+## 10. Controlled development remote destructive smoke（accepted defer）
 
-linked `my-diary-dev`はdevelopment remoteであり、controlled remote Storage smokeは`NOT YET VERIFIED`である。実施には別Phaseの明示許可が必要。
+linked `my-diary-dev`はdevelopment remoteである。Maintenance-4では、confirmedの7日・orphanの24時間という自然待機で開発を停止させないため、controlled destructive Storage smokeを実施せず`ACCEPTED DEFER`とした。これはfailureや実施済みを意味しない。timestamp rewrite、Service Role、Auth Admin API、privileged SQL、migrationによるdue化も行わない。
 
-- 通常sign-upではadminにならない。既存のdedicated test accountとapproved active-adminを使い、credentialを共有しない。
-- approved smoke commit、linked project identity、repository / remote migration historyの一致を確認し、対象bucketを`exchange-entry-images`へ限定する。値を推測せず、確認できなければ停止する。
-- fixture ownerとなるdedicated participant accountとmaintenance operatorを区別し、既存production userや本人用accountをfixtureにしない。
-- baselineのrelevant due categoryが0であることを確認する。server-side target selectionのため、既存dueがあればfixtureを狙い撃ちできないので停止する。
-- Confirmedは通常Applicationで画像付きentryを作成し、editでremoveして7日待つ。
-- Orphanは通常authenticated publishable clientでstrict pathへ1 objectだけuploadし、metadataへconfirmせず24時間待つ。
-- evidenceは30日待機が必要でStorage physical DELETEも検証しないため、最小Storage smokeには含めない。
-- remote timestampを書き換えて即due化しない。Service Role、Auth Admin API、privileged SQL、migration、production user dataをfixture accelerationに使わない。
-- remoteでlocalの`12 → 10 → 2`を再現せず、confirmed 1 objectとorphan 1 objectだけを確認する。
-- 各categoryでbaseline `0 → 1`、実行後`remaining 0`を確認し、smoke対象の2 Storage objectが存在しないことをauthenticated経路で確認する。対象objectの残存は成功扱いにしない。
-- 通常UIでsoft delete / archiveできるfixtureは終了時に整理する。特権cleanupなしでは残るAuth / diary等のDB residualはIDや個人情報なしで記録し、Storage objectの必須不存在とは区別する。
+Maintenance-4でdevelopment remoteに対して確認した範囲は、project / Auth mapping、通常のactive-admin sessionによる`/admin/maintenance` authorization、3 categoryのsummary / zero stateというnon-destructive wiringまでである。fixture、Storage upload、Storage DELETE、maintenance destructive actionは作成・実行していない。確認用のtemporary admin roleとlocalhost callbackは終了時に元へ戻した。
+
+deferの代替保証は次の組み合わせとする。
+
+- local deep integrationでは、confirmed `12 → selected 10 → physical 9 + reconciled 1 → remaining 2`、orphan `12 → physical 10 → remaining 2`を確認した。
+- live / protected objectが残存し、削除対象外になることを確認した。
+- Maintenance-3完了時点の全35 pgTAPは`1,891 / 1,891 PASS`である。
+- development remoteではproject / Auth / admin read pathをnon-destructiveに確認した。
+- Hosted environmentの最小maintenance smokeは、§11と[`production-runbook.md`](production-runbook.md)に従いfinal Production E2Eへ統合する。
 
 ## 11. Productionとの分離
 
-development smokeはauthenticated admin path、Storage RLS、candidate selection、cleanup action、remaining / reloadを確認するが、production wiringの証明にはならない。production deploy後はProduction runbookに従い、production Netlify、production Supabase、production cookie / session、production active-admin、production Storage設定、actual domainを明示的に確認する。
+development remote destructive smokeのaccepted deferはproduction wiringの確認済みを意味しない。production deploy後はProduction runbookに従い、production Netlify、production Supabase、production cookie / session、production active-admin、production Storage設定、actual domainを明示的に確認する。通常範囲はroute / authorization / summary / zero state / confirmation / reloadの非破壊確認とし、安全な専用fixtureが必要かつ別途承認された場合だけphysical cleanupを最小1件確認する。既存production dataをfixtureとして使用しない。
