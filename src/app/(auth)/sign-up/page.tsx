@@ -28,12 +28,12 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
 
   return (
     <section className="flex flex-1 items-center px-5 py-10 sm:px-8">
-      <div className="mx-auto w-full max-w-md rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-        <p className="text-sm font-medium text-orange-700">はじめまして</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-800">
+      <div className="mx-auto w-full max-w-md rounded-card border border-border-subtle bg-surface-elevated p-6 shadow-surface sm:p-8">
+        <p className="text-sm font-medium text-brand-primary-hover">はじめまして</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text-primary">
           新規登録
         </h1>
-        <p className="mt-3 text-sm leading-6 text-stone-600">
+        <p className="mt-3 text-sm leading-6 text-text-secondary">
           メールアドレスとパスワードで、日記を始める準備をします。
         </p>
 

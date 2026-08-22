@@ -27,12 +27,12 @@ export default async function NewPostPage() {
           ← 自分の日記へ戻る
         </Link>
 
-        <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-          <p className="text-sm font-medium text-orange-700">今日の記録</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-800">
+        <div className="mt-5 rounded-card border border-border-subtle bg-surface-elevated p-5 shadow-surface sm:p-7">
+          <p className="text-sm font-medium text-brand-primary-hover">今日の記録</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text-primary">
             日記を書く
           </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
+          <p className="mt-3 text-sm leading-6 text-text-secondary">
             今の気持ちや出来事を、あなたのペースで残しましょう。
           </p>
 

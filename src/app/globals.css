@@ -1,25 +1,98 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f5f2;
-  --foreground: #292524;
+  --page: #fbf7f1;
+  --surface: #fffaf4;
+  --surface-elevated: #fffdf9;
+  --surface-muted: #f3eadf;
+  --text-primary: #3b2922;
+  --text-secondary: #6b5147;
+  --text-muted: #75645b;
+  --border-subtle: #e6d8ca;
+  --border-control: #978176;
+  --brand-primary: #b45336;
+  --brand-primary-hover: #a13f2a;
+  --brand-soft: #f8dfcf;
+  --focus: #8c3525;
+  --success: #2f6b4f;
+  --warning: #8a5a14;
+  --danger: #b42318;
+  --control-disabled: #dccbc3;
+  --control-disabled-text: #66544d;
+  --radius-card-value: 1.5rem;
+  --radius-control-value: 0.875rem;
+  --shadow-surface-value:
+    0 16px 36px -28px rgb(76 49 37 / 35%),
+    0 3px 12px -10px rgb(76 49 37 / 22%);
+  --font-brand-stack: "Segoe Print", "Bradley Hand", "Hiragino Maru Gothic ProN",
+    "Yu Gothic", cursive;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--page);
+  --color-foreground: var(--text-primary);
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-muted: var(--surface-muted);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-control: var(--border-control);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-focus: var(--focus);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-control-disabled: var(--control-disabled);
+  --color-control-disabled-text: var(--control-disabled-text);
+  --radius-card: var(--radius-card-value);
+  --radius-control: var(--radius-control-value);
+  --shadow-surface: var(--shadow-surface-value);
+  --font-brand: var(--font-brand-stack);
+
+  /* Accessible aliases while existing screens migrate to semantic utilities. */
+  --color-orange-600: var(--brand-primary);
+  --color-orange-700: var(--brand-primary-hover);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: var(--page);
+  color-scheme: light;
+}
+
 body {
   min-height: 100dvh;
   margin: 0;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--page);
+  color: var(--text-primary);
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
     "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+}
+
+@layer base {
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+  }
+}
+
+::selection {
+  background: var(--brand-soft);
+  color: var(--text-primary);
+}
+
+@media (forced-colors: active) {
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
 }

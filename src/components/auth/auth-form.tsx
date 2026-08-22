@@ -19,7 +19,7 @@ function SubmitButton({ label }: { label: string }) {
 
   return (
     <button
-      className="w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400"
+      className="w-full rounded-control bg-brand-primary px-5 py-3 font-semibold text-white transition hover:bg-brand-primary-hover disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text"
       aria-disabled={pending}
       disabled={pending}
       type="submit"
@@ -47,7 +47,7 @@ export function AuthForm({ action, mode }: AuthFormProps) {
         </label>
         <input
           autoComplete="email"
-          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition placeholder:text-text-muted focus:border-focus"
           id={`${mode}-email`}
           inputMode="email"
           name="email"
@@ -66,7 +66,7 @@ export function AuthForm({ action, mode }: AuthFormProps) {
         </label>
         <input
           autoComplete={isLogin ? "current-password" : "new-password"}
-          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition placeholder:text-text-muted focus:border-focus"
           id={`${mode}-password`}
           minLength={6}
           name="password"

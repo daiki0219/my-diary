@@ -94,7 +94,7 @@ function SubmitButton() {
   return (
     <button
       aria-disabled={pending}
-      className="w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400 sm:w-auto sm:min-w-36"
+      className="w-full rounded-control bg-brand-primary px-5 py-3 font-semibold text-white transition hover:bg-brand-primary-hover disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text sm:w-auto sm:min-w-36"
       disabled={pending}
       type="submit"
     >
@@ -379,7 +379,7 @@ export function PostForm() {
               : "post-title-help"
           }
           aria-invalid={Boolean(state.fieldErrors.title)}
-          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition focus:border-focus"
           id="post-title"
           maxLength={120}
           name="title"
@@ -418,7 +418,7 @@ export function PostForm() {
               : "post-body-help"
           }
           aria-invalid={Boolean(state.fieldErrors.body)}
-          className="min-h-64 w-full resize-y rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          className="min-h-64 w-full resize-y rounded-control border border-border-control bg-surface px-4 py-3 text-base leading-7 text-text-primary transition focus:border-focus"
           id="post-body"
           maxLength={10000}
           name="body"
@@ -458,7 +458,7 @@ export function PostForm() {
               : "post-location-help"
           }
           aria-invalid={Boolean(displayedLocationError)}
-          className="w-full min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          className="w-full min-w-0 rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition focus:border-focus"
           id="post-location"
           name="locationName"
           onChange={(event) => {
@@ -516,7 +516,7 @@ export function PostForm() {
               : "post-images-help"
           }
           aria-invalid={Boolean(displayedImageError)}
-          className="block w-full min-w-0 rounded-2xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-700 file:mr-3 file:rounded-full file:border-0 file:bg-orange-50 file:px-4 file:py-2 file:font-semibold file:text-orange-800 hover:file:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-100"
+          className="block w-full min-w-0 rounded-control border border-border-control bg-surface px-3 py-3 text-sm text-text-secondary file:mr-3 file:rounded-full file:border-0 file:bg-orange-50 file:px-4 file:py-2 file:font-semibold file:text-orange-800 hover:file:bg-orange-100 focus:border-focus disabled:cursor-wait disabled:bg-stone-100"
           disabled={isPending || selectedImages.length >= POST_IMAGE_MAX_COUNT}
           id="post-images"
           multiple
@@ -602,7 +602,7 @@ export function PostForm() {
               state.fieldErrors.mood ? "post-mood-error" : undefined
             }
             aria-invalid={Boolean(state.fieldErrors.mood)}
-            className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+            className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition focus:border-focus"
             defaultValue=""
             id="post-mood"
             name="mood"
@@ -639,7 +639,7 @@ export function PostForm() {
                 : "post-visibility-help"
             }
             aria-invalid={Boolean(state.fieldErrors.visibility)}
-            className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+            className="w-full rounded-control border border-border-control bg-surface px-4 py-3 text-base text-text-primary transition focus:border-focus"
             defaultValue="private"
             id="post-visibility"
             name="visibility"
@@ -671,7 +671,7 @@ export function PostForm() {
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Link
           aria-disabled={isPending}
-          className={`rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 sm:min-w-36 ${isPending ? "pointer-events-none opacity-60" : "hover:bg-stone-50"}`}
+          className={`rounded-control border border-border-subtle bg-surface px-5 py-3 text-center font-semibold text-text-secondary transition sm:min-w-36 ${isPending ? "pointer-events-none opacity-60" : "hover:bg-surface-muted"}`}
           href="/profile/posts"
           tabIndex={isPending ? -1 : undefined}
         >

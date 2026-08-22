@@ -87,25 +87,25 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
       <div className="mx-auto w-full max-w-lg">
-        <div className="rounded-3xl bg-orange-50 p-5 sm:p-7">
-          <p className="text-sm font-medium text-orange-700">
+        <div className="rounded-card bg-surface-muted p-5 shadow-surface sm:p-7">
+          <p className="text-sm font-medium text-brand-primary-hover">
             みんなの新しい記録
           </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-800">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text-primary">
             タイムライン
           </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
+          <p className="mt-3 text-sm leading-6 text-text-secondary">
             あなたが閲覧できる日記を、新しい順に表示します。
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <Link
-              className="rounded-full bg-orange-700 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700"
+              className="rounded-control bg-brand-primary px-5 py-3 text-center font-semibold text-white transition hover:bg-brand-primary-hover"
               href="/posts/new"
             >
               日記を書く
             </Link>
             <Link
-              className="rounded-full border border-orange-300 bg-white px-5 py-3 text-center font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              className="rounded-control border border-border-subtle bg-surface-elevated px-5 py-3 text-center font-semibold text-brand-primary-hover transition hover:bg-brand-soft"
               href="/profile/posts"
             >
               自分の日記
@@ -168,14 +168,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
         <nav
           aria-label="タイムラインの種類"
-          className="mt-5 grid grid-cols-2 gap-1 rounded-2xl bg-stone-100 p-1"
+          className="mt-5 grid grid-cols-2 gap-1 rounded-control bg-surface-muted p-1"
         >
           <Link
             aria-current={feed === "following" ? "page" : undefined}
             className={`min-w-0 rounded-xl px-3 py-2.5 text-center text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
               feed === "following"
-                ? "bg-white text-orange-800 shadow-sm"
-                : "text-stone-600 hover:bg-white/70 hover:text-stone-800"
+                ? "bg-surface-elevated text-brand-primary-hover shadow-surface"
+                : "text-text-secondary hover:bg-surface-elevated/70 hover:text-text-primary"
             }`}
             href="/home?feed=following"
           >
@@ -185,8 +185,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             aria-current={feed === "latest" ? "page" : undefined}
             className={`min-w-0 rounded-xl px-3 py-2.5 text-center text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
               feed === "latest"
-                ? "bg-white text-orange-800 shadow-sm"
-                : "text-stone-600 hover:bg-white/70 hover:text-stone-800"
+                ? "bg-surface-elevated text-brand-primary-hover shadow-surface"
+                : "text-text-secondary hover:bg-surface-elevated/70 hover:text-text-primary"
             }`}
             href="/home?feed=latest"
           >
