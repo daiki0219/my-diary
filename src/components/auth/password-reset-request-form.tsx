@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { PasswordResetRequestActionState } from "@/app/auth/actions";
+import { ActionLink, Button } from "@/components/ui/actions";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { FormInput } from "@/components/ui/form-controls";
 
 type PasswordResetRequestFormProps = {
   action: (
@@ -24,14 +25,15 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <Button
       aria-disabled={pending}
-      className="w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400"
+      className="w-full"
       disabled={pending}
       type="submit"
+      variant="primary"
     >
       {pending ? "送信中…" : "再設定メールを送信"}
-    </button>
+    </Button>
   );
 }
 
@@ -47,16 +49,15 @@ export function PasswordResetRequestForm({
     <form action={formAction} className="mt-8 space-y-5" noValidate>
       <div>
         <label
-          className="mb-2 block text-sm font-medium text-stone-700"
+          className="mb-2 block text-sm font-medium text-text-secondary"
           htmlFor="forgot-password-email"
         >
           メールアドレス
         </label>
-        <input
+        <FormInput
           aria-describedby={emailDescriptionId}
           aria-invalid={state.emailInvalid}
           autoComplete="email"
-          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition placeholder:text-stone-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-100"
           id="forgot-password-email"
           inputMode="email"
           name="email"
@@ -65,7 +66,7 @@ export function PasswordResetRequestForm({
           type="email"
         />
         <p
-          className="mt-2 text-xs leading-5 text-stone-500"
+          className="mt-2 text-xs leading-5 text-text-muted"
           id="forgot-password-email-help"
         >
           登録に使ったメールアドレスを入力してください。
@@ -90,14 +91,15 @@ export function PasswordResetRequestForm({
 
       <SubmitButton />
 
-      <p className="text-center text-sm text-stone-600">
-        <Link
-          className="font-semibold text-orange-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+      <div className="border-t border-border-subtle pt-4">
+        <ActionLink
+          className="w-full"
           href="/login"
+          variant="quiet"
         >
           ログインへ戻る
-        </Link>
-      </p>
+        </ActionLink>
+      </div>
     </form>
   );
 }

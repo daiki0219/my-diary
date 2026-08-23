@@ -4,7 +4,9 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { PasswordUpdateActionState } from "@/app/auth/actions";
+import { Button } from "@/components/ui/actions";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { FormInput } from "@/components/ui/form-controls";
 import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REQUIREMENTS_MESSAGE,
@@ -27,14 +29,15 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <Button
       aria-disabled={pending}
-      className="w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400"
+      className="w-full"
       disabled={pending}
       type="submit"
+      variant="primary"
     >
       {pending ? "更新中…" : "新しいパスワードを設定"}
-    </button>
+    </Button>
   );
 }
 
@@ -51,16 +54,15 @@ export function PasswordUpdateForm({ action }: PasswordUpdateFormProps) {
     <form action={formAction} className="mt-8 space-y-5" noValidate>
       <div>
         <label
-          className="mb-2 block text-sm font-medium text-stone-700"
+          className="mb-2 block text-sm font-medium text-text-secondary"
           htmlFor="reset-password"
         >
           新しいパスワード
         </label>
-        <input
+        <FormInput
           aria-describedby={passwordDescriptionId}
           aria-invalid={state.passwordInvalid}
           autoComplete="new-password"
-          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-100"
           id="reset-password"
           minLength={PASSWORD_MIN_LENGTH}
           name="password"
@@ -68,7 +70,7 @@ export function PasswordUpdateForm({ action }: PasswordUpdateFormProps) {
           type="password"
         />
         <p
-          className="mt-2 text-xs leading-5 text-stone-500"
+          className="mt-2 text-xs leading-5 text-text-muted"
           id="reset-password-requirements"
         >
           {PASSWORD_REQUIREMENTS_MESSAGE}
@@ -77,16 +79,15 @@ export function PasswordUpdateForm({ action }: PasswordUpdateFormProps) {
 
       <div>
         <label
-          className="mb-2 block text-sm font-medium text-stone-700"
+          className="mb-2 block text-sm font-medium text-text-secondary"
           htmlFor="reset-password-confirmation"
         >
           新しいパスワード（確認）
         </label>
-        <input
+        <FormInput
           aria-describedby={confirmationDescriptionId}
           aria-invalid={state.confirmationInvalid}
           autoComplete="new-password"
-          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-100"
           id="reset-password-confirmation"
           minLength={PASSWORD_MIN_LENGTH}
           name="passwordConfirmation"
