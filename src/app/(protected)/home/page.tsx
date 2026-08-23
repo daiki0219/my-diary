@@ -90,7 +90,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto w-full max-w-lg">
+      <div className="mx-auto w-full max-w-lg lg:grid lg:max-w-none lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start lg:gap-8">
+        <div className="min-w-0">
         <Surface className="overflow-hidden p-5 sm:p-7" variant="muted">
           <div className="flex min-w-0 items-start gap-3 sm:gap-5">
             <div className="min-w-0 flex-1">
@@ -254,6 +255,33 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             ログアウト
           </Button>
         </form>
+        </div>
+
+        <aside
+          aria-labelledby="home-calendar-heading"
+          className="hidden lg:block"
+        >
+          <Surface className="p-5">
+            <p className="text-sm font-medium text-text-muted">振り返る</p>
+            <h2
+              className="mt-2 text-xl font-semibold text-text-primary"
+              id="home-calendar-heading"
+            >
+              カレンダー
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-text-secondary">
+              日記を日付からゆっくり振り返れます。
+            </p>
+            <ActionLink
+              className="mt-4 w-full justify-between"
+              href="/calendar"
+              variant="quiet"
+            >
+              <span>カレンダーを見る</span>
+              <span aria-hidden="true">→</span>
+            </ActionLink>
+          </Surface>
+        </aside>
       </div>
     </section>
   );

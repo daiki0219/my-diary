@@ -1,18 +1,27 @@
 import type { ReactNode } from "react";
 
+import { joinClassNames } from "@/components/ui/class-names";
+
 type SiteFrameProps = {
   afterFooter?: ReactNode;
   children: ReactNode;
   headerContent?: ReactNode;
+  width?: "default" | "wide";
 };
 
 export function SiteFrame({
   afterFooter,
   children,
   headerContent,
+  width = "default",
 }: SiteFrameProps) {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-transparent">
+    <div
+      className={joinClassNames(
+        "mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-transparent",
+        width === "wide" && "lg:max-w-5xl",
+      )}
+    >
       <header className="border-b border-border-subtle bg-surface/80 px-5 py-4">
         {headerContent ?? (
           <p className="font-brand text-2xl font-medium tracking-tight text-text-primary">
