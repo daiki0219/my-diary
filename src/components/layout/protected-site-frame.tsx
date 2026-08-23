@@ -11,11 +11,16 @@ import { SiteFrame } from "@/components/layout/site-frame";
 
 export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const isAdminPath =
+    pathname === "/admin" || pathname.startsWith("/admin/");
 
   return (
     <SiteFrame
       afterFooter={<ProtectedMobileNavigation />}
       headerContent={<ProtectedHeader />}
+      headerInnerClassName="px-4 py-0 sm:px-5 lg:px-8"
+      headerWidth={isAdminPath ? "default" : "shell"}
+      showFooter={false}
       width={pathname === "/home" ? "wide" : "default"}
     >
       {children}
