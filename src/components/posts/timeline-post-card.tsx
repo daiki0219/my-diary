@@ -65,16 +65,16 @@ export function TimelinePostCard({
         </div>
       </div>
 
-      {post.images.length > 0 && (
-        <div className="[&>ol]:!mt-4">
-          <PostImageGallery images={post.images} />
-        </div>
-      )}
-
       {post.title && (
         <h2 className="mt-3 break-words font-brand text-lg font-medium leading-7 tracking-[0.01em] text-text-primary [overflow-wrap:anywhere]">
           {post.title}
         </h2>
+      )}
+
+      {post.images.length > 0 && (
+        <div className="[&>ol]:!mt-4">
+          <PostImageGallery images={post.images} />
+        </div>
       )}
 
       <PostLocation locationName={post.location_name} variant="timeline" />

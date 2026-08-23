@@ -36,8 +36,6 @@ export function CommentList({
         )}
       </div>
 
-      <CommentForm postId={postId} />
-
       {error || !comments ? (
         <FeedbackPanel
           className="mt-6"
@@ -64,6 +62,8 @@ export function CommentList({
           まだコメントはありません。感じたことを気軽に残してみましょう。
         </p>
       )}
+
+      <CommentForm postId={postId} />
     </section>
   );
 }
