@@ -10,6 +10,11 @@ export type CalendarPostInput = {
   created_at: string;
 };
 
+export type CalendarSummaryPostInput = Pick<
+  CalendarPostInput,
+  "id" | "mood" | "created_at"
+>;
+
 export type CalendarPost = CalendarPostInput & {
   localDate: CalendarDate;
 };
@@ -221,8 +226,8 @@ function parsePostgresInstantOrder(value: string) {
 }
 
 function comparePostInstantsDescending(
-  left: CalendarPostInput,
-  right: CalendarPostInput,
+  left: CalendarSummaryPostInput,
+  right: CalendarSummaryPostInput,
 ) {
   const leftInstant = parsePostgresInstantOrder(left.created_at);
   const rightInstant = parsePostgresInstantOrder(right.created_at);
@@ -430,7 +435,25 @@ export function buildCalendarPostIndex(
   month: CalendarMonth,
   timezone: string,
 ): CalendarPostIndex | null {
-  let orderedPosts: CalendarPostInput[];
+  return buildCalendarPostDayData(rawPosts, month, timezone);
+}
+
+export function buildCalendarDaySummaries(
+  rawPosts: readonly CalendarSummaryPostInput[],
+  month: CalendarMonth,
+  timezone: string,
+) {
+  return (
+    buildCalendarPostDayData(rawPosts, month, timezone)?.daySummaries ?? null
+  );
+}
+
+function buildCalendarPostDayData<T extends CalendarSummaryPostInput>(
+  rawPosts: readonly T[],
+  month: CalendarMonth,
+  timezone: string,
+) {
+  let orderedPosts: T[];
 
   try {
     orderedPosts = [...rawPosts].sort(comparePostInstantsDescending);
@@ -438,8 +461,11 @@ export function buildCalendarPostIndex(
     return null;
   }
 
-  const posts: CalendarPost[] = [];
-  const postsByDate: Record<string, CalendarPost[]> = {};
+  const posts: Array<T & { localDate: CalendarDate }> = [];
+  const postsByDate: Record<
+    string,
+    Array<T & { localDate: CalendarDate }>
+  > = {};
   const seenPostIds = new Set<string>();
 
   for (const rawPost of orderedPosts) {
@@ -459,7 +485,7 @@ export function buildCalendarPostIndex(
       return null;
     }
 
-    const post = { ...rawPost, localDate };
+    const post: T & { localDate: CalendarDate } = { ...rawPost, localDate };
     seenPostIds.add(post.id);
     posts.push(post);
     (postsByDate[localDate] ??= []).push(post);

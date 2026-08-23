@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   buildCalendarHref,
+  buildCalendarDaySummaries,
   buildCalendarPostIndex,
   formatInstantToCalendarDate,
   getCalendarMonthForInstant,
@@ -13,7 +14,10 @@ import {
   parseCalendarMonth,
   shiftCalendarMonth,
 } from "../src/lib/calendar.ts";
-import { queryCalendarPosts } from "../src/lib/calendar-query.ts";
+import {
+  queryCalendarPosts,
+  queryCalendarSummaryPosts,
+} from "../src/lib/calendar-query.ts";
 
 const validMonths = ["2026-08", "2026-01", "2026-12"];
 const invalidMonths = [
@@ -179,6 +183,30 @@ assert.deepEqual(index.daySummaries, [
     mood: "happy",
   },
 ]);
+assert.deepEqual(
+  buildCalendarDaySummaries(
+    [
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        mood: "sad",
+        created_at: "2026-08-09T01:00:00.000000+00:00",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        mood: "calm",
+        created_at: "2026-08-09T02:00:00.000000+00:00",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000003",
+        mood: "happy",
+        created_at: "2026-08-09T02:00:00.000000+00:00",
+      },
+    ],
+    august,
+    "Asia/Tokyo",
+  ),
+  index.daySummaries,
+);
 assert.equal(
   getCalendarPostsForDate(index, august, "2026-08-09")?.length,
   3,
@@ -238,6 +266,24 @@ await queryCalendarPosts(
 assert.deepEqual(queryCalls, [
   ["from", "posts"],
   ["select", "id, title, body, mood, visibility, created_at"],
+  ["eq", "user_id", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+  ["gte", "created_at", "2026-07-31T15:00:00.000Z"],
+  ["lt", "created_at", "2026-08-31T15:00:00.000Z"],
+  ["is", "deleted_at", null],
+  ["order", "created_at", { ascending: false }],
+  ["order", "id", { ascending: false }],
+  ["returns"],
+]);
+
+queryCalls.length = 0;
+await queryCalendarSummaryPosts(
+  fakeSupabase,
+  "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  tokyoRange,
+);
+assert.deepEqual(queryCalls, [
+  ["from", "posts"],
+  ["select", "id, mood, created_at"],
   ["eq", "user_id", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
   ["gte", "created_at", "2026-07-31T15:00:00.000Z"],
   ["lt", "created_at", "2026-08-31T15:00:00.000Z"],

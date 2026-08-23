@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getViewerTimeZone } from "@/lib/account-data";
 import {
+  buildCalendarDaySummaries,
   buildCalendarPostIndex,
   formatInstantToCalendarDate,
   getCalendarMonthForInstant,
@@ -17,7 +18,9 @@ import {
 } from "@/lib/calendar";
 import {
   queryCalendarPosts,
+  queryCalendarSummaryPosts,
   type CalendarPostQueryRow,
+  type CalendarSummaryPostQueryRow,
 } from "@/lib/calendar-query";
 import {
   isPostMood,
@@ -67,6 +70,28 @@ export type CalendarMonthDataResult =
 
 export type CalendarMonthData = NonNullable<CalendarMonthDataResult["data"]>;
 
+export type CalendarMonthSummaryDataResult =
+  | {
+      data: {
+        month: CalendarMonth;
+        today: CalendarDate;
+        daySummaries: CalendarDataDaySummary[];
+      };
+      error: null;
+    }
+  | {
+      data: null;
+      error:
+        | "viewer-unavailable"
+        | "timezone-error"
+        | "query-error"
+        | "invalid-data";
+    };
+
+export type CalendarMonthSummaryData = NonNullable<
+  CalendarMonthSummaryDataResult["data"]
+>;
+
 function isCalendarPostRow(value: unknown): value is CalendarPostRow {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -85,6 +110,91 @@ function isCalendarPostRow(value: unknown): value is CalendarPostRow {
     isPostVisibility(row.visibility) &&
     typeof row.created_at === "string"
   );
+}
+
+function isCalendarSummaryPostRow(
+  value: unknown,
+): value is CalendarSummaryPostQueryRow {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const row = value as Partial<
+    Record<keyof CalendarSummaryPostQueryRow, unknown>
+  >;
+
+  return (
+    typeof row.id === "string" &&
+    row.id.length > 0 &&
+    (row.mood === null ||
+      (typeof row.mood === "string" && isPostMood(row.mood))) &&
+    typeof row.created_at === "string"
+  );
+}
+
+export async function getCurrentCalendarSummaryData(
+  supabase: SupabaseClient,
+  now = new Date(),
+): Promise<CalendarMonthSummaryDataResult> {
+  const viewerResult = await getViewerTimeZone(supabase);
+
+  if (viewerResult.error || !viewerResult.userId) {
+    return { data: null, error: "viewer-unavailable" };
+  }
+
+  let today: CalendarDate;
+  let month: CalendarMonth;
+  let range: { start: string; end: string };
+
+  try {
+    today = formatInstantToCalendarDate(now, viewerResult.timezone);
+    month = getCalendarMonthForInstant(now, viewerResult.timezone);
+    range = getCalendarMonthUtcRange(month, viewerResult.timezone);
+  } catch {
+    return { data: null, error: "timezone-error" };
+  }
+
+  let postsResult;
+
+  try {
+    postsResult = await queryCalendarSummaryPosts(
+      supabase,
+      viewerResult.userId,
+      range,
+    );
+  } catch {
+    return { data: null, error: "query-error" };
+  }
+
+  if (
+    postsResult.error ||
+    !postsResult.data ||
+    !postsResult.data.every(isCalendarSummaryPostRow)
+  ) {
+    return {
+      data: null,
+      error: postsResult.error ? "query-error" : "invalid-data",
+    };
+  }
+
+  const daySummaries = buildCalendarDaySummaries(
+    postsResult.data,
+    month,
+    viewerResult.timezone,
+  );
+
+  if (!daySummaries) {
+    return { data: null, error: "invalid-data" };
+  }
+
+  return {
+    data: {
+      month,
+      today,
+      daySummaries: daySummaries as CalendarDataDaySummary[],
+    },
+    error: null,
+  };
 }
 
 export async function getCalendarMonthData(

@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import { logout } from "@/app/auth/actions";
+import { CalendarSummary } from "@/components/calendar/calendar-summary";
 import { TimelinePostCard } from "@/components/posts/timeline-post-card";
 import { ActionLink, Button } from "@/components/ui/actions";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,6 +14,7 @@ import {
   SegmentedNavLink,
 } from "@/components/ui/segmented-nav";
 import { Surface } from "@/components/ui/surface";
+import { getCurrentCalendarSummaryData } from "@/lib/calendar-data";
 import {
   getTimelinePosts,
   type TimelineFeed,
@@ -75,6 +77,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const hasInvalidCursor =
     rawCursor !== undefined &&
     (typeof rawCursor !== "string" || cursor === null);
+  const calendarSummaryPromise = getCurrentCalendarSummaryData(supabase).catch(
+    () => null,
+  );
   const postsResult = hasInvalidCursor
     ? {
         data: null,
@@ -84,6 +89,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         commentsError: null,
       }
     : await getTimelinePosts(supabase, userId, feed, cursor);
+  const calendarSummaryResult = await calendarSummaryPromise;
   const { data: posts, error: postsError } = postsResult;
   const nextCursor = postsResult.nextCursor;
   const currentFeedContent = feedContent[feed];
@@ -261,26 +267,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           aria-labelledby="home-calendar-heading"
           className="hidden lg:block"
         >
-          <Surface className="p-5">
-            <p className="text-sm font-medium text-text-muted">振り返る</p>
-            <h2
-              className="mt-2 text-xl font-semibold text-text-primary"
-              id="home-calendar-heading"
-            >
-              カレンダー
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-text-secondary">
-              日記を日付からゆっくり振り返れます。
-            </p>
-            <ActionLink
-              className="mt-4 w-full justify-between"
-              href="/calendar"
-              variant="quiet"
-            >
-              <span>カレンダーを見る</span>
-              <span aria-hidden="true">→</span>
-            </ActionLink>
-          </Surface>
+          <CalendarSummary data={calendarSummaryResult?.data ?? null} />
         </aside>
       </div>
     </section>
