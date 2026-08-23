@@ -21,7 +21,8 @@ export function CommentList({
   return (
     <section
       aria-labelledby="comments-heading"
-      className="mt-8 min-w-0 border-t border-border-subtle/70 pt-7 sm:mt-10 sm:pt-8"
+      className="mt-8 min-w-0 scroll-mt-16 border-t border-border-subtle/70 pt-7 sm:mt-10 sm:pt-8 lg:scroll-mt-28"
+      id="comments"
     >
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2

@@ -88,6 +88,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         error: new Error("Invalid timeline cursor."),
         reactionsError: null,
         commentsError: null,
+        commentPreviews: null,
+        commentPreviewsError: null,
       }
     : await getTimelinePosts(supabase, userId, feed, cursor);
   const [calendarSummaryResult, profileSummaryResult] = await Promise.all([
@@ -95,6 +97,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     profileSummaryPromise,
   ]);
   const { data: posts, error: postsError } = postsResult;
+  const commentPreviews = postsResult.commentPreviews;
   const nextCursor = postsResult.nextCursor;
   const currentFeedContent = feedContent[feed];
 
@@ -183,7 +186,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               >
                 {posts.map((post) => (
                   <li className="min-w-0" key={post.id}>
-                    <TimelinePostCard post={post} />
+                    <TimelinePostCard
+                      commentPreview={commentPreviews?.get(post.id) ?? []}
+                      post={post}
+                    />
                   </li>
                 ))}
               </ul>

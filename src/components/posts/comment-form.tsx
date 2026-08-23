@@ -48,7 +48,8 @@ export function CommentForm({ postId }: { postId: string }) {
   return (
     <form
       action={formAction}
-      className="mt-4 rounded-card bg-surface-muted/70 p-4 sm:p-5"
+      className="mt-4 scroll-mt-16 rounded-card bg-surface-muted/70 p-4 sm:p-5 lg:scroll-mt-28"
+      id="comment-form"
     >
       <input name="postId" type="hidden" value={postId} />
 

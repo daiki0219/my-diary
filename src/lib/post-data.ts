@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getCommentCounts } from "@/lib/comment-data";
+import {
+  getCommentCounts,
+  getTimelineCommentPreviews,
+} from "@/lib/comment-data";
 import {
   getPostImagesByPostIds,
   type PostImageReference,
@@ -322,6 +325,8 @@ export async function getTimelinePosts(
       error: TIMELINE_DATA_ERROR,
       reactionsError: null,
       commentsError: null,
+      commentPreviews: null,
+      commentPreviewsError: null,
     };
   }
 
@@ -346,6 +351,8 @@ export async function getTimelinePosts(
         error: followsResult.error,
         reactionsError: null,
         commentsError: null,
+        commentPreviews: null,
+        commentPreviewsError: null,
       };
     }
 
@@ -387,6 +394,8 @@ export async function getTimelinePosts(
       error: postsResult.error,
       reactionsError: null,
       commentsError: null,
+      commentPreviews: null,
+      commentPreviewsError: null,
     };
   }
 
@@ -399,15 +408,20 @@ export async function getTimelinePosts(
       error: TAG_RELATION_LOAD_ERROR,
       reactionsError: null,
       commentsError: null,
+      commentPreviews: null,
+      commentPreviewsError: null,
     };
   }
 
   const visiblePosts = posts.slice(0, TIMELINE_PAGE_SIZE);
-  const hydrationResult = await hydrateTimelinePosts(
-    supabase,
-    visiblePosts,
-    currentUserId,
-  );
+  const postIds = visiblePosts.map((post) => post.id);
+  const [hydrationResult, commentPreviewsResult] = await Promise.all([
+    hydrateTimelinePosts(supabase, visiblePosts, currentUserId),
+    getTimelineCommentPreviews(supabase, postIds).catch(() => ({
+      data: null,
+      error: new Error("Timeline comment previews could not be loaded."),
+    })),
+  ]);
   const lastPost = visiblePosts.at(-1);
   const nextCursor =
     posts.length > TIMELINE_PAGE_SIZE && lastPost
@@ -418,7 +432,12 @@ export async function getTimelinePosts(
         })
       : null;
 
-  return { ...hydrationResult, nextCursor };
+  return {
+    ...hydrationResult,
+    nextCursor,
+    commentPreviews: commentPreviewsResult.data,
+    commentPreviewsError: commentPreviewsResult.error,
+  };
 }
 
 export async function hydrateTimelinePosts(
