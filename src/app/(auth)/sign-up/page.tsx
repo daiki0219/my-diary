@@ -43,6 +43,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
           <FeedbackPanel
             aria-live="polite"
             className="mt-5"
+            role="status"
             variant="success"
           >
             確認メールを送信しました。メール内のリンクを開いて登録を完了してください。
