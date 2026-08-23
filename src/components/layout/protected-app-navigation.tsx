@@ -85,7 +85,7 @@ export function ProtectedHeader() {
       <Link
         aria-current={isSearchCurrent ? "page" : undefined}
         className={joinClassNames(
-          "flex min-h-11 shrink-0 items-center justify-center rounded-control px-3 py-2 text-sm leading-5 transition",
+          "hidden min-h-11 shrink-0 items-center justify-center rounded-control px-3 py-2 text-sm leading-5 transition sm:flex",
           isSearchCurrent
             ? "bg-brand-soft font-semibold text-brand-primary-hover"
             : "font-medium text-text-secondary hover:bg-surface-muted hover:text-text-primary",
