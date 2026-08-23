@@ -1,3 +1,7 @@
+import {
+  ProtectedHeader,
+  ProtectedMobileNavigation,
+} from "@/components/layout/protected-app-navigation";
 import { SiteFrame } from "@/components/layout/site-frame";
 
 export default function ProtectedLayout({
@@ -5,5 +9,12 @@ export default function ProtectedLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <SiteFrame>{children}</SiteFrame>;
+  return (
+    <SiteFrame
+      afterFooter={<ProtectedMobileNavigation />}
+      headerContent={<ProtectedHeader />}
+    >
+      {children}
+    </SiteFrame>
+  );
 }
