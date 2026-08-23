@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { logout } from "@/app/auth/actions";
 import { CalendarSummary } from "@/components/calendar/calendar-summary";
 import { TimelinePostCard } from "@/components/posts/timeline-post-card";
+import { HomeProfileSummary } from "@/components/profile/home-profile-summary";
 import { ActionLink, Button } from "@/components/ui/actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
@@ -18,6 +19,7 @@ import {
   getTimelinePosts,
   type TimelineFeed,
 } from "@/lib/post-data";
+import { getProfileWithCounts } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
 import { decodeTimelineCursor } from "@/lib/timeline-cursor";
 
@@ -76,6 +78,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const calendarSummaryPromise = getCurrentCalendarSummaryData(supabase).catch(
     () => null,
   );
+  const profileSummaryPromise = getProfileWithCounts(supabase, userId).catch(
+    () => null,
+  );
   const postsResult = hasInvalidCursor
     ? {
         data: null,
@@ -85,7 +90,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         commentsError: null,
       }
     : await getTimelinePosts(supabase, userId, feed, cursor);
-  const calendarSummaryResult = await calendarSummaryPromise;
+  const [calendarSummaryResult, profileSummaryResult] = await Promise.all([
+    calendarSummaryPromise,
+    profileSummaryPromise,
+  ]);
   const { data: posts, error: postsError } = postsResult;
   const nextCursor = postsResult.nextCursor;
   const currentFeedContent = feedContent[feed];
@@ -262,9 +270,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
 
         <aside
-          aria-labelledby="home-calendar-heading"
-          className="hidden lg:block"
+          aria-label="ホームの補助情報"
+          className="hidden space-y-4 lg:block xl:space-y-5"
         >
+          {profileSummaryResult?.profile &&
+            !profileSummaryResult.profileLoadFailed && (
+              <HomeProfileSummary
+                counts={profileSummaryResult.counts}
+                profile={{
+                  bio: profileSummaryResult.profile.bio,
+                  username: profileSummaryResult.profile.username,
+                }}
+              />
+            )}
           <CalendarSummary data={calendarSummaryResult?.data ?? null} />
         </aside>
       </div>
