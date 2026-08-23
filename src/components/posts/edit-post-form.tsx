@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useActionState,
@@ -17,6 +16,13 @@ import {
   type UpdatePostActionState,
 } from "@/app/(protected)/posts/actions";
 import { TagInput } from "@/components/posts/tag-input";
+import { ActionLink, Button } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import {
+  FormInput,
+  FormSelect,
+  FormTextarea,
+} from "@/components/ui/form-controls";
 import {
   POST_MOOD_OPTIONS,
   POST_VISIBILITY_OPTIONS,
@@ -429,34 +435,34 @@ export function EditPostForm({ post }: { post: EditablePost }) {
 
   return (
     <form action={formAction}>
-      <fieldset className="min-w-0 space-y-6" disabled={formDisabled}>
+      <fieldset className="min-w-0 space-y-8" disabled={formDisabled}>
         {state.error && (
-          <p
+          <FeedbackPanel
             aria-live="polite"
-            className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
             role="alert"
+            variant="error"
           >
             {state.error}
-          </p>
+          </FeedbackPanel>
         )}
 
         {state.outcomeUnknown && (
-          <p className="text-sm leading-6 text-stone-600">
+          <p className="text-sm leading-6 text-text-secondary">
             二重更新を防ぐためフォームを停止しました。投稿の詳細を確認するか、画面を再読み込みしてください。
           </p>
         )}
 
         <input name="postId" type="hidden" value={post.id} />
 
+        <div className="space-y-6">
         <div>
-          <label className="mb-2 block text-sm font-medium text-stone-700" htmlFor="edit-post-title">
+          <label className="mb-2 block text-sm font-medium text-text-secondary" htmlFor="edit-post-title">
             タイトル
-            <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+            <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
           </label>
-          <input
+          <FormInput
             aria-describedby={state.fieldErrors.title ? "edit-post-title-help edit-post-title-error" : "edit-post-title-help"}
             aria-invalid={Boolean(state.fieldErrors.title)}
-            className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
             id="edit-post-title"
             maxLength={120}
             name="title"
@@ -464,19 +470,22 @@ export function EditPostForm({ post }: { post: EditablePost }) {
             type="text"
             value={title}
           />
-          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
             <p id="edit-post-title-help">120文字以下で入力してください。</p>
             <p aria-hidden="true" className="shrink-0">{Array.from(title).length} / 120</p>
           </div>
-          {state.fieldErrors.title && <p className="mt-2 text-sm text-red-700" id="edit-post-title-error" role="alert">{state.fieldErrors.title}</p>}
+          {state.fieldErrors.title && <p className="mt-2 text-sm text-danger" id="edit-post-title-error" role="alert">{state.fieldErrors.title}</p>}
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium text-stone-700" htmlFor="edit-post-body">本文</label>
-          <textarea
+          <label className="mb-2 block text-sm font-medium text-text-secondary" htmlFor="edit-post-body">
+            本文
+            <span className="ml-2 text-xs font-normal text-text-muted">必須</span>
+          </label>
+          <FormTextarea
             aria-describedby={state.fieldErrors.body ? "edit-post-body-help edit-post-body-error" : "edit-post-body-help"}
             aria-invalid={Boolean(state.fieldErrors.body)}
-            className="min-h-64 w-full resize-y rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+            className="min-h-72 resize-y leading-7 sm:min-h-80"
             id="edit-post-body"
             maxLength={10000}
             name="body"
@@ -484,31 +493,64 @@ export function EditPostForm({ post }: { post: EditablePost }) {
             required
             value={body}
           />
-          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
             <p id="edit-post-body-help">10,000文字以下で入力してください。</p>
             <p aria-hidden="true" className="shrink-0">{Array.from(body).length} / 10,000</p>
           </div>
-          {state.fieldErrors.body && <p className="mt-2 text-sm text-red-700" id="edit-post-body-error" role="alert">{state.fieldErrors.body}</p>}
+          {state.fieldErrors.body && <p className="mt-2 text-sm text-danger" id="edit-post-body-error" role="alert">{state.fieldErrors.body}</p>}
         </div>
+        </div>
+
+        <section
+          aria-labelledby="edit-post-details-heading"
+          className="min-w-0 space-y-6 rounded-card bg-surface-muted/45 px-4 py-5 sm:px-5"
+        >
+          <div>
+            <h2
+              className="font-brand text-xl font-medium tracking-wide text-text-primary"
+              id="edit-post-details-heading"
+            >
+              その日のこと
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-text-muted">
+              気分や場所、タグ、写真は必要なものだけ残せます。
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-text-secondary" htmlFor="edit-post-mood">気分</label>
+            <FormSelect
+              aria-describedby={state.fieldErrors.mood ? "edit-post-mood-error" : undefined}
+              aria-invalid={Boolean(state.fieldErrors.mood)}
+              id="edit-post-mood"
+              name="mood"
+              onChange={(event) => setMood(event.target.value as PostMood | "")}
+              value={mood}
+            >
+              <option value="">選択しない</option>
+              {POST_MOOD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </FormSelect>
+            {state.fieldErrors.mood && <p className="mt-2 text-sm text-danger" id="edit-post-mood-error" role="alert">{state.fieldErrors.mood}</p>}
+          </div>
 
         <div>
           <label
-            className="mb-2 block text-sm font-medium text-stone-700"
+            className="mb-2 block text-sm font-medium text-text-secondary"
             htmlFor="edit-post-location"
           >
             場所
-            <span className="ml-2 text-xs font-normal text-stone-500">
+            <span className="ml-2 text-xs font-normal text-text-muted">
               任意
             </span>
           </label>
-          <input
+          <FormInput
             aria-describedby={
               displayedLocationError
                 ? "edit-post-location-help edit-post-location-error"
                 : "edit-post-location-help"
             }
             aria-invalid={Boolean(displayedLocationError)}
-            className="w-full min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+            className="min-w-0"
             id="edit-post-location"
             name="locationName"
             onChange={(event) => {
@@ -523,9 +565,9 @@ export function EditPostForm({ post }: { post: EditablePost }) {
             type="text"
             value={locationName}
           />
-          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
             <p id="edit-post-location-help">
-              任意。場所の名前を自由に入力できます。空欄で保存すると場所を削除します。
+              任意。場所の名前を100文字以下で入力できます。空欄で保存すると場所を削除します。
             </p>
             <p aria-hidden="true" className="shrink-0">
               {getPostLocationNameCharacterCount(normalizedLocationName)} /{" "}
@@ -534,7 +576,7 @@ export function EditPostForm({ post }: { post: EditablePost }) {
           </div>
           {displayedLocationError && (
             <p
-              className="mt-2 text-sm text-red-700"
+              className="mt-2 text-sm text-danger"
               id="edit-post-location-error"
               role="alert"
             >
@@ -551,32 +593,32 @@ export function EditPostForm({ post }: { post: EditablePost }) {
         />
 
         <div className="min-w-0">
-          <label className="mb-2 block text-sm font-medium text-stone-700" htmlFor="edit-post-images">
+          <label className="mb-2 block text-sm font-medium text-text-secondary" htmlFor="edit-post-images">
             画像
-            <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+            <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
           </label>
           <input
             accept={POST_IMAGE_ALLOWED_MIME_TYPES.join(",")}
             aria-describedby={displayedImageError ? "edit-post-images-help edit-post-images-error" : "edit-post-images-help"}
             aria-invalid={Boolean(displayedImageError)}
-            className="block w-full min-w-0 rounded-2xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-700 file:mr-3 file:rounded-full file:border-0 file:bg-orange-50 file:px-4 file:py-2 file:font-semibold file:text-orange-800 hover:file:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-100"
+            className="block w-full min-w-0 rounded-control border border-border-control bg-surface px-3 py-3 text-sm text-text-secondary file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-semibold file:text-brand-primary-hover hover:file:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:bg-surface-muted"
             disabled={formDisabled || images.length >= POST_IMAGE_MAX_COUNT}
             id="edit-post-images"
             multiple
             onChange={handleImageSelection}
             type="file"
           />
-          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500" id="edit-post-images-help">
+          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted" id="edit-post-images-help">
             <p>JPEG・PNG・WebP、1枚6MB以下。既存画像と合わせて最大10枚まで。</p>
             <p className="shrink-0"><span className="sr-only">現在の画像数: </span>{images.length} / {POST_IMAGE_MAX_COUNT}</p>
           </div>
-          {displayedImageError && <p className="mt-2 text-sm text-red-700" id="edit-post-images-error" role="alert">{displayedImageError}</p>}
+          {displayedImageError && <p className="mt-2 text-sm text-danger" id="edit-post-images-error" role="alert">{displayedImageError}</p>}
 
           {images.length > 0 && (
             <ol aria-label="投稿画像（保存後の順序）" className="mt-4 grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3">
               {images.map((image, index) => (
-                <li className="min-w-0 overflow-hidden rounded-2xl border border-stone-200 bg-stone-50" key={`${image.kind}:${image.id}`}>
-                  <div className="relative aspect-square overflow-hidden bg-stone-200">
+                <li className="min-w-0 overflow-hidden rounded-control border border-border-subtle bg-surface-elevated" key={`${image.kind}:${image.id}`}>
+                  <div className="relative aspect-square overflow-hidden bg-surface-muted">
                     <Image
                       alt=""
                       className="object-cover"
@@ -589,7 +631,7 @@ export function EditPostForm({ post }: { post: EditablePost }) {
                     <span className="absolute left-2 top-2 rounded-full bg-stone-950/75 px-2 py-1 text-xs font-semibold text-white">{index + 1}</span>
                     <button
                       aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を削除`}
-                      className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full bg-white/95 text-xl leading-none text-stone-800 shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:text-stone-400"
+                      className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full bg-surface-elevated/95 text-xl leading-none text-text-primary shadow-sm transition hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:text-control-disabled-text"
                       onClick={() => removeImage(image.id)}
                       type="button"
                     >
@@ -597,11 +639,16 @@ export function EditPostForm({ post }: { post: EditablePost }) {
                     </button>
                   </div>
                   <div className="space-y-2 px-2 py-2">
-                    <p className="text-xs font-medium text-stone-600">{image.kind === "existing" ? "既存画像" : "新規画像"}・現在{index + 1}番目</p>
+                    <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-text-muted">
+                      <span className="rounded-full bg-brand-soft px-2 py-1 font-medium text-brand-primary-hover">
+                        {image.kind === "existing" ? "保存済み画像" : "追加する画像"}
+                      </span>
+                      <span>現在{index + 1}番目</span>
+                    </p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を前へ移動`}
-                        className="min-h-11 rounded-xl border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                        className="min-h-11 rounded-control border border-border-subtle bg-surface px-2 text-xs font-semibold text-text-secondary transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-control-disabled-text"
                         disabled={index === 0}
                         onClick={() => moveImage(index, -1)}
                         type="button"
@@ -610,7 +657,7 @@ export function EditPostForm({ post }: { post: EditablePost }) {
                       </button>
                       <button
                         aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を後ろへ移動`}
-                        className="min-h-11 rounded-xl border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                        className="min-h-11 rounded-control border border-border-subtle bg-surface px-2 text-xs font-semibold text-text-secondary transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-control-disabled-text"
                         disabled={index === images.length - 1}
                         onClick={() => moveImage(index, 1)}
                         type="button"
@@ -625,53 +672,35 @@ export function EditPostForm({ post }: { post: EditablePost }) {
           )}
           <p aria-live="polite" className="sr-only">{imageAnnouncement}</p>
         </div>
+        </section>
 
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-stone-700" htmlFor="edit-post-mood">気分</label>
-            <select
-              aria-describedby={state.fieldErrors.mood ? "edit-post-mood-error" : undefined}
-              aria-invalid={Boolean(state.fieldErrors.mood)}
-              className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-              id="edit-post-mood"
-              name="mood"
-              onChange={(event) => setMood(event.target.value as PostMood | "")}
-              value={mood}
-            >
-              <option value="">選択しない</option>
-              {POST_MOOD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            {state.fieldErrors.mood && <p className="mt-2 text-sm text-red-700" id="edit-post-mood-error" role="alert">{state.fieldErrors.mood}</p>}
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-stone-700" htmlFor="edit-post-visibility">公開範囲</label>
-            <select
+        <section className="min-w-0 border-t border-border-subtle/70 pt-6">
+            <label className="mb-2 block font-brand text-xl font-medium tracking-wide text-text-primary" htmlFor="edit-post-visibility">公開範囲</label>
+            <FormSelect
               aria-describedby={state.fieldErrors.visibility ? "edit-post-visibility-help edit-post-visibility-error" : "edit-post-visibility-help"}
               aria-invalid={Boolean(state.fieldErrors.visibility)}
-              className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
               id="edit-post-visibility"
               name="visibility"
               onChange={(event) => setVisibility(event.target.value as PostVisibility)}
               value={visibility}
             >
               {POST_VISIBILITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <p className="mt-2 text-xs leading-5 text-stone-500" id="edit-post-visibility-help">変更後の公開範囲は、保存後すぐに反映されます。</p>
-            {state.fieldErrors.visibility && <p className="mt-2 text-sm text-red-700" id="edit-post-visibility-error" role="alert">{state.fieldErrors.visibility}</p>}
-          </div>
-        </div>
+            </FormSelect>
+            <p className="mt-2 text-sm leading-6 text-text-muted" id="edit-post-visibility-help">誰に見える日記かを選びます。変更後の公開範囲は、保存後すぐに反映されます。</p>
+            {state.fieldErrors.visibility && <p className="mt-2 text-sm text-danger" id="edit-post-visibility-error" role="alert">{state.fieldErrors.visibility}</p>}
+        </section>
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Link className="rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 sm:min-w-36" href={`/posts/${post.id}`}>キャンセル</Link>
-          <button
+        <div className="flex flex-col gap-2 sm:items-end">
+          <Button
             aria-disabled={formDisabled}
-            className="w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400 sm:w-auto sm:min-w-36"
+            className="w-full sm:w-auto sm:min-w-36"
             disabled={formDisabled}
             type="submit"
+            variant="primary"
           >
             {isPending ? "保存中…" : state.outcomeUnknown ? "結果を確認してください" : "変更を保存"}
-          </button>
+          </Button>
+          <ActionLink className="w-full sm:w-auto sm:min-w-36" href={`/posts/${post.id}`} variant="quiet">キャンセル</ActionLink>
         </div>
       </fieldset>
     </form>

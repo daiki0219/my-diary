@@ -6,8 +6,9 @@ import { Surface } from "@/components/ui/surface";
 type PageHeaderProps = {
   className?: string;
   description?: ReactNode;
-  eyebrow: ReactNode;
+  eyebrow?: ReactNode;
   title: ReactNode;
+  variant?: "muted" | "plain";
 };
 
 export function PageHeader({
@@ -15,23 +16,51 @@ export function PageHeader({
   description,
   eyebrow,
   title,
+  variant = "muted",
 }: PageHeaderProps) {
+  const content = (
+    <>
+      {Boolean(eyebrow) && (
+        <p className="text-sm font-medium text-brand-primary-hover">
+          {eyebrow}
+        </p>
+      )}
+      <h1
+        className={joinClassNames(
+          "break-words font-semibold tracking-tight text-text-primary [overflow-wrap:anywhere]",
+          Boolean(eyebrow) && "mt-2",
+          variant === "plain" ? "text-2xl sm:text-3xl" : "text-3xl",
+        )}
+      >
+        {title}
+      </h1>
+      {description && (
+        <p
+          className={joinClassNames(
+            "break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]",
+            variant === "plain" ? "mt-2" : "mt-3",
+          )}
+        >
+          {description}
+        </p>
+      )}
+    </>
+  );
+
+  if (variant === "plain") {
+    return (
+      <div className={joinClassNames("min-w-0 py-1", className)}>
+        {content}
+      </div>
+    );
+  }
+
   return (
     <Surface
       className={joinClassNames("min-w-0 p-5 sm:p-7", className)}
       variant="muted"
     >
-      <p className="text-sm font-medium text-brand-primary-hover">
-        {eyebrow}
-      </p>
-      <h1 className="mt-2 break-words text-3xl font-semibold tracking-tight text-text-primary [overflow-wrap:anywhere]">
-        {title}
-      </h1>
-      {description && (
-        <p className="mt-3 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]">
-          {description}
-        </p>
-      )}
+      {content}
     </Surface>
   );
 }

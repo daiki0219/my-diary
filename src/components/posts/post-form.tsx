@@ -360,24 +360,25 @@ export function PostForm() {
 
   return (
     <form action={formAction}>
-      <fieldset className="min-w-0 space-y-6" disabled={isPending}>
-      {state.error && (
-        <FeedbackPanel
-          aria-live="polite"
-          role="alert"
-          variant="error"
-        >
-          {state.error}
-        </FeedbackPanel>
-      )}
+      <fieldset className="min-w-0 space-y-8" disabled={isPending}>
+        {state.error && (
+          <FeedbackPanel
+            aria-live="polite"
+            role="alert"
+            variant="error"
+          >
+            {state.error}
+          </FeedbackPanel>
+        )}
 
+      <div className="space-y-6">
       <div>
         <label
-          className="mb-2 block text-sm font-medium text-stone-700"
+          className="mb-2 block text-sm font-medium text-text-secondary"
           htmlFor="post-title"
         >
           タイトル
-          <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+          <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
         </label>
         <FormInput
           aria-describedby={
@@ -393,7 +394,7 @@ export function PostForm() {
           type="text"
           value={title}
         />
-        <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+        <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
           <p id="post-title-help">120文字以下で入力してください。</p>
           <p aria-hidden="true" className="shrink-0">
             {Array.from(title).length} / 120
@@ -401,7 +402,7 @@ export function PostForm() {
         </div>
         {state.fieldErrors.title && (
           <p
-            className="mt-2 text-sm text-red-700"
+            className="mt-2 text-sm text-danger"
             id="post-title-error"
             role="alert"
           >
@@ -412,10 +413,11 @@ export function PostForm() {
 
       <div>
         <label
-          className="mb-2 block text-sm font-medium text-stone-700"
+          className="mb-2 block text-sm font-medium text-text-secondary"
           htmlFor="post-body"
         >
           本文
+          <span className="ml-2 text-xs font-normal text-text-muted">必須</span>
         </label>
         <FormTextarea
           aria-describedby={
@@ -424,7 +426,7 @@ export function PostForm() {
               : "post-body-help"
           }
           aria-invalid={Boolean(state.fieldErrors.body)}
-          className="min-h-64 resize-y leading-7"
+          className="min-h-72 resize-y leading-7 sm:min-h-80"
           id="post-body"
           maxLength={10000}
           name="body"
@@ -432,7 +434,7 @@ export function PostForm() {
           required
           value={body}
         />
-        <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+        <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
           <p id="post-body-help">10,000文字以下で入力してください。</p>
           <p aria-hidden="true" className="shrink-0">
             {Array.from(body).length} / 10,000
@@ -440,7 +442,7 @@ export function PostForm() {
         </div>
         {state.fieldErrors.body && (
           <p
-            className="mt-2 text-sm text-red-700"
+            className="mt-2 text-sm text-danger"
             id="post-body-error"
             role="alert"
           >
@@ -448,14 +450,65 @@ export function PostForm() {
           </p>
         )}
       </div>
+      </div>
+
+      <section
+        aria-labelledby="post-details-heading"
+        className="min-w-0 space-y-6 rounded-card bg-surface-muted/45 px-4 py-5 sm:px-5"
+      >
+        <div>
+          <h2
+            className="font-brand text-xl font-medium tracking-wide text-text-primary"
+            id="post-details-heading"
+          >
+            その日のこと
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-text-muted">
+            気分や場所、タグ、写真は必要なものだけ残せます。
+          </p>
+        </div>
+
+        <div>
+          <label
+            className="mb-2 block text-sm font-medium text-text-secondary"
+            htmlFor="post-mood"
+          >
+            気分
+          </label>
+          <FormSelect
+            aria-describedby={
+              state.fieldErrors.mood ? "post-mood-error" : undefined
+            }
+            aria-invalid={Boolean(state.fieldErrors.mood)}
+            defaultValue=""
+            id="post-mood"
+            name="mood"
+          >
+            <option value="">選択しない</option>
+            {POST_MOOD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </FormSelect>
+          {state.fieldErrors.mood && (
+            <p
+              className="mt-2 text-sm text-danger"
+              id="post-mood-error"
+              role="alert"
+            >
+              {state.fieldErrors.mood}
+            </p>
+          )}
+        </div>
 
       <div>
         <label
-          className="mb-2 block text-sm font-medium text-stone-700"
+          className="mb-2 block text-sm font-medium text-text-secondary"
           htmlFor="post-location"
         >
           場所
-          <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+          <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
         </label>
         <FormInput
           aria-describedby={
@@ -479,9 +532,9 @@ export function PostForm() {
           type="text"
           value={locationName}
         />
-        <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+        <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
           <p id="post-location-help">
-            任意。場所の名前を自由に入力できます。
+            任意。場所の名前を100文字以下で入力できます。
           </p>
           <p aria-hidden="true" className="shrink-0">
             {getPostLocationNameCharacterCount(normalizedLocationName)} /{" "}
@@ -490,7 +543,7 @@ export function PostForm() {
         </div>
         {displayedLocationError && (
           <p
-            className="mt-2 text-sm text-red-700"
+            className="mt-2 text-sm text-danger"
             id="post-location-error"
             role="alert"
           >
@@ -508,11 +561,11 @@ export function PostForm() {
 
       <div className="min-w-0">
         <label
-          className="mb-2 block text-sm font-medium text-stone-700"
+          className="mb-2 block text-sm font-medium text-text-secondary"
           htmlFor="post-images"
         >
           画像
-          <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+          <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
         </label>
         <input
           accept={POST_IMAGE_ALLOWED_MIME_TYPES.join(",")}
@@ -522,7 +575,7 @@ export function PostForm() {
               : "post-images-help"
           }
           aria-invalid={Boolean(displayedImageError)}
-          className="block w-full min-w-0 rounded-control border border-border-control bg-surface px-3 py-3 text-sm text-text-secondary file:mr-3 file:rounded-full file:border-0 file:bg-orange-50 file:px-4 file:py-2 file:font-semibold file:text-orange-800 hover:file:bg-orange-100 focus:border-focus disabled:cursor-wait disabled:bg-stone-100"
+          className="block w-full min-w-0 rounded-control border border-border-control bg-surface px-3 py-3 text-sm text-text-secondary file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-semibold file:text-brand-primary-hover hover:file:bg-surface-muted focus:border-focus disabled:cursor-wait disabled:bg-surface-muted"
           disabled={isPending || selectedImages.length >= POST_IMAGE_MAX_COUNT}
           id="post-images"
           multiple
@@ -530,7 +583,7 @@ export function PostForm() {
           type="file"
         />
         <div
-          className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500"
+          className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted"
           id="post-images-help"
         >
           <p>JPEG・PNG・WebP、1枚6MB以下。選択順で最大10枚まで。</p>
@@ -542,7 +595,7 @@ export function PostForm() {
 
         {displayedImageError && (
           <p
-            className="mt-2 text-sm text-red-700"
+            className="mt-2 text-sm text-danger"
             id="post-images-error"
             role="alert"
           >
@@ -557,10 +610,10 @@ export function PostForm() {
           >
             {selectedImages.map((image, index) => (
               <li
-                className="min-w-0 overflow-hidden rounded-2xl border border-stone-200 bg-stone-50"
+                className="min-w-0 overflow-hidden rounded-control border border-border-subtle bg-surface-elevated"
                 key={image.id}
               >
-                <div className="relative aspect-square overflow-hidden bg-stone-200">
+                <div className="relative aspect-square overflow-hidden bg-surface-muted">
                   <Image
                     alt=""
                     className="object-cover"
@@ -574,7 +627,7 @@ export function PostForm() {
                   </span>
                   <button
                     aria-label={`画像${index + 1}「${image.file.name}」を選択から削除`}
-                    className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full bg-white/95 text-xl leading-none text-stone-800 shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:text-stone-400"
+                    className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full bg-surface-elevated/95 text-xl leading-none text-text-primary shadow-sm transition hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:text-control-disabled-text"
                     disabled={isPending}
                     onClick={() => removeImage(image.id)}
                     type="button"
@@ -582,7 +635,7 @@ export function PostForm() {
                     <span aria-hidden="true">×</span>
                   </button>
                 </div>
-                <p className="min-w-0 break-words px-3 py-2 text-xs leading-5 text-stone-600 [overflow-wrap:anywhere]">
+                <p className="min-w-0 break-words px-3 py-2 text-xs leading-5 text-text-muted [overflow-wrap:anywhere]">
                   {image.file.name}
                 </p>
               </li>
@@ -594,45 +647,11 @@ export function PostForm() {
           {imageAnnouncement}
         </p>
       </div>
+      </section>
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div>
+      <section className="min-w-0 border-t border-border-subtle/70 pt-6">
           <label
-            className="mb-2 block text-sm font-medium text-stone-700"
-            htmlFor="post-mood"
-          >
-            気分
-          </label>
-          <FormSelect
-            aria-describedby={
-              state.fieldErrors.mood ? "post-mood-error" : undefined
-            }
-            aria-invalid={Boolean(state.fieldErrors.mood)}
-            defaultValue=""
-            id="post-mood"
-            name="mood"
-          >
-            <option value="">選択しない</option>
-            {POST_MOOD_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </FormSelect>
-          {state.fieldErrors.mood && (
-            <p
-              className="mt-2 text-sm text-red-700"
-              id="post-mood-error"
-              role="alert"
-            >
-              {state.fieldErrors.mood}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            className="mb-2 block text-sm font-medium text-stone-700"
+            className="mb-2 block font-brand text-xl font-medium tracking-wide text-text-primary"
             htmlFor="post-visibility"
           >
             公開範囲
@@ -640,7 +659,7 @@ export function PostForm() {
           <FormSelect
             aria-describedby={
               state.fieldErrors.visibility
-                ? "post-visibility-error"
+                ? "post-visibility-help post-visibility-error"
                 : "post-visibility-help"
             }
             aria-invalid={Boolean(state.fieldErrors.visibility)}
@@ -655,34 +674,33 @@ export function PostForm() {
             ))}
           </FormSelect>
           <p
-            className="mt-2 text-xs leading-5 text-stone-500"
+            className="mt-2 text-sm leading-6 text-text-muted"
             id="post-visibility-help"
           >
-            初期値は非公開です。
+            誰に見える日記かを選びます。初期値は非公開です。
           </p>
           {state.fieldErrors.visibility && (
             <p
-              className="mt-2 text-sm text-red-700"
+              className="mt-2 text-sm text-danger"
               id="post-visibility-error"
               role="alert"
             >
               {state.fieldErrors.visibility}
             </p>
           )}
-        </div>
-      </div>
+      </section>
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <div className="flex flex-col gap-2 sm:items-end">
+        <SubmitButton />
         <ActionLink
           aria-disabled={isPending}
-          className="sm:min-w-36"
+          className="w-full sm:w-auto sm:min-w-36"
           href="/profile/posts"
           tabIndex={isPending ? -1 : undefined}
-          variant="neutral"
+          variant="quiet"
         >
           キャンセル
         </ActionLink>
-        <SubmitButton />
       </div>
       </fieldset>
     </form>

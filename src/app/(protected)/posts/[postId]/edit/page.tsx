@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { EditPostForm } from "@/components/posts/edit-post-form";
+import { ActionLink } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { PageHeader } from "@/components/ui/page-header";
 import { getEditablePost } from "@/lib/post-data";
 import { isUuid } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
@@ -45,12 +47,13 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
   if (postResult.error) {
     return (
       <section className="flex flex-1 items-center px-4 py-10 sm:px-8">
-        <p
-          className="mx-auto w-full max-w-lg rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+        <FeedbackPanel
+          className="mx-auto w-full max-w-xl"
           role="alert"
+          variant="error"
         >
           投稿を読み込めませんでした。時間をおいてもう一度お試しください。
-        </p>
+        </FeedbackPanel>
       </section>
     );
   }
@@ -63,37 +66,37 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
     !accountResult.error && accountResult.data?.status === "active";
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto w-full max-w-lg">
-        <Link
-          className="inline-flex rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+      <div className="mx-auto w-full max-w-xl">
+        <ActionLink
+          className="-ml-3"
           href={`/posts/${postId}`}
+          variant="quiet"
         >
           ← 投稿の詳細へ戻る
-        </Link>
+        </ActionLink>
 
-        <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-          <p className="text-sm font-medium text-orange-700">投稿内容の変更</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-800">
-            投稿を編集
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
-            保存すると、変更した内容と公開範囲がすぐに反映されます。
-          </p>
+        <PageHeader
+          className="mt-3"
+          description="保存すると、変更した内容と公開範囲がすぐに反映されます。"
+          eyebrow="投稿内容の変更"
+          title="投稿を編集"
+          variant="plain"
+        />
 
-          {canEdit ? (
-            <div className="mt-7">
-              <EditPostForm post={postResult.data} />
-            </div>
-          ) : (
-            <p
-              className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"
-              role="alert"
-            >
-              現在のアカウント状態では投稿を編集できません。
-            </p>
-          )}
-        </div>
+        {canEdit ? (
+          <div className="mt-6 sm:mt-8">
+            <EditPostForm post={postResult.data} />
+          </div>
+        ) : (
+          <FeedbackPanel
+            className="mt-6 sm:mt-8"
+            role="alert"
+            variant="warning"
+          >
+            現在のアカウント状態では投稿を編集できません。
+          </FeedbackPanel>
+        )}
       </div>
     </section>
   );

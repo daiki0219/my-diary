@@ -108,9 +108,9 @@ export function TagInput({
 
   return (
     <fieldset className="min-w-0" disabled={pending}>
-      <legend className="text-sm font-medium text-stone-700">
+      <legend className="text-sm font-medium text-text-secondary">
         タグ
-        <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+        <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
       </legend>
 
       {tags.map((tag) => (
@@ -120,10 +120,10 @@ export function TagInput({
         タグを入力
       </label>
 
-      <div className="mt-2 flex min-w-0 max-w-full flex-wrap gap-2 rounded-2xl border border-stone-300 bg-white p-2 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-100">
+      <div className="mt-2 flex min-w-0 max-w-full flex-wrap gap-2 rounded-control border border-border-control bg-surface p-2 transition focus-within:border-focus focus-within:ring-2 focus-within:ring-brand-soft">
         {tags.map((tag) => (
           <span
-            className="flex min-w-0 max-w-full items-center gap-1 rounded-full bg-orange-50 py-1 pl-3 pr-1 text-sm font-medium text-orange-900"
+            className="flex min-w-0 max-w-full items-center gap-1 rounded-full bg-brand-soft py-1 pl-3 pr-1 text-sm font-medium text-brand-primary-hover"
             key={tag}
           >
             <span className="min-w-0 break-words [overflow-wrap:anywhere]">
@@ -131,7 +131,7 @@ export function TagInput({
             </span>
             <button
               aria-label={`「${tag}」を削除`}
-              className="flex size-10 shrink-0 items-center justify-center rounded-full text-xl leading-none text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-orange-600 disabled:cursor-wait disabled:text-stone-400"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full text-xl leading-none text-brand-primary-hover transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:cursor-wait disabled:text-control-disabled-text"
               disabled={pending}
               onClick={() => removeTag(tag)}
               type="button"
@@ -146,7 +146,7 @@ export function TagInput({
             displayedError ? `${helpId} ${errorId}` : helpId
           }
           aria-invalid={Boolean(displayedError)}
-          className="min-w-32 flex-1 basis-40 bg-transparent px-2 py-2 text-base outline-none disabled:cursor-not-allowed disabled:text-stone-400"
+          className="min-h-11 min-w-32 flex-1 basis-40 bg-transparent px-2 py-2 text-base text-text-primary outline-none placeholder:text-text-muted disabled:cursor-not-allowed disabled:text-control-disabled-text"
           disabled={pending || isAtLimit}
           id={inputId}
           name="tags"
@@ -169,7 +169,7 @@ export function TagInput({
       </div>
 
       <div
-        className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500"
+        className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted"
         id={helpId}
       >
         <p>最大5個・1個30文字まで。カンマや改行でも追加できます。</p>
@@ -179,7 +179,7 @@ export function TagInput({
       </div>
 
       {displayedError && (
-        <p className="mt-2 text-sm text-red-700" id={errorId} role="alert">
+        <p className="mt-2 text-sm text-danger" id={errorId} role="alert">
           {displayedError}
         </p>
       )}
