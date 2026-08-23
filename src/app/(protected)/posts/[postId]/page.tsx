@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { CommentForm } from "@/components/posts/comment-form";
@@ -81,8 +82,8 @@ export default async function PostDetailPage({
     accountResult?.data?.status === "active";
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto w-full max-w-lg">
+    <section className="flex flex-1 px-4 py-6 sm:py-8 lg:py-10">
+      <div className="mx-auto w-full max-w-2xl">
         {query.status === "updated" && (
           <FeedbackPanel className="mb-5" role="status" variant="success">
             投稿を更新しました。
@@ -93,6 +94,13 @@ export default async function PostDetailPage({
             投稿内容は保存済みですが、不要になった一部の画像を整理できませんでした。
           </FeedbackPanel>
         )}
+        <Link
+          className="mb-2 inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-medium text-text-secondary underline-offset-4 transition hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          href="/home"
+        >
+          <span aria-hidden="true">←</span>
+          <span className="ml-1">タイムラインへ戻る</span>
+        </Link>
         <PostDetail
           canEditPost={canEditPost}
           isOwnPost={isOwnPost}
