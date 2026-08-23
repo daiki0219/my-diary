@@ -1,28 +1,15 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
   deleteComment,
   type DeleteCommentActionState,
 } from "@/app/(protected)/posts/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 
-function ConfirmDeleteButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <button
-      aria-disabled={pending}
-      className="rounded-full bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-wait disabled:bg-stone-400"
-      disabled={pending}
-      type="submit"
-    >
-      {pending ? "削除中…" : "コメントを削除する"}
-    </button>
-  );
-}
+const initialState: DeleteCommentActionState = { error: null };
 
 export function DeleteCommentButton({
   commentId,
@@ -31,11 +18,24 @@ export function DeleteCommentButton({
   commentId: string;
   postId: string;
 }) {
+  const confirmationId = useId();
+  const confirmationTitleId = `${confirmationId}-title`;
+  const confirmationDescriptionId = `${confirmationId}-description`;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const submissionInFlight = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const router = useRouter();
-  const initialState: DeleteCommentActionState = { error: null };
-  const [state, formAction] = useActionState(deleteComment, initialState);
-  const confirmationId = `delete-comment-confirmation-${commentId}`;
+  const [state, formAction, isPending] = useActionState(
+    deleteComment,
+    initialState,
+  );
+
+  useEffect(() => {
+    if (isConfirming) {
+      confirmRef.current?.focus();
+    }
+  }, [isConfirming]);
 
   useEffect(() => {
     if (state.deletedCommentId) {
@@ -43,46 +43,97 @@ export function DeleteCommentButton({
     }
   }, [router, state.deletedCommentId]);
 
+  useEffect(() => {
+    if (!isPending) {
+      submissionInFlight.current = false;
+    }
+  }, [isPending, state]);
+
+  function closeConfirmation() {
+    setIsConfirming(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }
+
   return (
-    <form action={formAction} className="mt-3">
+    <form
+      action={formAction}
+      className={`min-w-0 ${
+        isConfirming || state.error ? "basis-full pt-1" : ""
+      }`}
+      onSubmit={(event) => {
+        if (submissionInFlight.current) {
+          event.preventDefault();
+          return;
+        }
+
+        submissionInFlight.current = true;
+      }}
+    >
       <input name="commentId" type="hidden" value={commentId} />
       <input name="postId" type="hidden" value={postId} />
 
       {state.error && (
-        <p
-          aria-live="polite"
-          className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700"
-          role="alert"
-        >
+        <FeedbackPanel className="mb-3" role="alert" variant="error">
           {state.error}
-        </p>
+        </FeedbackPanel>
       )}
 
       {isConfirming ? (
         <div
-          className="rounded-2xl border border-red-100 bg-red-50 p-3"
+          aria-describedby={confirmationDescriptionId}
+          aria-labelledby={confirmationTitleId}
+          className="rounded-control border border-danger/20 bg-danger/5 p-4"
           id={confirmationId}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !isPending) {
+              closeConfirmation();
+            }
+          }}
+          role="alertdialog"
         >
-          <p className="text-sm leading-6 text-stone-700">
-            このコメントを削除しますか？削除後は表示されません。
+          <h3
+            className="text-base font-semibold leading-6 text-text-primary"
+            id={confirmationTitleId}
+          >
+            コメントを削除しますか？
+          </h3>
+          <p
+            className="mt-1 text-sm leading-6 text-text-secondary"
+            id={confirmationDescriptionId}
+          >
+            削除後は表示されません。
           </p>
           <div className="mt-3 flex flex-wrap justify-end gap-2">
             <button
-              className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-              onClick={() => setIsConfirming(false)}
+              aria-disabled={isPending}
+              className="inline-flex min-h-11 items-center justify-center rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:bg-surface-muted hover:text-text-primary disabled:cursor-wait disabled:bg-surface-muted disabled:text-control-disabled-text"
+              disabled={isPending}
+              onClick={closeConfirmation}
               type="button"
             >
               やめる
             </button>
-            <ConfirmDeleteButton />
+            <button
+              aria-disabled={isPending}
+              className="inline-flex min-h-11 items-center justify-center rounded-control bg-danger px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text"
+              disabled={isPending}
+              ref={confirmRef}
+              type="submit"
+            >
+              {isPending ? "削除中…" : "コメントを削除する"}
+            </button>
           </div>
+          <p aria-live="polite" className="sr-only">
+            {isPending ? "コメントを削除しています" : ""}
+          </p>
         </div>
       ) : (
         <button
           aria-controls={confirmationId}
           aria-expanded={isConfirming}
-          className="rounded-lg text-sm font-semibold text-red-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700"
+          className="inline-flex min-h-11 items-center rounded-control px-2 text-sm font-medium text-danger underline-offset-4 hover:bg-danger/5 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
           onClick={() => setIsConfirming(true)}
+          ref={triggerRef}
           type="button"
         >
           このコメントを削除

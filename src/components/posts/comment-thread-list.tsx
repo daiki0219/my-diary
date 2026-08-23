@@ -9,6 +9,8 @@ import {
   type CreateReplyActionState,
 } from "@/app/(protected)/posts/actions";
 import { CommentCard } from "@/components/posts/comment-card";
+import { Button } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import {
   COMMENT_MAX_LENGTH,
   type CommentThread,
@@ -19,22 +21,22 @@ function ReplyFormButtons({ onCancel }: { onCancel: () => void }) {
 
   return (
     <div className="mt-4 flex flex-wrap justify-end gap-2">
-      <button
-        className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-wait disabled:bg-stone-100 disabled:text-stone-400"
+      <Button
         disabled={pending}
         onClick={onCancel}
         type="button"
+        variant="quiet"
       >
         キャンセル
-      </button>
-      <button
+      </Button>
+      <Button
         aria-disabled={pending}
-        className="rounded-full bg-orange-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400"
         disabled={pending}
         type="submit"
+        variant="primary"
       >
         {pending ? "返信中…" : "返信する"}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -80,7 +82,7 @@ function ReplyForm({
   return (
     <form
       action={formAction}
-      className="mt-3 min-w-0 rounded-2xl border border-orange-200 bg-orange-50 p-4"
+      className="min-w-0 rounded-control bg-brand-soft/50 p-4 sm:p-5"
       id={`reply-form-${parentCommentId}`}
     >
       <input name="postId" type="hidden" value={postId} />
@@ -91,7 +93,7 @@ function ReplyForm({
       />
 
       <label
-        className="mb-2 block text-sm font-semibold text-stone-700"
+        className="mb-2 block text-sm font-semibold text-text-primary"
         htmlFor={bodyId}
       >
         返信を書く
@@ -99,7 +101,7 @@ function ReplyForm({
       <textarea
         aria-describedby={state.fieldError ? `${helpId} ${errorId}` : helpId}
         aria-invalid={Boolean(state.fieldError)}
-        className="min-h-24 w-full resize-y rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+        className="min-h-24 w-full resize-y rounded-control border border-border-control bg-surface-elevated px-4 py-3 text-base leading-7 text-text-primary transition placeholder:text-text-muted focus:border-focus aria-invalid:border-danger"
         id={bodyId}
         maxLength={COMMENT_MAX_LENGTH}
         name="body"
@@ -108,7 +110,7 @@ function ReplyForm({
         required
         value={body}
       />
-      <div className="mt-2 flex min-w-0 items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+      <div className="mt-2 flex min-w-0 items-start justify-between gap-3 text-xs leading-5 text-text-muted">
         <p className="min-w-0" id={helpId}>
           {COMMENT_MAX_LENGTH.toLocaleString("ja-JP")}
           文字以下で入力してください。改行も使用できます。
@@ -120,19 +122,20 @@ function ReplyForm({
       </div>
 
       {state.fieldError && (
-        <p className="mt-2 text-sm text-red-700" id={errorId} role="alert">
+        <FeedbackPanel
+          className="mt-3"
+          id={errorId}
+          role="alert"
+          variant="error"
+        >
           {state.fieldError}
-        </p>
+        </FeedbackPanel>
       )}
 
       {state.error && (
-        <p
-          aria-live="polite"
-          className="mt-3 break-words rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700 [overflow-wrap:anywhere]"
-          role="alert"
-        >
+        <FeedbackPanel className="mt-3" role="alert" variant="error">
           {state.error}
-        </p>
+        </FeedbackPanel>
       )}
 
       <ReplyFormButtons onCancel={onCancel} />
@@ -170,19 +173,22 @@ export function CommentThreadList({
   }
 
   return (
-    <ol className="mt-4 space-y-4">
+    <ol className="mt-7 divide-y divide-border-subtle/70">
       {threads.map((thread) => {
         if (thread.kind === "unavailable") {
           return (
-            <li className="min-w-0" key={thread.key}>
-              <article className="min-w-0 rounded-2xl border border-stone-200 bg-white p-4">
-                <p className="text-sm font-semibold text-stone-600">
+            <li
+              className="min-w-0 py-6 first:pt-0 last:pb-0"
+              key={thread.key}
+            >
+              <article className="min-w-0 py-1">
+                <p className="text-sm font-medium text-text-muted">
                   削除されたコメントです
                 </p>
               </article>
               <ol
                 aria-label="削除されたコメントへの返信"
-                className="mt-3 ml-3 min-w-0 space-y-3 border-l-2 border-orange-100 pl-3 sm:ml-6 sm:pl-5"
+                className="mt-3 ml-2 min-w-0 space-y-5 border-l border-brand-primary/20 pl-2 sm:ml-3 sm:pl-3"
               >
                 {thread.replies.map((reply) => (
                   <li className="min-w-0" key={reply.id}>
@@ -204,7 +210,10 @@ export function CommentThreadList({
         const replyFormId = `reply-form-${parentId}`;
 
         return (
-          <li className="min-w-0" key={parentId}>
+          <li
+            className="min-w-0 py-6 first:pt-0 last:pb-0"
+            key={parentId}
+          >
             <CommentCard
               comment={thread.parent}
               currentUserId={currentUserId}
@@ -214,25 +223,27 @@ export function CommentThreadList({
               replyControlsId={replyFormId}
             />
             {isReplyFormOpen && (
-              <ReplyForm
-                body={drafts[parentId] ?? ""}
-                key={parentId}
-                onBodyChange={(body) =>
-                  setDrafts((current) => ({
-                    ...current,
-                    [parentId]: body,
-                  }))
-                }
-                onCancel={() => closeReplyForm(parentId, true)}
-                onSuccess={() => completeReply(parentId)}
-                parentCommentId={parentId}
-                postId={postId}
-              />
+              <div className="mt-2 ml-2 min-w-0 border-l border-brand-primary/20 pl-2 sm:ml-3 sm:pl-3">
+                <ReplyForm
+                  body={drafts[parentId] ?? ""}
+                  key={parentId}
+                  onBodyChange={(body) =>
+                    setDrafts((current) => ({
+                      ...current,
+                      [parentId]: body,
+                    }))
+                  }
+                  onCancel={() => closeReplyForm(parentId, true)}
+                  onSuccess={() => completeReply(parentId)}
+                  parentCommentId={parentId}
+                  postId={postId}
+                />
+              </div>
             )}
             {thread.replies.length > 0 && (
               <ol
                 aria-label="返信"
-                className="mt-3 ml-3 min-w-0 space-y-3 border-l-2 border-orange-100 pl-3 sm:ml-6 sm:pl-5"
+                className="mt-3 ml-2 min-w-0 space-y-5 border-l border-brand-primary/20 pl-2 sm:ml-3 sm:pl-3"
               >
                 {thread.replies.map((reply) => (
                   <li className="min-w-0" key={reply.id}>

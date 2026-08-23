@@ -30,29 +30,25 @@ export function CommentCard({
   const initial = Array.from(normalizedUsername)[0] ?? "人";
 
   return (
-    <article
-      className={`min-w-0 rounded-2xl border p-4 ${
-        isReply
-          ? "border-orange-100 bg-orange-50/40"
-          : "border-stone-200 bg-white"
-      }`}
-    >
+    <article className="min-w-0">
       <div className="flex min-w-0 items-center gap-3">
         <div
           aria-hidden="true"
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-base font-bold text-orange-800"
+          className={`flex shrink-0 items-center justify-center rounded-full bg-brand-soft font-semibold text-brand-primary-hover ${
+            isReply ? "size-9 text-sm" : "size-10 text-base"
+          }`}
         >
           {initial}
         </div>
         <div className="min-w-0">
           <Link
-            className="block break-words rounded font-semibold text-stone-800 underline-offset-4 [overflow-wrap:anywhere] hover:text-orange-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+            className="block break-words rounded text-[15px] font-semibold text-text-primary underline-offset-4 [overflow-wrap:anywhere] hover:text-brand-primary-hover hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             href={`/users/${comment.user_id}`}
           >
             {normalizedUsername}
           </Link>
           <time
-            className="mt-0.5 block text-xs text-stone-500"
+            className="mt-0.5 block text-xs text-text-muted"
             dateTime={comment.created_at}
           >
             {dateFormatter.format(new Date(comment.created_at))}
@@ -60,25 +56,30 @@ export function CommentCard({
         </div>
       </div>
 
-      <p className="mt-3 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
+      <p className="mt-3 whitespace-pre-wrap break-words text-[15px] leading-[1.7] text-text-primary [overflow-wrap:anywhere]">
         {comment.body}
       </p>
 
-      {onReply && replyControlsId && (
-        <button
-          aria-controls={replyControlsId}
-          aria-expanded={isReplyFormOpen}
-          className="mt-3 rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
-          id={`reply-button-${comment.id}`}
-          onClick={onReply}
-          type="button"
-        >
-          返信
-        </button>
-      )}
+      {(onReply || comment.user_id === currentUserId) && (
+        <div className="mt-2 flex min-w-0 flex-wrap items-start gap-x-1">
+          {onReply && replyControlsId && (
+            <button
+              aria-controls={replyControlsId}
+              aria-expanded={isReplyFormOpen}
+              aria-label={`${normalizedUsername}さんのコメントに返信`}
+              className="inline-flex min-h-11 items-center rounded-control px-2 text-sm font-medium text-brand-primary-hover underline-offset-4 hover:bg-brand-soft/60 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              id={`reply-button-${comment.id}`}
+              onClick={onReply}
+              type="button"
+            >
+              返信
+            </button>
+          )}
 
-      {comment.user_id === currentUserId && (
-        <DeleteCommentButton commentId={comment.id} postId={postId} />
+          {comment.user_id === currentUserId && (
+            <DeleteCommentButton commentId={comment.id} postId={postId} />
+          )}
+        </div>
       )}
     </article>
   );

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { CommentForm } from "@/components/posts/comment-form";
 import { CommentList } from "@/components/posts/comment-list";
 import { PostDetail } from "@/components/posts/post-detail";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
@@ -114,7 +113,6 @@ export default async function PostDetailPage({
           postId={postId}
           total={commentsResult.total}
         />
-        <CommentForm postId={postId} />
       </div>
     </section>
   );
