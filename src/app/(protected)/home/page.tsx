@@ -183,7 +183,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               >
                 {posts.map((post) => (
                   <li className="min-w-0" key={post.id}>
-                    <TimelinePostCard post={post} showBodyExcerpt />
+                    <TimelinePostCard post={post} />
                   </li>
                 ))}
               </ul>
