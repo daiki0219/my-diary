@@ -20,7 +20,7 @@ function widthClassName(width: SiteFrameWidth) {
   }
 
   if (width === "wide") {
-    return "max-w-2xl lg:max-w-5xl";
+    return "max-w-2xl lg:max-w-5xl xl:max-w-7xl";
   }
 
   return "max-w-2xl";

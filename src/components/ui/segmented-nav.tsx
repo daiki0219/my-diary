@@ -9,7 +9,7 @@ export function SegmentedNav({ className, ...props }: SegmentedNavProps) {
   return (
     <nav
       className={joinClassNames(
-        "flex min-w-0 gap-1 rounded-control bg-surface-muted p-1",
+        "flex min-w-0 gap-1 rounded-full bg-surface-muted/70 p-1",
         className,
       )}
       {...props}
@@ -35,7 +35,7 @@ export function SegmentedNavLink({
       {...props}
       aria-current={isCurrent ? "page" : undefined}
       className={joinClassNames(
-        "flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-xl border px-3 py-2.5 text-center text-sm leading-5 transition",
+        "flex min-h-8 min-w-0 flex-1 items-center justify-center rounded-full border px-3 py-1 text-center text-sm leading-5 transition",
         isCurrent
           ? "border-border-subtle bg-surface-elevated font-semibold text-brand-primary-hover shadow-surface"
           : "border-transparent font-medium text-text-secondary hover:bg-surface-elevated/70 hover:text-text-primary",

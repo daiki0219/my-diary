@@ -13,7 +13,6 @@ import {
   SegmentedNav,
   SegmentedNavLink,
 } from "@/components/ui/segmented-nav";
-import { Surface } from "@/components/ui/surface";
 import { getCurrentCalendarSummaryData } from "@/lib/calendar-data";
 import {
   getTimelinePosts,
@@ -36,17 +35,14 @@ type HomePageProps = {
 
 const feedContent: Record<
   TimelineFeed,
-  { description: string; emptyTitle: string; emptyDescription: string }
+  { emptyTitle: string; emptyDescription: string }
 > = {
   following: {
-    description:
-      "自分とフォロー中のユーザーの日記を、新しい順に表示します。",
     emptyTitle: "自分やフォロー中のユーザーの投稿がまだありません。",
     emptyDescription:
       "日記を書いたり、気になるユーザーをフォローしてみましょう。",
   },
   latest: {
-    description: "公開されているみんなの日記を、新しい順に表示します。",
     emptyTitle: "公開されている投稿がまだありません。",
     emptyDescription: "最初の公開日記を書いてみませんか。",
   },
@@ -95,172 +91,174 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const currentFeedContent = feedContent[feed];
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto w-full max-w-lg lg:grid lg:max-w-none lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start lg:gap-8">
+    <section className="flex flex-1 px-6 py-3 sm:px-8 sm:py-4 lg:py-10">
+      <div className="mx-auto w-full max-w-lg lg:grid lg:max-w-none lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_24rem] xl:gap-10">
         <div className="min-w-0">
-        <Surface className="overflow-hidden p-5 sm:p-7" variant="muted">
-          <div className="flex min-w-0 items-start gap-3 sm:gap-5">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-brand-primary-hover">
-                今日のホーム
-              </p>
-              <h1 className="mt-2 break-words text-3xl font-semibold tracking-tight text-text-primary [overflow-wrap:anywhere]">
-                今日も、ゆるく残してみよう
-              </h1>
-              <p className="mt-3 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]">
-                書きたいことを気軽に残して、みんなの日記もゆっくり読めます。
-              </p>
-            </div>
+          <div className="flex min-w-0 items-center justify-center gap-3 px-1 lg:gap-4">
             <Image
               alt=""
               aria-hidden="true"
-              className="h-auto w-14 shrink-0 opacity-70 sm:w-16"
+              className="h-auto w-9 shrink-0 opacity-80 sm:w-10 lg:w-14"
               height={72}
               priority
               src="/images/brand/diary-sprig.png"
               width={64}
             />
+            <h1 className="min-w-0 break-words font-brand text-lg font-medium tracking-wide text-text-primary [overflow-wrap:anywhere] sm:text-xl">
+              今日も、ゆるく残してみよう
+            </h1>
           </div>
-          <div className="mt-5">
-            <ActionLink
-              className="w-full"
-              href="/posts/new"
-              variant="primary"
+
+          <ActionLink
+            className="mt-2 w-full gap-2 rounded-full shadow-surface lg:mt-4"
+            href="/posts/new"
+            variant="primary"
+          >
+            <svg
+              aria-hidden="true"
+              className="size-5"
+              fill="none"
+              focusable="false"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.8"
+              viewBox="0 0 24 24"
             >
-              日記を書く
-            </ActionLink>
-          </div>
-        </Surface>
+              <path d="m14 5 5 5M4 20l3.5-.8L19 7.7a2.1 2.1 0 0 0-3-3L4.8 16.2 4 20Z" />
+            </svg>
+            <span>日記を書く</span>
+          </ActionLink>
 
-        <p className="mt-6 text-sm font-medium text-brand-primary-hover">
-          日記を読む
-        </p>
-        <SegmentedNav aria-label="タイムラインの種類" className="mt-3">
-          <SegmentedNavLink
-            href="/home?feed=following"
-            isCurrent={feed === "following"}
+          <SegmentedNav
+            aria-label="タイムラインの種類"
+            className="mt-3 lg:mt-6"
           >
-            フォロー中
-          </SegmentedNavLink>
-          <SegmentedNavLink
-            href="/home?feed=latest"
-            isCurrent={feed === "latest"}
-          >
-            最新投稿
-          </SegmentedNavLink>
-        </SegmentedNav>
-        <p className="mt-3 text-sm leading-6 text-stone-600">
-          {currentFeedContent.description}
-        </p>
+            <SegmentedNavLink
+              href="/home?feed=following"
+              isCurrent={feed === "following"}
+            >
+              フォロー中
+            </SegmentedNavLink>
+            <SegmentedNavLink
+              href="/home?feed=latest"
+              isCurrent={feed === "latest"}
+            >
+              最新
+            </SegmentedNavLink>
+          </SegmentedNav>
 
-        {params.error === "logout-failed" && (
-          <FeedbackPanel
-            className="mt-5"
-            role="alert"
-            variant="error"
-          >
-            ログアウトに失敗しました。時間をおいてもう一度お試しください。
-          </FeedbackPanel>
-        )}
+          {params.error === "logout-failed" && (
+            <FeedbackPanel
+              className="mt-3"
+              role="alert"
+              variant="error"
+            >
+              ログアウトに失敗しました。時間をおいてもう一度お試しください。
+            </FeedbackPanel>
+          )}
 
-        {postsError ? (
-          <FeedbackPanel
-            className="mt-5"
-            role="alert"
-            title="タイムラインを読み込めませんでした"
-            variant="error"
+          {postsError ? (
+            <FeedbackPanel
+              className="mt-3"
+              role="alert"
+              title="タイムラインを読み込めませんでした"
+              variant="error"
+            >
+              時間をおいて、もう一度お試しください。
+            </FeedbackPanel>
+          ) : posts && posts.length > 0 ? (
+            <>
+              <ul
+                aria-label="タイムラインの投稿"
+                className="mt-3 space-y-3 lg:mt-6"
+              >
+                {posts.map((post) => (
+                  <li className="min-w-0" key={post.id}>
+                    <TimelinePostCard post={post} showBodyExcerpt />
+                  </li>
+                ))}
+              </ul>
+              {nextCursor && (
+                <Pagination
+                  aria-label="タイムラインのページ移動"
+                  className="mt-6"
+                >
+                  <PaginationLink
+                    className="w-full"
+                    href={`/home?feed=${feed}&cursor=${encodeURIComponent(nextCursor)}`}
+                  >
+                    <span>次の投稿を見る</span>
+                    <span aria-hidden="true">→</span>
+                  </PaginationLink>
+                </Pagination>
+              )}
+              {!nextCursor && cursor && (
+                <p className="mt-6 text-center text-sm text-stone-500">
+                  現在表示できる投稿をすべて表示しました。
+                </p>
+              )}
+            </>
+          ) : cursor ? (
+            <EmptyState
+              action={
+                <ActionLink href={`/home?feed=${feed}`} variant="neutral">
+                  最初のページへ戻る
+                </ActionLink>
+              }
+              className="mt-3"
+              description="フォロー関係や公開範囲が変更された可能性があります。"
+              title="現在表示できる投稿はありません"
+            />
+          ) : (
+            <EmptyState
+              action={
+                <ActionLink href="/posts/new" variant="secondary">
+                  日記を書く
+                </ActionLink>
+              }
+              className="mt-3"
+              description={currentFeedContent.emptyDescription}
+              title={currentFeedContent.emptyTitle}
+            />
+          )}
+
+          <nav
+            aria-label="その他のメニュー"
+            className="mt-10 border-t border-border-subtle pt-6"
           >
-            時間をおいて、もう一度お試しください。
-          </FeedbackPanel>
-        ) : posts && posts.length > 0 ? (
-          <>
-            <ul aria-label="タイムラインの投稿" className="mt-5 space-y-4">
-              {posts.map((post) => (
-                <li className="min-w-0" key={post.id}>
-                  <TimelinePostCard post={post} showBodyExcerpt />
+            <p className="text-sm font-medium text-text-muted">
+              そのほかのメニュー
+            </p>
+            <ul className="mt-2 grid min-w-0 grid-cols-2 gap-1">
+              {[
+                { href: "/profile/posts", label: "自分の日記" },
+                { href: "/search", label: "検索" },
+                { href: "/exchange", label: "交換日記" },
+                { href: "/tags", label: "タグ" },
+                { href: "/settings", label: "設定" },
+              ].map((item) => (
+                <li className="min-w-0" key={item.href}>
+                  <ActionLink
+                    className="w-full min-w-0 justify-start break-words [overflow-wrap:anywhere]"
+                    href={item.href}
+                    variant="quiet"
+                  >
+                    {item.label}
+                  </ActionLink>
                 </li>
               ))}
             </ul>
-            {nextCursor && (
-              <Pagination
-                aria-label="タイムラインのページ移動"
-                className="mt-6"
-              >
-                <PaginationLink
-                  className="w-full"
-                  href={`/home?feed=${feed}&cursor=${encodeURIComponent(nextCursor)}`}
-                >
-                  <span>次の投稿を見る</span>
-                  <span aria-hidden="true">→</span>
-                </PaginationLink>
-              </Pagination>
-            )}
-            {!nextCursor && cursor && (
-              <p className="mt-6 text-center text-sm text-stone-500">
-                現在表示できる投稿をすべて表示しました。
-              </p>
-            )}
-          </>
-        ) : cursor ? (
-          <EmptyState
-            action={
-              <ActionLink href={`/home?feed=${feed}`} variant="neutral">
-                最初のページへ戻る
-              </ActionLink>
-            }
-            className="mt-5"
-            description="フォロー関係や公開範囲が変更された可能性があります。"
-            title="現在表示できる投稿はありません"
-          />
-        ) : (
-          <EmptyState
-            action={
-              <ActionLink href="/posts/new" variant="secondary">
-                日記を書く
-              </ActionLink>
-            }
-            className="mt-5"
-            description={currentFeedContent.emptyDescription}
-            title={currentFeedContent.emptyTitle}
-          />
-        )}
+          </nav>
 
-        <nav
-          aria-label="その他のメニュー"
-          className="mt-10 border-t border-border-subtle pt-6"
-        >
-          <p className="text-sm font-medium text-text-muted">
-            そのほかのメニュー
-          </p>
-          <ul className="mt-2 grid min-w-0 grid-cols-2 gap-1">
-            {[
-              { href: "/profile/posts", label: "自分の日記" },
-              { href: "/search", label: "検索" },
-              { href: "/exchange", label: "交換日記" },
-              { href: "/tags", label: "タグ" },
-              { href: "/settings", label: "設定" },
-            ].map((item) => (
-              <li className="min-w-0" key={item.href}>
-                <ActionLink
-                  className="w-full min-w-0 justify-start break-words [overflow-wrap:anywhere]"
-                  href={item.href}
-                  variant="quiet"
-                >
-                  {item.label}
-                </ActionLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <form
-          action={logout}
-          className="mt-4 border-t border-border-subtle pt-4"
-        >
-          <Button className="w-full" type="submit" variant="quiet">
-            ログアウト
-          </Button>
-        </form>
+          <form
+            action={logout}
+            className="mt-4 border-t border-border-subtle pt-4"
+          >
+            <Button className="w-full" type="submit" variant="quiet">
+              ログアウト
+            </Button>
+          </form>
         </div>
 
         <aside

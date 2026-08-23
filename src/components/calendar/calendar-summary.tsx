@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { ActionLink } from "@/components/ui/actions";
 import { Surface } from "@/components/ui/surface";
 import {
   buildCalendarHref,
@@ -61,24 +60,23 @@ function getDateAccessibleName({
 function CalendarSummaryFallback() {
   return (
     <Surface className="p-5">
-      <p className="text-sm font-medium text-text-muted">振り返る</p>
-      <h2
-        className="mt-2 text-xl font-semibold text-text-primary"
-        id="home-calendar-heading"
-      >
-        カレンダー
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2
+          className="text-lg font-semibold text-text-primary"
+          id="home-calendar-heading"
+        >
+          カレンダー
+        </h2>
+        <Link
+          className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm font-medium text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          href="/calendar"
+        >
+          見る<span aria-hidden="true">→</span>
+        </Link>
+      </div>
       <p className="mt-3 text-sm leading-6 text-text-secondary">
         日記を日付からゆっくり振り返れます。
       </p>
-      <ActionLink
-        className="mt-4 w-full justify-between"
-        href="/calendar"
-        variant="quiet"
-      >
-        <span>カレンダーを見る</span>
-        <span aria-hidden="true">→</span>
-      </ActionLink>
     </Surface>
   );
 }
@@ -100,26 +98,33 @@ export function CalendarSummary({
   const monthLabel = formatMonthLabel(data.month);
 
   return (
-    <Surface className="p-5">
-      <p className="text-sm font-medium text-text-muted">振り返る</p>
-      <h2
-        className="mt-2 text-xl font-semibold text-text-primary"
-        id="home-calendar-heading"
-      >
-        カレンダー
-      </h2>
-      <p className="mt-1 text-sm font-medium text-text-secondary">
+    <Surface className="p-5 xl:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <h2
+          className="text-lg font-semibold text-text-primary"
+          id="home-calendar-heading"
+        >
+          カレンダー
+        </h2>
+        <Link
+          className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm font-medium text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          href={buildCalendarHref(data.month)}
+        >
+          今月を見る<span aria-hidden="true">→</span>
+        </Link>
+      </div>
+      <p className="mt-2 text-sm font-medium text-text-secondary">
         {monthLabel}
       </p>
 
-      <div className="mt-4 overflow-hidden rounded-control border border-border-subtle">
-        <table className="w-full table-fixed border-collapse">
+      <div className="mt-3">
+        <table className="w-full table-fixed border-separate border-spacing-x-0 border-spacing-y-1">
           <caption className="sr-only">{monthLabel}の日記カレンダー</caption>
-          <thead className="bg-surface-muted">
+          <thead>
             <tr>
               {WEEKDAYS.map((weekday, index) => (
                 <th
-                  className={`py-1.5 text-center text-[10px] font-semibold ${
+                  className={`py-1 text-center text-[11px] font-semibold xl:text-xs ${
                     index === 0
                       ? "text-danger"
                       : index === 6
@@ -143,7 +148,7 @@ export function CalendarSummary({
                     return (
                       <td
                         aria-hidden="true"
-                        className="h-10 border-t border-border-subtle bg-surface-muted/40"
+                        className="h-10"
                         key={`empty-${dayIndex}`}
                       />
                     );
@@ -160,10 +165,7 @@ export function CalendarSummary({
                     : null;
 
                   return (
-                    <td
-                      className="border-t border-border-subtle align-top"
-                      key={date}
-                    >
+                    <td className="align-top" key={date}>
                       <Link
                         aria-current={isToday ? "date" : undefined}
                         aria-label={getDateAccessibleName({
@@ -172,13 +174,13 @@ export function CalendarSummary({
                           mood: summary?.mood ?? null,
                           postCount,
                         })}
-                        className="flex min-h-10 min-w-0 flex-col items-center justify-center gap-0.5 text-center text-text-secondary transition hover:bg-brand-soft focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"
+                        className="flex min-h-10 min-w-0 flex-col items-center justify-center gap-0.5 rounded-control text-center text-text-secondary transition hover:bg-surface-muted focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"
                         href={buildCalendarHref(data.month, date)}
                       >
                         <span
-                          className={`text-[11px] font-semibold leading-4 ${
+                          className={`flex size-7 items-center justify-center rounded-full text-xs font-medium leading-none ${
                             isToday
-                              ? "rounded-full bg-brand-soft px-1 ring-1 ring-brand-primary"
+                              ? "bg-brand-primary font-semibold text-white shadow-sm"
                               : ""
                           }`}
                         >
@@ -203,17 +205,9 @@ export function CalendarSummary({
         </table>
       </div>
 
-      <p className="mt-3 text-[11px] leading-5 text-text-muted">
-        ● は日記がある日、囲みは今日、絵文字は最新の気分です。
+      <p className="mt-2 text-[11px] leading-5 text-text-muted">
+        ● は日記がある日、丸い日付は今日、絵文字は最新の気分です。
       </p>
-      <ActionLink
-        className="mt-3 w-full justify-between"
-        href="/calendar"
-        variant="quiet"
-      >
-        <span>カレンダーを見る</span>
-        <span aria-hidden="true">→</span>
-      </ActionLink>
     </Surface>
   );
 }
