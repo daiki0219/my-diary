@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { logout } from "@/app/auth/actions";
@@ -18,12 +17,11 @@ import {
   getTimelinePosts,
   type TimelineFeed,
 } from "@/lib/post-data";
-import { getUnreadNotificationCount } from "@/lib/notification-data";
 import { createClient } from "@/lib/supabase/server";
 import { decodeTimelineCursor } from "@/lib/timeline-cursor";
 
 export const metadata: Metadata = {
-  title: "タイムライン",
+  title: "ホーム",
 };
 
 type HomePageProps = {
@@ -77,106 +75,60 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const hasInvalidCursor =
     rawCursor !== undefined &&
     (typeof rawCursor !== "string" || cursor === null);
-  const [postsResult, unreadNotificationsResult] = await Promise.all([
-    hasInvalidCursor
-      ? Promise.resolve({
-          data: null,
-          nextCursor: null,
-          error: new Error("Invalid timeline cursor."),
-          reactionsError: null,
-          commentsError: null,
-        })
-      : getTimelinePosts(supabase, userId, feed, cursor),
-    getUnreadNotificationCount(supabase),
-  ]);
+  const postsResult = hasInvalidCursor
+    ? {
+        data: null,
+        nextCursor: null,
+        error: new Error("Invalid timeline cursor."),
+        reactionsError: null,
+        commentsError: null,
+      }
+    : await getTimelinePosts(supabase, userId, feed, cursor);
   const { data: posts, error: postsError } = postsResult;
   const nextCursor = postsResult.nextCursor;
-  const unreadNotificationCount = unreadNotificationsResult.count;
   const currentFeedContent = feedContent[feed];
 
   return (
     <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
       <div className="mx-auto w-full max-w-lg">
-        <Surface className="p-5 shadow-surface sm:p-7" variant="muted">
-          <p className="text-sm font-medium text-brand-primary-hover">
-            みんなの新しい記録
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text-primary">
-            タイムライン
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-text-secondary">
-            あなたが閲覧できる日記を、新しい順に表示します。
-          </p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Surface className="overflow-hidden p-5 sm:p-7" variant="muted">
+          <div className="flex min-w-0 items-start gap-3 sm:gap-5">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-brand-primary-hover">
+                今日のホーム
+              </p>
+              <h1 className="mt-2 break-words text-3xl font-semibold tracking-tight text-text-primary [overflow-wrap:anywhere]">
+                今日も、ゆるく残してみよう
+              </h1>
+              <p className="mt-3 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]">
+                書きたいことを気軽に残して、みんなの日記もゆっくり読めます。
+              </p>
+            </div>
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="h-auto w-14 shrink-0 opacity-70 sm:w-16"
+              height={72}
+              priority
+              src="/images/brand/diary-sprig.png"
+              width={64}
+            />
+          </div>
+          <div className="mt-5">
             <ActionLink
+              className="w-full"
               href="/posts/new"
               variant="primary"
             >
               日記を書く
             </ActionLink>
-            <ActionLink
-              href="/profile/posts"
-              variant="secondary"
-            >
-              自分の日記
-            </ActionLink>
           </div>
-          <Link
-            className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-            href="/profile"
-          >
-            プロフィール
-          </Link>
-          <Link
-            className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-            href="/calendar"
-          >
-            カレンダーで振り返る
-          </Link>
-          <Link
-            className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-            href="/search"
-          >
-            ユーザー・タグ・投稿を探す
-          </Link>
-          <Link
-            className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-            href="/tags"
-          >
-            タグから日記を探す
-          </Link>
-          <Link
-            className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-            href="/exchange"
-          >
-            交換日記
-          </Link>
-          <Link
-            aria-label={
-              unreadNotificationCount !== null && unreadNotificationCount > 0
-                ? `通知、未読${unreadNotificationCount.toLocaleString("ja-JP")}件`
-                : "通知"
-            }
-            className="mt-3 flex min-w-0 items-center justify-center gap-2 rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-            href="/notifications"
-          >
-            <span>通知</span>
-            {unreadNotificationCount !== null &&
-              unreadNotificationCount > 0 && (
-                <span className="shrink-0 rounded-full bg-orange-700 px-2.5 py-0.5 text-xs font-bold text-white">
-                  未読 {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                </span>
-              )}
-          </Link>
-          <Link
-            className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-            href="/settings"
-          >
-            設定
-          </Link>
         </Surface>
 
-        <SegmentedNav aria-label="タイムラインの種類" className="mt-5">
+        <p className="mt-6 text-sm font-medium text-brand-primary-hover">
+          日記を読む
+        </p>
+        <SegmentedNav aria-label="タイムラインの種類" className="mt-3">
           <SegmentedNavLink
             href="/home?feed=following"
             isCurrent={feed === "following"}
@@ -261,22 +213,43 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </ActionLink>
             }
             className="mt-5"
-            decoration={
-              <Image
-                alt=""
-                aria-hidden="true"
-                className="mx-auto h-auto w-14 opacity-70"
-                height={60}
-                src="/images/brand/diary-sprig.png"
-                width={56}
-              />
-            }
             description={currentFeedContent.emptyDescription}
             title={currentFeedContent.emptyTitle}
           />
         )}
 
-        <form action={logout} className="mt-8">
+        <nav
+          aria-label="その他のメニュー"
+          className="mt-10 border-t border-border-subtle pt-6"
+        >
+          <p className="text-sm font-medium text-text-muted">
+            そのほかのメニュー
+          </p>
+          <ul className="mt-2 grid min-w-0 grid-cols-2 gap-1">
+            {[
+              { href: "/profile/posts", label: "自分の日記" },
+              { href: "/search", label: "検索" },
+              { href: "/exchange", label: "交換日記" },
+              { href: "/tags", label: "タグ" },
+              { href: "/settings", label: "設定" },
+            ].map((item) => (
+              <li className="min-w-0" key={item.href}>
+                <ActionLink
+                  className="w-full min-w-0 justify-start break-words [overflow-wrap:anywhere]"
+                  href={item.href}
+                  variant="quiet"
+                >
+                  {item.label}
+                </ActionLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <form
+          action={logout}
+          className="mt-4 border-t border-border-subtle pt-4"
+        >
           <Button className="w-full" type="submit" variant="quiet">
             ログアウト
           </Button>
