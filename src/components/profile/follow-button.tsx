@@ -49,12 +49,14 @@ export function FollowButton({
 
   if (!canManageFollows) {
     return (
-      <p
-        className="mt-6 rounded-2xl bg-stone-100 px-4 py-3 text-sm leading-6 text-stone-600"
-        role="status"
-      >
-        現在のアカウント状態ではフォローを変更できません。
-      </p>
+      <div className={className}>
+        <p
+          className="rounded-control bg-surface-muted px-4 py-3 text-sm leading-6 text-text-muted"
+          role="status"
+        >
+          現在のアカウント状態ではフォローを変更できません。
+        </p>
+      </div>
     );
   }
 
@@ -62,8 +64,8 @@ export function FollowButton({
     <div className={className}>
       {isFollowing ? (
         isConfirming ? (
-          <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
-            <p className="text-sm font-semibold text-stone-800">
+          <div className="rounded-control bg-surface-muted/70 p-4">
+            <p className="text-sm font-semibold text-text-primary">
               フォローを解除しますか？
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -75,7 +77,7 @@ export function FollowButton({
                 />
                 <button
                   aria-disabled={isPending}
-                  className="w-full rounded-full border border-red-300 bg-white px-4 py-2.5 font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-control border border-danger bg-surface-elevated px-4 py-2.5 font-semibold text-danger transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isPending}
                   type="submit"
                 >
@@ -84,7 +86,7 @@ export function FollowButton({
               </form>
               <button
                 aria-disabled={isPending}
-                className="w-full rounded-full border border-stone-300 bg-white px-4 py-2.5 font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isPending}
                 onClick={() => setIsConfirming(false)}
                 type="button"
@@ -96,7 +98,7 @@ export function FollowButton({
         ) : (
           <button
             aria-pressed="true"
-            className="w-full rounded-full border border-orange-300 bg-orange-50 px-5 py-3 font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+            className="min-h-11 w-full rounded-control bg-brand-soft px-5 py-2.5 font-semibold text-brand-primary-hover transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             onClick={() => setIsConfirming(true)}
             type="button"
           >
@@ -109,7 +111,7 @@ export function FollowButton({
           <button
             aria-disabled={isPending}
             aria-pressed="false"
-            className="w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 w-full rounded-control bg-brand-primary px-5 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-control-disabled-text"
             disabled={isPending}
             type="submit"
           >
@@ -120,7 +122,7 @@ export function FollowButton({
 
       {error && (
         <p
-          className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+          className="mt-3 rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-danger"
           role="alert"
         >
           {error}

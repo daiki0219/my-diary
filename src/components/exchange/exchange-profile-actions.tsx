@@ -116,10 +116,10 @@ export function ExchangeProfileActions({
   return (
     <section
       aria-labelledby="exchange-profile-heading"
-      className="mt-6 rounded-2xl border border-orange-200 bg-orange-50/60 p-4"
+      className="rounded-card bg-surface-muted/55 p-5 sm:p-6"
     >
       <h2
-        className="text-lg font-bold text-stone-800"
+        className="font-brand text-xl font-medium tracking-wide text-text-primary"
         id="exchange-profile-heading"
       >
         交換日記
@@ -127,7 +127,7 @@ export function ExchangeProfileActions({
 
       {!canManageExchange ? (
         <p
-          className="mt-3 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm leading-6 text-stone-600"
+          className="mt-3 rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-danger"
           role="alert"
         >
           交換日記の操作を現在読み込めません。時間をおいてもう一度お試しください。
@@ -136,11 +136,11 @@ export function ExchangeProfileActions({
         <>
           {pendingDirection === "sent" ? (
             <div className="mt-3">
-              <p className="text-sm font-semibold leading-6 text-stone-800">
+              <p className="text-sm font-semibold leading-6 text-text-primary">
                 承認待ちです。
               </p>
               <Link
-                className="mt-2 inline-flex min-h-10 items-center rounded-lg text-sm font-semibold text-orange-800 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+                className="mt-2 inline-flex min-h-11 items-center rounded-control text-sm font-semibold text-brand-primary-hover underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
                 href="/exchange?view=invitations"
               >
                 交換日記の招待一覧を見る
@@ -148,11 +148,11 @@ export function ExchangeProfileActions({
             </div>
           ) : pendingDirection === "received" ? (
             <div className="mt-3">
-              <p className="text-sm font-semibold leading-6 text-stone-800">
+              <p className="text-sm font-semibold leading-6 text-text-primary">
                 交換日記の招待が届いています。
               </p>
               <Link
-                className="mt-2 inline-flex min-h-10 items-center rounded-lg text-sm font-semibold text-orange-800 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+                className="mt-2 inline-flex min-h-11 items-center rounded-control text-sm font-semibold text-brand-primary-hover underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
                 href="/exchange?view=invitations"
               >
                 交換日記の招待一覧を見る
@@ -171,7 +171,7 @@ export function ExchangeProfileActions({
               />
               <button
                 aria-disabled={isPending}
-                className="min-h-11 w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400"
+                className="min-h-11 w-full rounded-control bg-brand-primary px-5 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text sm:w-auto"
                 disabled={isPending}
                 type="submit"
               >
@@ -179,22 +179,22 @@ export function ExchangeProfileActions({
               </button>
             </form>
           ) : (
-            <p className="mt-3 text-sm leading-6 text-stone-600">
+            <p className="mt-3 text-sm leading-6 text-text-muted">
               お互いにフォローすると、交換日記へ招待できます。
             </p>
           )}
 
-          <div className="mt-5 border-t border-orange-200 pt-4">
+          <div className="mt-5 border-t border-border-subtle pt-4">
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="break-words text-sm font-semibold leading-6 text-stone-800 [overflow-wrap:anywhere]">
+                <p className="break-words text-sm font-semibold leading-6 text-text-primary [overflow-wrap:anywhere]">
                   このユーザーから交換日記の招待を受け取らない
                 </p>
-                <p className="mt-1 text-xs leading-5 text-stone-600">
+                <p className="mt-1 text-xs leading-5 text-text-muted">
                   交換日記の招待だけの設定です。フォローなどSNS全体には影響しません。
                 </p>
               </div>
-              <span className="w-fit shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700">
+              <span className="w-fit shrink-0 rounded-full bg-surface-elevated px-3 py-1 text-xs font-semibold text-text-secondary">
                 {isBlockingInvitations ? "ON" : "OFF"}
               </span>
             </div>
@@ -212,7 +212,7 @@ export function ExchangeProfileActions({
                 />
                 <button
                   aria-disabled={isPending}
-                  className="min-h-11 w-full rounded-full border border-stone-300 bg-white px-4 py-2.5 font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+                  className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:opacity-60 sm:w-auto"
                   disabled={isPending}
                   type="submit"
                 >
@@ -221,7 +221,7 @@ export function ExchangeProfileActions({
               </form>
             ) : isConfirmingBlock ? (
               <div
-                className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4"
+                className="mt-3 rounded-control border border-red-200 bg-red-50 p-4"
                 id={confirmationId}
                 onKeyDown={(event) => {
                   if (event.key === "Escape" && !isPending) {
@@ -229,10 +229,10 @@ export function ExchangeProfileActions({
                   }
                 }}
               >
-                <p className="break-words text-sm font-semibold leading-6 text-stone-800 [overflow-wrap:anywhere]">
+                <p className="break-words text-sm font-semibold leading-6 text-text-primary [overflow-wrap:anywhere]">
                   {targetUsername}さんからの交換日記の招待を受け取らない設定にしますか？
                 </p>
-                <p className="mt-1 text-xs leading-5 text-stone-600">
+                <p className="mt-1 text-xs leading-5 text-text-muted">
                   このユーザーから届いている招待がある場合、招待一覧から表示されなくなります。
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -247,7 +247,7 @@ export function ExchangeProfileActions({
                     />
                     <button
                       aria-disabled={isPending}
-                      className="min-h-11 w-full rounded-full border border-red-300 bg-white px-4 py-2.5 font-semibold text-red-700 transition hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-wait disabled:opacity-60"
+                      className="min-h-11 w-full rounded-control border border-danger bg-surface-elevated px-4 py-2.5 font-semibold text-danger transition hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
                       disabled={isPending}
                       ref={blockSubmitRef}
                       type="submit"
@@ -257,7 +257,7 @@ export function ExchangeProfileActions({
                   </form>
                   <button
                     aria-disabled={isPending}
-                    className="min-h-11 w-full rounded-full border border-stone-300 bg-white px-4 py-2.5 font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-wait disabled:opacity-60"
+                    className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:opacity-60"
                     disabled={isPending}
                     onClick={closeBlockConfirmation}
                     type="button"
@@ -271,7 +271,7 @@ export function ExchangeProfileActions({
                 aria-controls={confirmationId}
                 aria-disabled={isPending}
                 aria-expanded={isConfirmingBlock}
-                className="mt-3 min-h-11 w-full rounded-full border border-stone-300 bg-white px-4 py-2.5 font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+                className="mt-3 min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:opacity-60 sm:w-auto"
                 disabled={isPending}
                 onClick={() => setIsConfirmingBlock(true)}
                 ref={blockTriggerRef}
@@ -294,7 +294,7 @@ export function ExchangeProfileActions({
 
       {actionState.error && (
         <p
-          className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+          className="mt-3 rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-danger"
           key={`${lastAction}:${actionState.revision}`}
           role="alert"
         >
@@ -304,7 +304,7 @@ export function ExchangeProfileActions({
       {actionState.completed && actionState.message && (
         <p
           aria-live="polite"
-          className="mt-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm leading-6 text-green-800"
+          className="mt-3 rounded-control border border-green-200 bg-green-50 px-4 py-3 text-sm leading-6 text-success"
           key={`${lastAction}:${actionState.revision}`}
           role="status"
         >

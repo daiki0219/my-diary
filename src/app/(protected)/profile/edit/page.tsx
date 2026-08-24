@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { ProfileForm } from "@/components/profile/profile-form";
+import { ActionLink } from "@/components/ui/actions";
+import { PageHeader } from "@/components/ui/page-header";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -42,20 +44,22 @@ export default async function EditProfilePage() {
   }
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto w-full max-w-lg">
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-          <p className="text-sm font-medium text-orange-700">プロフィール設定</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-stone-800">
-            プロフィールを編集
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
-            サービス内で表示する名前と自己紹介を設定できます。
-          </p>
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+      <div className="mx-auto w-full max-w-xl">
+        <ActionLink className="-ml-3" href="/profile" variant="quiet">
+          ← プロフィールへ戻る
+        </ActionLink>
 
-          <div className="mt-7">
-            <ProfileForm bio={profile.bio} username={profile.username} />
-          </div>
+        <PageHeader
+          className="mt-3"
+          description="サービス内で表示する名前と自己紹介を、あなたの言葉で整えられます。"
+          eyebrow="プロフィール設定"
+          title="プロフィールを編集"
+          variant="plain"
+        />
+
+        <div className="mt-6 sm:mt-8">
+          <ProfileForm bio={profile.bio} username={profile.username} />
         </div>
       </div>
     </section>

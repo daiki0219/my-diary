@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ExchangeProfileActions } from "@/components/exchange/exchange-profile-actions";
 import { PostCard } from "@/components/posts/post-card";
 import { ProfileCard } from "@/components/profile/profile-card";
 import { FollowButton } from "@/components/profile/follow-button";
+import { ActionLink } from "@/components/ui/actions";
 import { getExchangeProfileContext } from "@/lib/exchange-data";
 import { getVisiblePostsByUser } from "@/lib/post-data";
 import { getProfileWithCounts, isUuid } from "@/lib/profile-data";
@@ -85,43 +85,25 @@ export default async function UserProfilePage({
   }
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto w-full max-w-lg">
-        <Link
-          className="inline-flex rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+      <div className="mx-auto w-full max-w-2xl">
+        <ActionLink
+          className="-ml-3"
           href="/home"
+          variant="quiet"
         >
           ← ホームへ戻る
-        </Link>
+        </ActionLink>
 
-        <div className="mt-5">
+        <div className="mt-4 sm:mt-5">
           <ProfileCard
             actions={
-              <>
-                <FollowButton
-                  canManageFollows={accountResult.data?.status === "active"}
-                  isFollowing={Boolean(followResult.data)}
-                  targetUserId={userId}
-                />
-                <ExchangeProfileActions
-                  canManageExchange={Boolean(
-                    accountResult.data?.status === "active" &&
-                      exchangeContextResult.data &&
-                      !exchangeContextResult.error,
-                  )}
-                  isBlockingInvitations={
-                    exchangeContextResult.data?.isBlockingInvitations ?? false
-                  }
-                  isMutualFollowing={
-                    exchangeContextResult.data?.isMutualFollowing ?? false
-                  }
-                  pendingDirection={
-                    exchangeContextResult.data?.pendingDirection ?? null
-                  }
-                  targetUserId={userId}
-                  targetUsername={result.profile.username}
-                />
-              </>
+              <FollowButton
+                canManageFollows={accountResult.data?.status === "active"}
+                className="mt-5 sm:max-w-xs"
+                isFollowing={Boolean(followResult.data)}
+                targetUserId={userId}
+              />
             }
             counts={result.counts}
             isOwnProfile={false}
@@ -129,14 +111,35 @@ export default async function UserProfilePage({
           />
         </div>
 
-        <section aria-labelledby="user-posts-heading" className="mt-8">
+        <div className="mt-6">
+          <ExchangeProfileActions
+            canManageExchange={Boolean(
+              accountResult.data?.status === "active" &&
+                exchangeContextResult.data &&
+                !exchangeContextResult.error,
+            )}
+            isBlockingInvitations={
+              exchangeContextResult.data?.isBlockingInvitations ?? false
+            }
+            isMutualFollowing={
+              exchangeContextResult.data?.isMutualFollowing ?? false
+            }
+            pendingDirection={
+              exchangeContextResult.data?.pendingDirection ?? null
+            }
+            targetUserId={userId}
+            targetUsername={result.profile.username}
+          />
+        </div>
+
+        <section aria-labelledby="user-posts-heading" className="mt-10">
           <h2
-            className="text-2xl font-bold tracking-tight text-stone-800"
+            className="font-brand text-2xl font-medium tracking-wide text-text-primary"
             id="user-posts-heading"
           >
             このユーザーの日記
           </h2>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
+          <p className="mt-2 text-sm leading-6 text-text-muted">
             あなたが閲覧できる日記を新しい順に表示します。
           </p>
 

@@ -3,6 +3,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ProfileCard } from "@/components/profile/profile-card";
+import { ActionLink } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { Surface } from "@/components/ui/surface";
 import { getProfileWithCounts } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -44,60 +47,90 @@ export default async function ProfilePage({
   const shouldSuggestEditing = result.profile.username === "新しいユーザー";
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto w-full max-w-lg">
-        <Link
-          className="inline-flex rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+      <div className="mx-auto w-full max-w-2xl">
+        <ActionLink
+          className="-ml-3"
           href="/home"
+          variant="quiet"
         >
           ← ホームへ戻る
-        </Link>
+        </ActionLink>
 
         {params.status === "updated" && (
-          <p
+          <FeedbackPanel
             aria-live="polite"
-            className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+            className="mt-4"
             role="status"
+            variant="success"
           >
             プロフィールを更新しました。
-          </p>
+          </FeedbackPanel>
         )}
 
         {shouldSuggestEditing && (
-          <p className="mt-5 rounded-2xl bg-orange-50 px-4 py-3 text-sm leading-6 text-orange-800">
+          <p className="mt-4 rounded-control bg-brand-soft/70 px-4 py-3 text-sm leading-6 text-brand-primary-hover">
             ユーザー名や自己紹介を設定すると、あなたらしいプロフィールになります。
           </p>
         )}
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <Link
-            className="rounded-full bg-orange-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-            href="/posts/new"
-          >
-            日記を書く
-          </Link>
-          <Link
-            className="rounded-full border border-orange-300 bg-orange-50 px-5 py-3 text-center font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-            href="/profile/posts"
-          >
-            自分の日記
-          </Link>
-        </div>
-
-        <Link
-          className="mt-3 block w-full rounded-full border border-stone-300 bg-white px-5 py-3 text-center font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-          href="/search"
-        >
-          ユーザーを探す
-        </Link>
-
-        <div className="mt-5">
+        <div className="mt-4 sm:mt-5">
           <ProfileCard
             counts={result.counts}
             isOwnProfile
             profile={result.profile}
           />
         </div>
+
+        <Surface
+          aria-labelledby="profile-diary-heading"
+          as="section"
+          className="mt-6 p-5 sm:p-6"
+          variant="muted"
+        >
+          <h2
+            className="font-brand text-xl font-medium tracking-wide text-text-primary"
+            id="profile-diary-heading"
+          >
+            日記
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-text-muted">
+            これまでの日記を読んだり、今日のことを残したりできます。
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <ActionLink href="/profile/posts" variant="neutral">
+              自分の日記
+            </ActionLink>
+            <ActionLink href="/posts/new" variant="secondary">
+              日記を書く
+            </ActionLink>
+          </div>
+        </Surface>
+
+        <nav
+          aria-label="プロフィールから移動"
+          className="mt-6 border-t border-border-subtle pt-5"
+        >
+          <p className="text-sm font-medium text-text-muted">つながり</p>
+          <div className="mt-2 grid min-w-0 gap-1 sm:grid-cols-2">
+            <ActionLink
+              className="w-full min-w-0 justify-between"
+              href="/exchange"
+              variant="quiet"
+            >
+              <span>交換日記</span>
+              <span aria-hidden="true">→</span>
+            </ActionLink>
+            <ActionLink
+              className="w-full min-w-0 justify-between"
+              href="/search"
+              variant="quiet"
+            >
+              <span>ユーザーを探す</span>
+              <span aria-hidden="true">→</span>
+            </ActionLink>
+          </div>
+        </nav>
       </div>
     </section>
   );
