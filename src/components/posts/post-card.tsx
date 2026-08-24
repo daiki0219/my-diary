@@ -6,6 +6,7 @@ import { PostImageGallery } from "@/components/posts/post-image-gallery";
 import { PostLocation } from "@/components/posts/post-location";
 import { ReactionControls } from "@/components/posts/reaction-controls";
 import { TagList } from "@/components/posts/tag-list";
+import { Surface } from "@/components/ui/surface";
 import {
   getMoodLabel,
   getVisibilityLabel,
@@ -20,62 +21,74 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
 
 export function PostCard({
   canDeletePost,
+  headingAs = "h2",
   post,
 }: {
   canDeletePost: boolean;
+  headingAs?: "h2" | "h3";
   post: Post;
 }) {
   const createdAt = new Date(post.created_at);
+  const Heading = headingAs;
 
   return (
-    <article className="min-w-0 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          {post.title && (
-            <h2 className="break-words text-xl font-bold leading-8 text-stone-800 [overflow-wrap:anywhere]">
-              {post.title}
-            </h2>
-          )}
-          <time
-            className={`block text-xs text-stone-500 ${
-              post.title ? "mt-1" : ""
-            }`}
-            dateTime={post.created_at}
-          >
-            {dateFormatter.format(createdAt)}
-          </time>
-        </div>
-        <div className="flex flex-wrap gap-2 text-xs sm:shrink-0">
-          <span className="rounded-full bg-orange-50 px-3 py-1 font-medium text-orange-800">
-            {getMoodLabel(post.mood)}
-          </span>
-          <span className="rounded-full bg-stone-100 px-3 py-1 font-medium text-stone-700">
-            {getVisibilityLabel(post.visibility)}
-          </span>
-        </div>
+    <Surface
+      as="article"
+      className="min-w-0 border border-border-subtle/70 p-4 shadow-surface sm:p-5"
+      variant="elevated"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+        <time dateTime={post.created_at}>{dateFormatter.format(createdAt)}</time>
+        <span aria-hidden="true">·</span>
+        <span className="font-medium text-brand-primary">
+          {getMoodLabel(post.mood)}
+        </span>
+        <span
+          aria-label={`公開範囲：${getVisibilityLabel(post.visibility)}`}
+          className="inline-flex min-h-7 items-center rounded-full bg-surface-muted/70 px-2.5 font-medium text-text-secondary"
+        >
+          {getVisibilityLabel(post.visibility)}
+        </span>
       </div>
 
-      <PostLocation locationName={post.location_name} />
+      {post.title && (
+        <Heading className="mt-3 break-words font-brand text-xl font-medium leading-8 tracking-[0.01em] text-text-primary [overflow-wrap:anywhere]">
+          {post.title}
+        </Heading>
+      )}
 
-      <TagList tags={post.tags} />
+      {post.images.length > 0 && (
+        <div className="[&>ol]:!mt-4">
+          <PostImageGallery images={post.images} />
+        </div>
+      )}
 
-      <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
+      <PostLocation locationName={post.location_name} variant="timeline" />
+
+      <p className="mt-2.5 whitespace-pre-wrap break-words text-[15px] leading-7 text-text-secondary [overflow-wrap:anywhere]">
         {post.body}
       </p>
 
-      <PostImageGallery images={post.images} />
+      <TagList tags={post.tags} variant="timeline" />
 
-      <ReactionControls postId={post.id} summary={post.reactions} />
-      <CommentCount count={post.commentCount} />
-
-      <Link
-        className="mt-5 inline-flex rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
-        href={`/posts/${post.id}`}
-      >
-        詳細を見る
-      </Link>
+      <div className="mt-4 border-t border-border-subtle/70 pt-2">
+        <ReactionControls
+          postId={post.id}
+          summary={post.reactions}
+          variant="timeline"
+        />
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-0.5">
+          <CommentCount count={post.commentCount} variant="timeline" />
+          <Link
+            className="inline-flex min-h-11 items-center rounded-lg text-sm font-medium text-brand-primary-hover underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            href={`/posts/${post.id}`}
+          >
+            詳細を見る
+          </Link>
+        </div>
+      </div>
 
       {canDeletePost && <DeletePostButton postId={post.id} />}
-    </article>
+    </Surface>
   );
 }

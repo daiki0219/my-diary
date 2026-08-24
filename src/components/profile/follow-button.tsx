@@ -11,9 +11,11 @@ import {
 
 type FollowButtonProps = {
   targetUserId: string;
+  targetUsername: string;
   isFollowing: boolean;
   canManageFollows: boolean;
   className?: string;
+  compact?: boolean;
 };
 
 const initialState: FollowActionState = {
@@ -23,9 +25,11 @@ const initialState: FollowActionState = {
 
 export function FollowButton({
   targetUserId,
+  targetUsername,
   isFollowing,
   canManageFollows,
   className = "mt-6",
+  compact = false,
 }: FollowButtonProps) {
   const router = useRouter();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -77,6 +81,11 @@ export function FollowButton({
                 />
                 <button
                   aria-disabled={isPending}
+                  aria-label={
+                    isUnfollowingPending
+                      ? `${targetUsername}さんのフォローを解除中`
+                      : `${targetUsername}さんのフォローを解除する`
+                  }
                   className="min-h-11 w-full rounded-control border border-danger bg-surface-elevated px-4 py-2.5 font-semibold text-danger transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isPending}
                   type="submit"
@@ -86,6 +95,7 @@ export function FollowButton({
               </form>
               <button
                 aria-disabled={isPending}
+                aria-label={`${targetUsername}さんのフォロー解除をキャンセル`}
                 className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isPending}
                 onClick={() => setIsConfirming(false)}
@@ -97,8 +107,11 @@ export function FollowButton({
           </div>
         ) : (
           <button
+            aria-label={`${targetUsername}さんのフォロー解除の確認を開く`}
             aria-pressed="true"
-            className="min-h-11 w-full rounded-control bg-brand-soft px-5 py-2.5 font-semibold text-brand-primary-hover transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className={`min-h-11 rounded-control bg-brand-soft py-2.5 font-semibold text-brand-primary-hover transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+              compact ? "w-auto px-4 text-sm" : "w-full px-5"
+            }`}
             onClick={() => setIsConfirming(true)}
             type="button"
           >
@@ -110,8 +123,15 @@ export function FollowButton({
           <input name="targetUserId" type="hidden" value={targetUserId} />
           <button
             aria-disabled={isPending}
+            aria-label={
+              isFollowingPending
+                ? `${targetUsername}さんをフォロー中`
+                : `${targetUsername}さんをフォローする`
+            }
             aria-pressed="false"
-            className="min-h-11 w-full rounded-control bg-brand-primary px-5 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-control-disabled-text"
+            className={`min-h-11 rounded-control bg-brand-primary py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-control-disabled-text ${
+              compact ? "w-auto px-4 text-sm" : "w-full px-5"
+            }`}
             disabled={isPending}
             type="submit"
           >

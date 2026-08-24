@@ -14,7 +14,7 @@ function ConfirmDeleteButton() {
   return (
     <button
       aria-disabled={pending}
-      className="rounded-full bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-wait disabled:bg-stone-400"
+      className="min-h-11 rounded-control bg-danger px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text"
       disabled={pending}
       type="submit"
     >
@@ -30,13 +30,16 @@ export function DeletePostButton({ postId }: { postId: string }) {
   const confirmationId = `delete-confirmation-${postId}`;
 
   return (
-    <form action={formAction} className="mt-5 border-t border-stone-100 pt-4">
+    <form
+      action={formAction}
+      className="mt-2 border-t border-border-subtle/70 pt-3"
+    >
       <input name="postId" type="hidden" value={postId} />
 
       {state.error && (
         <p
           aria-live="polite"
-          className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700"
+          className="mb-3 rounded-control border border-danger/20 bg-danger/5 px-3 py-2 text-sm leading-6 text-danger"
           role="alert"
         >
           {state.error}
@@ -45,15 +48,15 @@ export function DeletePostButton({ postId }: { postId: string }) {
 
       {isConfirming ? (
         <div
-          className="rounded-2xl bg-stone-50 p-4"
+          className="rounded-control bg-surface-muted/70 p-4"
           id={confirmationId}
         >
-          <p className="text-sm leading-6 text-stone-700">
+          <p className="text-sm leading-6 text-text-secondary">
             この日記を削除しますか？削除後は一覧に表示されません。
           </p>
           <div className="mt-3 flex flex-wrap justify-end gap-2">
             <button
-              className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
+              className="min-h-11 rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               onClick={() => setIsConfirming(false)}
               type="button"
             >
@@ -66,7 +69,7 @@ export function DeletePostButton({ postId }: { postId: string }) {
         <button
           aria-expanded={false}
           aria-controls={confirmationId}
-          className="rounded-lg text-sm font-semibold text-red-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700"
+          className="inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-medium text-danger underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
           onClick={() => setIsConfirming(true)}
           type="button"
         >

@@ -6,6 +6,8 @@ import { PostCard } from "@/components/posts/post-card";
 import { ProfileCard } from "@/components/profile/profile-card";
 import { FollowButton } from "@/components/profile/follow-button";
 import { ActionLink } from "@/components/ui/actions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { getExchangeProfileContext } from "@/lib/exchange-data";
 import { getVisiblePostsByUser } from "@/lib/post-data";
 import { getProfileWithCounts, isUuid } from "@/lib/profile-data";
@@ -103,6 +105,7 @@ export default async function UserProfilePage({
                 className="mt-5 sm:max-w-xs"
                 isFollowing={Boolean(followResult.data)}
                 targetUserId={userId}
+                targetUsername={result.profile.username.trim() || "ユーザー"}
               />
             }
             counts={result.counts}
@@ -144,33 +147,33 @@ export default async function UserProfilePage({
           </p>
 
           {postsResult.error ? (
-            <p
-              className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
-              role="alert"
-            >
+            <FeedbackPanel className="mt-5" role="alert" variant="error">
               日記を読み込めませんでした。時間をおいてもう一度お試しください。
-            </p>
+            </FeedbackPanel>
           ) : postsResult.data && postsResult.data.length > 0 ? (
             <>
               <div className="mt-5 space-y-4">
                 {postsResult.data.map((post) => (
                   <PostCard
                     canDeletePost={false}
+                    headingAs="h3"
                     key={post.id}
                     post={post}
                   />
                 ))}
               </div>
               {postsResult.hasMore && (
-                <p className="mt-4 text-center text-sm text-stone-500">
+                <p className="mt-4 text-center text-sm text-text-muted">
                   最新20件を表示しています。
                 </p>
               )}
             </>
           ) : (
-            <p className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center text-sm leading-6 text-stone-500 shadow-sm">
-              閲覧できる日記はまだありません。
-            </p>
+            <EmptyState
+              className="mt-5"
+              title="閲覧できる日記はまだありません。"
+              titleAs="h3"
+            />
           )}
         </section>
       </div>
