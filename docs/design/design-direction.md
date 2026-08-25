@@ -413,6 +413,10 @@ Home上部へ多数の機能menuを積み重ねない。
 
 DesktopではMobile layoutを単純に横へ引き伸ばさない。
 
+同時に、Desktopのpage layoutをMobile相当の狭いmax-widthへ固定しない。Calendar、list、discovery、search、multi-column、dashboard-like compositionなど横幅が有効な画面では、左右の自然な余白を維持しながらviewportを積極的に利用し、必要に応じてwide routeを使用してよい。
+
+page全体のouter widthと、読む・書く領域のcontent widthは分けて判断する。日記本文やlong proseは読みやすい行長を保ち、formも入力しやすさを優先して必要以上に広げない。つまり、page layoutではDesktopの幅を活かし、その中のreading widthとform widthを用途に応じて制限する。
+
 基本：
 
 ```text
@@ -434,6 +438,8 @@ CalendarはDesktop sidebarとの相性がよいため、既存Calendar data / na
 profile summaryも既存情報で安全に構成できる場合は候補とする。
 
 referenceに描かれた「最近のメモ」等、未実装機能は追加しない。
+
+Final Cross-Screen Design Verificationでは、Desktop viewportに対して不自然に狭い画面が残っていないかを横断的に監査する。一括でwide化せず、画面の用途とreading / form widthを確認して判断する。
 
 ---
 

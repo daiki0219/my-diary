@@ -37,7 +37,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
 
   return (
     <section className="flex flex-1 px-4 pb-10 pt-6 sm:px-8 sm:pb-12 sm:pt-8">
-      <div className="mx-auto w-full min-w-0 max-w-5xl">
+      <div className="mx-auto w-full min-w-0 max-w-5xl xl:max-w-6xl">
         <ActionLink
           className="-ml-3"
           href="/home"
