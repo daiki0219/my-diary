@@ -1,6 +1,7 @@
-import Link from "next/link";
-
 import { TimelinePostCard } from "@/components/posts/timeline-post-card";
+import { ActionLink } from "@/components/ui/actions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination, PaginationLink } from "@/components/ui/pagination";
 import type { TimelinePost } from "@/lib/post-data";
 import { buildSearchUrl } from "@/lib/search-query";
 
@@ -17,33 +18,35 @@ export function PostSearchResults({
 }) {
   if (posts.length === 0) {
     return (
-      <div className="rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-        <h2 className="text-lg font-bold text-stone-800">
-          {cursor
-            ? "次の投稿はありません"
-            : "該当する投稿が見つかりませんでした"}
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-stone-500">
-          {cursor
+      <EmptyState
+        action={
+          cursor ? (
+            <ActionLink
+              href={buildSearchUrl({ category: "posts", query })}
+              variant="neutral"
+            >
+              最初から検索する
+            </ActionLink>
+          ) : undefined
+        }
+        description={
+          cursor
             ? "この検索結果は最後まで表示されています。"
-            : "別のタイトルや本文でもう一度お試しください。"}
-        </p>
-        {cursor && (
-          <Link
-            className="mt-5 inline-flex min-h-10 items-center rounded-full border border-orange-300 bg-orange-50 px-5 py-2 font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-            href={buildSearchUrl({ category: "posts", query })}
-          >
-            最初から検索する
-          </Link>
-        )}
-      </div>
+            : "別のタイトルや本文でもう一度お試しください。"
+        }
+        title={
+          cursor
+            ? "次の投稿はありません"
+            : "該当する投稿が見つかりませんでした"
+        }
+      />
     );
   }
 
   return (
     <section aria-labelledby="post-search-results-heading">
       <h2
-        className="text-lg font-bold text-stone-800"
+        className="text-lg font-semibold text-text-primary"
         id="post-search-results-heading"
       >
         検索結果
@@ -57,22 +60,23 @@ export function PostSearchResults({
       </ul>
 
       {nextCursor && (
-        <nav aria-label="投稿検索結果のページ移動" className="mt-6">
-          <Link
-            className="flex min-h-11 w-full items-center justify-center rounded-full border border-orange-300 bg-orange-50 px-5 py-3 text-center font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+        <Pagination aria-label="投稿検索結果のページ移動" className="mt-6">
+          <PaginationLink
+            className="w-full"
             href={buildSearchUrl({
               category: "posts",
               query,
               cursor: nextCursor,
             })}
           >
-            次の投稿を見る →
-          </Link>
-        </nav>
+            <span>次の投稿を見る</span>
+            <span aria-hidden="true">→</span>
+          </PaginationLink>
+        </Pagination>
       )}
 
       {!nextCursor && cursor && (
-        <p className="mt-6 text-center text-sm text-stone-500">
+        <p className="mt-6 text-center text-sm text-text-muted">
           検索結果をすべて表示しました。
         </p>
       )}

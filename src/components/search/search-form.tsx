@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/actions";
 import {
   SEARCH_QUERY_MAX_LENGTH,
   type SearchCategory,
@@ -38,47 +39,53 @@ export function SearchForm({
   const errorId = "search-query-error";
 
   return (
-    <form
-      action="/search"
-      className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7"
-      method="get"
-    >
+    <form action="/search" method="get">
       <input name="category" type="hidden" value={category} />
       <label
-        className="block text-sm font-semibold text-stone-700"
+        className="block text-sm font-semibold text-text-primary"
         htmlFor="search-query"
       >
         {content.label}
       </label>
-      <p className="mt-1 text-sm leading-6 text-stone-500" id={descriptionId}>
+      <p
+        className="mt-1 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]"
+        id={descriptionId}
+      >
         {content.description}
       </p>
-      <input
-        aria-describedby={error ? `${descriptionId} ${errorId}` : descriptionId}
-        aria-invalid={error ? true : undefined}
-        className="mt-2 w-full min-w-0 rounded-xl border border-stone-300 bg-white px-4 py-3 text-stone-800 outline-none transition placeholder:text-stone-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
-        defaultValue={initialQuery}
-        id="search-query"
-        maxLength={SEARCH_QUERY_MAX_LENGTH[category] * 2}
-        name="q"
-        placeholder={content.placeholder}
-        type="search"
-      />
-      {error && (
-        <p
-          className="mt-2 text-sm leading-6 text-red-700"
-          id={errorId}
-          role="alert"
+      <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1">
+          <input
+            aria-describedby={
+              error ? `${descriptionId} ${errorId}` : descriptionId
+            }
+            aria-invalid={error ? true : undefined}
+            className="min-h-11 w-full min-w-0 rounded-control border border-border-control bg-surface-elevated px-4 py-3 text-base text-text-primary outline-none transition placeholder:text-text-muted focus:border-brand-primary focus:ring-2 focus:ring-brand-soft"
+            defaultValue={initialQuery}
+            id="search-query"
+            maxLength={SEARCH_QUERY_MAX_LENGTH[category] * 2}
+            name="q"
+            placeholder={content.placeholder}
+            type="search"
+          />
+          {error && (
+            <p
+              className="mt-2 break-words text-sm leading-6 text-danger [overflow-wrap:anywhere]"
+              id={errorId}
+              role="alert"
+            >
+              {error}
+            </p>
+          )}
+        </div>
+        <Button
+          className="w-full shrink-0 sm:w-auto"
+          type="submit"
+          variant="primary"
         >
-          {error}
-        </p>
-      )}
-      <button
-        className="mt-4 w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-        type="submit"
-      >
-        検索する
-      </button>
+          検索する
+        </Button>
+      </div>
     </form>
   );
 }

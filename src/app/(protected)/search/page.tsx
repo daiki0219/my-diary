@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PostSearchResults } from "@/components/search/post-search-results";
 import { SearchCategoryNav } from "@/components/search/search-category-nav";
 import { SearchForm } from "@/components/search/search-form";
-import { PostSearchResults } from "@/components/search/post-search-results";
 import { TagSearchResults } from "@/components/search/tag-search-results";
 import { UserSearchResults } from "@/components/search/user-search-results";
+import { ActionLink } from "@/components/ui/actions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { PageHeader } from "@/components/ui/page-header";
 import { searchPosts } from "@/lib/post-search-data";
 import {
   decodePostSearchCursor,
@@ -156,55 +159,53 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       : null;
   const navigationQuery =
     queryValidation.error === null ? canonicalQuery : "";
+  const hasPostResults =
+    category === "posts" && Boolean(postResult?.data?.length);
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto min-w-0 w-full max-w-lg">
-        <Link
-          className="inline-flex rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
-          href="/home"
-        >
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+      <div className="mx-auto w-full max-w-2xl min-w-0">
+        <ActionLink className="-ml-3" href="/home" variant="quiet">
           ← ホームへ戻る
-        </Link>
+        </ActionLink>
 
-        <div className="mt-5 min-w-0 rounded-3xl bg-orange-50 p-5 sm:p-7">
-          <p className="text-sm font-medium text-orange-700">
-            ゆるく見つける
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-800">
-            検索
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
-            ユーザー名、タグ、閲覧できる日記のタイトル・本文を探せます。
-          </p>
-        </div>
-
-        <div className="mt-5">
-          <SearchCategoryNav
-            activeCategory={pageError && !category ? null : category}
-            query={navigationQuery}
+        <div className="max-w-xl min-w-0">
+          <PageHeader
+            className="mt-3"
+            description="ユーザー名、タグ、閲覧できる日記のタイトル・本文を探せます。"
+            eyebrow="ゆるく見つける"
+            title="検索"
+            variant="plain"
           />
+
+          <div className="mt-5">
+            <SearchCategoryNav
+              activeCategory={pageError && !category ? null : category}
+              query={navigationQuery}
+            />
+          </div>
+
+          <div className="mt-5 border-t border-border-subtle pt-5">
+            <SearchForm
+              category={formCategory}
+              error={pageError ? null : queryValidation.error}
+              initialQuery={rawQuery}
+            />
+          </div>
         </div>
 
-        <div className="mt-5">
-          <SearchForm
-            category={formCategory}
-            error={pageError ? null : queryValidation.error}
-            initialQuery={rawQuery}
-          />
-        </div>
-
-        <div className="mt-5">
+        <div
+          className={`mt-6 min-w-0 ${hasPostResults ? "" : "max-w-xl"}`}
+        >
           {pageError ? (
-            <div className="rounded-3xl border border-red-200 bg-red-50 p-5">
-              <h2 className="font-semibold text-stone-800">
-                検索URLを確認してください
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-red-700" role="alert">
-                {pageError}
-              </p>
-              <Link
-                className="mt-5 inline-flex min-h-10 items-center rounded-full border border-red-300 bg-white px-5 py-2 text-sm font-semibold text-red-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            <FeedbackPanel
+              role="alert"
+              title="検索URLを確認してください"
+              variant="error"
+            >
+              <p>{pageError}</p>
+              <ActionLink
+                className="mt-4"
                 href={buildSearchUrl({
                   category: category ?? "users",
                   query:
@@ -212,39 +213,35 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                       ? canonicalQuery
                       : undefined,
                 })}
+                variant="neutral"
               >
                 最初から検索する
-              </Link>
-            </div>
+              </ActionLink>
+            </FeedbackPanel>
           ) : queryValidation.error ? null : queryValidation.isEmpty ? (
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-              <h2 className="text-lg font-bold text-stone-800">
-                {category === "tags"
+            <EmptyState
+              description="検索語を入力すると、ここに結果が表示されます。"
+              title={
+                category === "tags"
                   ? "タグ名を入力して検索してください"
                   : category === "posts"
                     ? "投稿タイトル・本文を入力して検索してください"
-                    : "ユーザー名を入力して検索してください"}
-              </h2>
-            </div>
+                    : "ユーザー名を入力して検索してください"
+              }
+            />
           ) : userResult?.status === "error" ? (
-            <p
-              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
-              role="alert"
-            >
+            <FeedbackPanel role="alert" variant="error">
               ユーザーを検索できませんでした。時間をおいてもう一度お試しください。
-            </p>
+            </FeedbackPanel>
           ) : userResult?.status === "success" ? (
             <UserSearchResults
               currentUserId={currentUserId}
               results={userResult.data}
             />
           ) : tagResult?.error ? (
-            <p
-              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
-              role="alert"
-            >
+            <FeedbackPanel role="alert" variant="error">
               タグを検索できませんでした。時間をおいてもう一度お試しください。
-            </p>
+            </FeedbackPanel>
           ) : tagResult?.data ? (
             <TagSearchResults
               cursor={rawCursor}
@@ -253,12 +250,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               tags={tagResult.data}
             />
           ) : postResult?.error ? (
-            <p
-              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
-              role="alert"
-            >
+            <FeedbackPanel role="alert" variant="error">
               投稿を検索できませんでした。時間をおいてもう一度お試しください。
-            </p>
+            </FeedbackPanel>
           ) : postResult?.data ? (
             <PostSearchResults
               cursor={rawCursor}

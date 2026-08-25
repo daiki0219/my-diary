@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { TimelinePostCard } from "@/components/posts/timeline-post-card";
+import { ActionLink } from "@/components/ui/actions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { PageHeader } from "@/components/ui/page-header";
+import { Pagination, PaginationLink } from "@/components/ui/pagination";
 import { isUuid } from "@/lib/profile-data";
 import {
   decodeTagPostCursor,
@@ -66,13 +70,24 @@ export default async function TagDetailPage({
 
   if (tagResult.error) {
     return (
-      <section className="flex flex-1 items-center px-4 py-10 sm:px-8">
-        <p
-          className="mx-auto w-full max-w-lg rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
-          role="alert"
-        >
-          タグを読み込めませんでした。時間をおいてもう一度お試しください。
-        </p>
+      <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+        <div className="mx-auto w-full max-w-2xl min-w-0">
+          <ActionLink className="-ml-3" href="/tags" variant="quiet">
+            ← タグ一覧へ戻る
+          </ActionLink>
+          <PageHeader
+            className="mt-3 max-w-xl"
+            title="タグを表示できません"
+            variant="plain"
+          />
+          <FeedbackPanel
+            className="mt-5 max-w-xl"
+            role="alert"
+            variant="error"
+          >
+            タグを読み込めませんでした。時間をおいてもう一度お試しください。
+          </FeedbackPanel>
+        </div>
       </section>
     );
   }
@@ -89,82 +104,85 @@ export default async function TagDetailPage({
   );
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto min-w-0 w-full max-w-lg">
-        <Link
-          className="inline-flex rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
-          href="/tags"
-        >
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+      <div className="mx-auto w-full max-w-2xl min-w-0">
+        <ActionLink className="-ml-3" href="/tags" variant="quiet">
           ← タグ一覧へ戻る
-        </Link>
+        </ActionLink>
 
-        <div className="mt-5 min-w-0 rounded-3xl bg-orange-50 p-5 sm:p-7">
-          <p className="text-sm font-medium text-orange-700">
-            タグが付いた日記
-          </p>
-          <h1 className="mt-2 break-words text-3xl font-bold tracking-tight text-stone-800 [overflow-wrap:anywhere]">
-            #{tagResult.data.name}
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
-            あなたが閲覧できる日記だけを、新しい順に表示します。
-          </p>
-        </div>
+        <PageHeader
+          className="mt-3 max-w-xl"
+          description="あなたが閲覧できる日記だけを、新しい順に表示します。"
+          eyebrow="タグが付いた日記"
+          title={`#${tagResult.data.name}`}
+          variant="plain"
+        />
 
         {postsResult.error ? (
-          <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5">
-            <h2 className="font-semibold text-stone-800">
-              日記を読み込めませんでした
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-red-700" role="alert">
-              時間をおいて、もう一度お試しください。
-            </p>
-          </div>
+          <FeedbackPanel
+            className="mt-6 max-w-xl"
+            role="alert"
+            title="日記を読み込めませんでした"
+            variant="error"
+          >
+            時間をおいて、もう一度お試しください。
+          </FeedbackPanel>
         ) : postsResult.data && postsResult.data.length > 0 ? (
           <>
-            <div className="mt-5 space-y-4">
+            <ul
+              aria-label={`${tagResult.data.name}の付いた日記`}
+              className="mt-6 space-y-4"
+            >
               {postsResult.data.map((post) => (
-                <TimelinePostCard key={post.id} post={post} />
+                <li className="min-w-0" key={post.id}>
+                  <TimelinePostCard post={post} />
+                </li>
               ))}
-            </div>
+            </ul>
 
             {postsResult.nextCursor && (
-              <nav aria-label="タグの日記一覧のページ移動" className="mt-6">
-                <Link
-                  className="flex min-h-11 w-full items-center justify-center rounded-full border border-orange-300 bg-orange-50 px-5 py-3 text-center font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              <Pagination
+                aria-label="タグの日記一覧のページ移動"
+                className="mt-6"
+              >
+                <PaginationLink
+                  className="w-full"
                   href={`/tags/${canonicalTagId}?cursor=${encodeURIComponent(postsResult.nextCursor)}`}
                 >
-                  次の投稿を見る →
-                </Link>
-              </nav>
+                  <span>次の投稿を見る</span>
+                  <span aria-hidden="true">→</span>
+                </PaginationLink>
+              </Pagination>
             )}
 
             {!postsResult.nextCursor && cursor && (
-              <p className="mt-6 text-center text-sm text-stone-500">
+              <p className="mt-6 text-center text-sm text-text-muted">
                 閲覧できる日記をすべて表示しました。
               </p>
             )}
           </>
         ) : cursor ? (
-          <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-            <h2 className="text-lg font-bold text-stone-800">
-              次の投稿はありません
-            </h2>
-            <Link
-              className="mt-5 inline-flex min-h-10 items-center rounded-full border border-orange-300 bg-orange-50 px-5 py-2 font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-              href={`/tags/${canonicalTagId}`}
-            >
-              最初の投稿へ戻る
-            </Link>
-          </div>
+          <EmptyState
+            action={
+              <ActionLink href={`/tags/${canonicalTagId}`} variant="neutral">
+                最初の投稿へ戻る
+              </ActionLink>
+            }
+            className="mt-6 max-w-xl"
+            description="閲覧できる日記を最後まで表示しました。"
+            title="次の投稿はありません"
+          />
         ) : (
-          <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-            <h2 className="text-lg font-bold text-stone-800">
-              閲覧できる日記はありません
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-stone-500">
-              公開範囲が変わった可能性があります。タグ一覧から別のタグも見てみましょう。
-            </p>
-          </div>
+          <EmptyState
+            action={
+              <ActionLink href="/tags" variant="quiet">
+                別のタグを見る
+              </ActionLink>
+            }
+            className="mt-6 max-w-xl"
+            description="公開範囲が変わった可能性があります。タグ一覧から別のタグも見てみましょう。"
+            title="閲覧できる日記はありません"
+          />
         )}
       </div>
     </section>
