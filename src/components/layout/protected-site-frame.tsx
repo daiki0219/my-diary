@@ -13,7 +13,10 @@ export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isAdminPath =
     pathname === "/admin" || pathname.startsWith("/admin/");
-  const isWidePath = pathname === "/home" || pathname === "/calendar";
+  const isWidePath =
+    pathname === "/home" ||
+    pathname === "/calendar" ||
+    pathname === "/notifications";
 
   return (
     <SiteFrame

@@ -10,6 +10,8 @@ import {
   openNotification,
   type NotificationActionState,
 } from "@/app/(protected)/notifications/actions";
+import { Button } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 
 const initialState: NotificationActionState = {
   error: null,
@@ -22,15 +24,16 @@ function OpenButton({ notificationLabel }: { notificationLabel: string }) {
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <Button
       aria-disabled={pending}
-      className="min-h-10 rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700 disabled:cursor-wait disabled:bg-stone-400"
+      className="px-3 text-sm text-brand-primary-hover hover:bg-brand-soft/60"
       disabled={pending}
       type="submit"
+      variant="quiet"
     >
       <span className="sr-only">{notificationLabel}: </span>
       {pending ? "開いています…" : "通知を開く"}
-    </button>
+    </Button>
   );
 }
 
@@ -38,15 +41,16 @@ function ReadButton({ notificationLabel }: { notificationLabel: string }) {
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <Button
       aria-disabled={pending}
-      className="min-h-10 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-wait disabled:text-stone-400"
+      className="px-3 text-sm"
       disabled={pending}
       type="submit"
+      variant="quiet"
     >
       <span className="sr-only">{notificationLabel}: </span>
       {pending ? "更新中…" : "既読にする"}
-    </button>
+    </Button>
   );
 }
 
@@ -54,37 +58,32 @@ function MarkAllButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <Button
       aria-disabled={pending}
-      className="min-h-11 w-full rounded-full border border-orange-300 bg-white px-5 py-3 font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:border-stone-200 disabled:text-stone-400 sm:w-auto"
+      className="px-3 text-sm text-brand-primary-hover hover:bg-brand-soft/60"
       disabled={pending}
       type="submit"
+      variant="quiet"
     >
       {pending ? "既読にしています…" : "すべて既読"}
-    </button>
+    </Button>
   );
 }
 
 function ActionMessage({ state }: { state: NotificationActionState }) {
   if (state.error) {
     return (
-      <p
-        className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700"
-        role="alert"
-      >
+      <FeedbackPanel className="mt-2" role="alert" variant="error">
         {state.error}
-      </p>
+      </FeedbackPanel>
     );
   }
 
   if (state.unavailable) {
     return (
-      <p
-        className="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm leading-6 text-stone-700"
-        role="alert"
-      >
+      <FeedbackPanel className="mt-2" role="alert" variant="neutral">
         この通知の対象は現在表示できません。通知は既読にしました。
-      </p>
+      </FeedbackPanel>
     );
   }
 
@@ -108,7 +107,7 @@ export function NotificationOpenAction({
   }, [router, state.completed, state.revision]);
 
   return (
-    <form action={formAction}>
+    <form action={formAction} className="min-w-0 max-w-full">
       <input name="notificationId" type="hidden" value={notificationId} />
       <OpenButton notificationLabel={notificationLabel} />
       <ActionMessage state={state} />
@@ -136,7 +135,7 @@ export function NotificationReadAction({
   }, [router, state.completed, state.revision]);
 
   return (
-    <form action={formAction}>
+    <form action={formAction} className="min-w-0 max-w-full">
       <input name="notificationId" type="hidden" value={notificationId} />
       <ReadButton notificationLabel={notificationLabel} />
       <ActionMessage state={state} />
@@ -158,7 +157,7 @@ export function MarkAllNotificationsReadAction() {
   }, [router, state.completed, state.revision]);
 
   return (
-    <form action={formAction}>
+    <form action={formAction} className="min-w-0 max-w-full">
       <MarkAllButton />
       <ActionMessage state={state} />
     </form>
