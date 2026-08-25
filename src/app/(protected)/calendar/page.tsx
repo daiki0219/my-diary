@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { CalendarMonthView } from "@/components/calendar/calendar-month";
+import { ActionLink } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCalendarMonthData } from "@/lib/calendar-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -34,45 +36,42 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   });
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto min-w-0 w-full max-w-lg">
-        <Link
-          className="inline-flex rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+    <section className="flex flex-1 px-4 pb-10 pt-6 sm:px-8 sm:pb-12 sm:pt-8">
+      <div className="mx-auto w-full min-w-0 max-w-5xl">
+        <ActionLink
+          className="-ml-3"
           href="/home"
+          variant="quiet"
         >
           ← ホームへ戻る
-        </Link>
+        </ActionLink>
 
-        <div className="mt-5 min-w-0 rounded-3xl bg-orange-50 p-5 sm:p-7">
-          <p className="text-sm font-medium text-orange-700">
-            あなたのこれまでの記録
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-800">
-            カレンダー
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
-            投稿した日とその日の気分から、自分の日記を振り返れます。
-          </p>
-        </div>
+        <PageHeader
+          className="mt-4 max-w-2xl"
+          description="投稿した日とその日の気分から、自分の日記を振り返れます。"
+          eyebrow="あなたのこれまでの記録"
+          title="カレンダー"
+          variant="plain"
+        />
 
         {result.error || !result.data ? (
-          <div
-            className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5"
+          <FeedbackPanel
+            className="mt-6 max-w-2xl"
             role="alert"
+            title="カレンダーを読み込めませんでした"
+            variant="error"
           >
-            <h2 className="font-semibold text-stone-800">
-              カレンダーを読み込めませんでした
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-red-700">
+            <p>
               URLを確認するか、時間をおいてもう一度お試しください。
             </p>
-            <Link
-              className="mt-5 inline-flex rounded-full border border-red-300 bg-white px-5 py-3 text-sm font-semibold text-red-800 transition hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            <ActionLink
+              className="mt-4"
               href="/calendar"
+              variant="neutral"
             >
               今月のカレンダーへ戻る
-            </Link>
-          </div>
+            </ActionLink>
+          </FeedbackPanel>
         ) : (
           <CalendarMonthView data={result.data} />
         )}

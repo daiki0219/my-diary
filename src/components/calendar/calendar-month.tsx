@@ -1,6 +1,10 @@
 import Link from "next/link";
 
 import { CalendarPostItem } from "@/components/calendar/calendar-post-item";
+import { ActionLink } from "@/components/ui/actions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { Surface } from "@/components/ui/surface";
 import {
   buildCalendarHref,
   getCalendarMonthGrid,
@@ -9,7 +13,15 @@ import {
 import type { CalendarMonthData } from "@/lib/calendar-data";
 import { getMoodLabel } from "@/lib/post-data";
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
+const WEEKDAYS = [
+  ["日", "日曜日"],
+  ["月", "月曜日"],
+  ["火", "火曜日"],
+  ["水", "水曜日"],
+  ["木", "木曜日"],
+  ["金", "金曜日"],
+  ["土", "土曜日"],
+] as const;
 
 function formatMonthLabel(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -54,12 +66,13 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
 
   if (!weeks) {
     return (
-      <p
-        className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+      <FeedbackPanel
+        className="mt-6 max-w-2xl"
         role="alert"
+        variant="error"
       >
         カレンダーを表示できませんでした。時間をおいてもう一度お試しください。
-      </p>
+      </FeedbackPanel>
     );
   }
 
@@ -78,24 +91,23 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
   });
 
   return (
-    <>
-      <section
+    <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.9fr)] lg:items-start">
+      <Surface
+        as="section"
         aria-labelledby="calendar-month-heading"
-        className="mt-5 min-w-0 rounded-3xl border border-stone-200 bg-white p-3 shadow-sm sm:p-5"
+        className="min-w-0 border border-border-subtle/70 p-3 shadow-surface sm:p-5"
+        variant="elevated"
       >
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2
-            className="text-center text-2xl font-bold tracking-tight text-stone-800 sm:text-left"
+            className="text-center text-2xl font-semibold tracking-tight text-text-primary sm:text-left"
             id="calendar-month-heading"
           >
             {monthLabel}
           </h2>
-          <Link
-            className="inline-flex min-h-10 items-center justify-center rounded-full border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-            href="/calendar"
-          >
+          <ActionLink href="/calendar" variant="secondary">
             今月
-          </Link>
+          </ActionLink>
         </div>
 
         <nav
@@ -103,51 +115,48 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
           className="mt-4 grid grid-cols-2 gap-2"
         >
           {data.previousMonth ? (
-            <Link
+            <ActionLink
               aria-label={`前の月、${formatMonthLabel(data.previousMonth)}`}
-              className="flex min-h-10 min-w-0 items-center justify-center rounded-full border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              className="min-w-0 px-3"
               href={buildCalendarHref(data.previousMonth)}
+              variant="neutral"
             >
               ← 前月
-            </Link>
+            </ActionLink>
           ) : (
-            <span className="flex min-h-10 items-center justify-center rounded-full border border-stone-200 px-3 py-2 text-sm text-stone-400">
+            <span className="flex min-h-11 items-center justify-center rounded-control border border-border-subtle px-3 py-2 text-sm text-control-disabled-text">
               ← 前月
             </span>
           )}
           {data.nextMonth ? (
-            <Link
+            <ActionLink
               aria-label={`次の月、${formatMonthLabel(data.nextMonth)}`}
-              className="flex min-h-10 min-w-0 items-center justify-center rounded-full border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+              className="min-w-0 px-3"
               href={buildCalendarHref(data.nextMonth)}
+              variant="neutral"
             >
               次月 →
-            </Link>
+            </ActionLink>
           ) : (
-            <span className="flex min-h-10 items-center justify-center rounded-full border border-stone-200 px-3 py-2 text-sm text-stone-400">
+            <span className="flex min-h-11 items-center justify-center rounded-control border border-border-subtle px-3 py-2 text-sm text-control-disabled-text">
               次月 →
             </span>
           )}
         </nav>
 
-        <div className="mt-4 overflow-hidden rounded-2xl border border-stone-200">
+        <div className="mt-4 overflow-hidden rounded-control border border-border-subtle">
           <table className="w-full table-fixed border-collapse">
             <caption className="sr-only">{monthLabel}のカレンダー</caption>
-            <thead className="bg-stone-50">
+            <thead className="bg-surface-muted">
               <tr>
-                {WEEKDAYS.map((weekday, index) => (
+                {WEEKDAYS.map(([weekday, weekdayLabel], index) => (
                   <th
-                    className={`px-0.5 py-2 text-center text-xs font-semibold sm:text-sm ${
-                      index === 0
-                        ? "text-red-700"
-                        : index === 6
-                          ? "text-blue-700"
-                          : "text-stone-600"
-                    }`}
+                    className={`px-0.5 py-2 text-center text-xs font-semibold sm:text-sm ${index === 0 ? "text-danger" : "text-text-secondary"}`}
                     key={weekday}
                     scope="col"
                   >
-                    {weekday}
+                    <span aria-hidden="true">{weekday}</span>
+                    <span className="sr-only">{weekdayLabel}</span>
                   </th>
                 ))}
               </tr>
@@ -160,7 +169,7 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
                       return (
                         <td
                           aria-hidden="true"
-                          className="h-[4.75rem] border-t border-stone-200 bg-stone-50/40"
+                          className="h-[4.5rem] border-t border-border-subtle bg-surface-muted/40"
                           key={`empty-${dayIndex}`}
                         />
                       );
@@ -179,7 +188,7 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
 
                     return (
                       <td
-                        className="border-t border-stone-200 align-top"
+                        className="border-t border-border-subtle align-top"
                         key={date}
                       >
                         <Link
@@ -190,10 +199,10 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
                             mood: summary?.mood ?? null,
                             postCount,
                           })}
-                          className={`flex min-h-[4.75rem] min-w-0 flex-col items-center gap-0.5 px-0.5 py-1 text-center transition focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-orange-600 ${
+                          className={`flex min-h-[4.5rem] min-w-0 flex-col items-center gap-0.5 px-0.5 py-1 text-center transition focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus ${
                             isSelected
-                              ? "bg-orange-100 font-bold text-orange-950 shadow-[inset_0_0_0_2px_#c2410c]"
-                              : "text-stone-700 hover:bg-orange-50"
+                              ? "bg-brand-soft font-semibold text-text-primary ring-2 ring-inset ring-brand-primary"
+                              : "text-text-secondary hover:bg-surface-muted"
                           }`}
                           href={buildCalendarHref(data.month, date)}
                         >
@@ -201,7 +210,7 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
                             {Number(date.slice(-2))}
                           </span>
                           {isToday && (
-                            <span className="rounded bg-stone-800 px-1 py-0.5 text-[9px] font-bold leading-none text-white">
+                            <span className="rounded bg-text-primary px-1 py-0.5 text-[9px] font-bold leading-none text-white">
                               今日
                             </span>
                           )}
@@ -210,7 +219,7 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
                             className="flex min-h-4 items-center justify-center gap-0.5 text-[11px] leading-none"
                           >
                             {summary && (
-                              <span className="text-orange-700">●</span>
+                              <span className="text-brand-primary">●</span>
                             )}
                             {moodEmoji && <span>{moodEmoji}</span>}
                             {isSelected && <span>✓</span>}
@@ -225,40 +234,41 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
           </table>
         </div>
 
-        <p className="mt-3 text-xs leading-5 text-stone-500">
+        <p className="mt-3 text-xs leading-5 text-text-muted">
           ● は投稿がある日、絵文字はその日の最新投稿の気分を表します。
         </p>
-      </section>
+      </Surface>
 
       <section
         aria-labelledby="selected-date-heading"
-        className="mt-5 min-w-0"
+        className="min-w-0"
       >
         <h2
-          className="text-xl font-bold text-stone-800"
+          className="text-xl font-semibold tracking-tight text-text-primary"
           id="selected-date-heading"
         >
           {selectedDateLabel ? `${selectedDateLabel}の日記` : "日記を振り返る"}
         </h2>
 
         {!data.selectedDate ? (
-          <div className="mt-3 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-            <p className="text-sm leading-6 text-stone-600">
-              日付を選ぶと、その日の日記を振り返れます。
-            </p>
-          </div>
+          <EmptyState
+            className="mt-3"
+            description="カレンダーの日付を選ぶと、その日の日記を振り返れます。"
+            title="日付を選んでください"
+            titleAs="h3"
+          />
         ) : data.selectedPosts.length === 0 ? (
-          <div className="mt-3 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-            <p className="text-sm leading-6 text-stone-600">
-              この日の日記はまだありません。
-            </p>
-            <Link
-              className="mt-4 inline-flex rounded-full border border-orange-300 bg-orange-50 px-5 py-3 text-sm font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-              href="/posts/new"
-            >
-              日記を書く
-            </Link>
-          </div>
+          <EmptyState
+            action={
+              <ActionLink href="/posts/new" variant="secondary">
+                日記を書く
+              </ActionLink>
+            }
+            className="mt-3"
+            description="この日の日記はまだありません。"
+            title="記録がない日です"
+            titleAs="h3"
+          />
         ) : (
           <ul
             aria-label={`${selectedDateLabel}の投稿`}
@@ -275,6 +285,6 @@ export function CalendarMonthView({ data }: { data: CalendarMonthData }) {
           </ul>
         )}
       </section>
-    </>
+    </div>
   );
 }
