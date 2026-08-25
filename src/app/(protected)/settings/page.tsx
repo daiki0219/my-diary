@@ -23,14 +23,14 @@ export default async function SettingsPage() {
   }
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto min-w-0 w-full max-w-lg">
-        <ActionLink href="/home" variant="quiet">
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+      <div className="mx-auto w-full max-w-xl min-w-0">
+        <ActionLink className="-ml-3" href="/home" variant="quiet">
           ← ホームへ戻る
         </ActionLink>
 
         <PageHeader
-          className="mt-5"
+          className="mt-3"
           description="日記を振り返るときに使うタイムゾーンを設定できます。"
           eyebrow="あなたの日付表示"
           title="設定"
@@ -38,7 +38,7 @@ export default async function SettingsPage() {
 
         {timezoneResult.error ? (
           <FeedbackPanel
-            className="mt-5"
+            className="mt-6"
             role="alert"
             title="設定を読み込めませんでした"
             variant="error"
@@ -46,7 +46,7 @@ export default async function SettingsPage() {
             時間をおいて、もう一度お試しください。
           </FeedbackPanel>
         ) : (
-          <Surface className="mt-5 min-w-0 p-5 sm:p-7" variant="elevated">
+          <Surface className="mt-6 min-w-0 p-5 sm:p-7" variant="elevated">
             <h2 className="text-xl font-semibold text-text-primary">
               タイムゾーン
             </h2>

@@ -8,6 +8,7 @@ import { FollowButton } from "@/components/profile/follow-button";
 import { ActionLink } from "@/components/ui/actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { PageHeader } from "@/components/ui/page-header";
 import { getExchangeProfileContext } from "@/lib/exchange-data";
 import { getVisiblePostsByUser } from "@/lib/post-data";
 import { getProfileWithCounts, isUuid } from "@/lib/profile-data";
@@ -71,13 +72,20 @@ export default async function UserProfilePage({
 
   if (result.profileLoadFailed) {
     return (
-      <section className="flex flex-1 items-center px-4 py-10 sm:px-8">
-        <p
-          className="mx-auto w-full max-w-lg rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
-          role="alert"
-        >
-          プロフィールの読み込みに失敗しました。時間をおいてもう一度お試しください。
-        </p>
+      <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+        <div className="mx-auto w-full max-w-2xl min-w-0">
+          <ActionLink className="-ml-3" href="/home" variant="quiet">
+            ← ホームへ戻る
+          </ActionLink>
+          <PageHeader
+            className="mt-3 max-w-xl"
+            title="プロフィールを表示できません"
+            variant="plain"
+          />
+          <FeedbackPanel className="mt-5 max-w-xl" role="alert" variant="error">
+            プロフィールの読み込みに失敗しました。時間をおいてもう一度お試しください。
+          </FeedbackPanel>
+        </div>
       </section>
     );
   }

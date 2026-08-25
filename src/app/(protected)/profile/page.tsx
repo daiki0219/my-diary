@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ProfileCard } from "@/components/profile/profile-card";
 import { ActionLink } from "@/components/ui/actions";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { PageHeader } from "@/components/ui/page-header";
 import { Surface } from "@/components/ui/surface";
 import { getProfileWithCounts } from "@/lib/profile-data";
 import { createClient } from "@/lib/supabase/server";
@@ -138,20 +138,19 @@ export default async function ProfilePage({
 
 function ProfileLoadError({ message }: { message: string }) {
   return (
-    <section className="flex flex-1 items-center px-4 py-10 sm:px-8">
-      <div className="mx-auto w-full max-w-lg rounded-3xl border border-red-200 bg-red-50 p-6">
-        <h1 className="text-xl font-bold text-stone-800">
-          プロフィールを表示できません
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-red-700" role="alert">
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6">
+      <div className="mx-auto w-full max-w-2xl min-w-0">
+        <ActionLink className="-ml-3" href="/home" variant="quiet">
+          ← ホームへ戻る
+        </ActionLink>
+        <PageHeader
+          className="mt-3 max-w-xl"
+          title="プロフィールを表示できません"
+          variant="plain"
+        />
+        <FeedbackPanel className="mt-5 max-w-xl" role="alert" variant="error">
           {message}
-        </p>
-        <Link
-          className="mt-5 inline-flex rounded-lg font-semibold text-stone-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
-          href="/home"
-        >
-          ホームへ戻る
-        </Link>
+        </FeedbackPanel>
       </div>
     </section>
   );
