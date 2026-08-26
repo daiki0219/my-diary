@@ -136,9 +136,9 @@ export function RelatedPosts({
   const totalFailure = author.error && sameTag.error;
 
   return (
-    <section
+    <aside
       aria-labelledby="related-posts-heading"
-      className="mt-8 min-w-0 scroll-mt-16 border-t border-border-subtle/70 pt-7 sm:mt-10 sm:pt-8 lg:scroll-mt-28"
+      className="mt-8 min-w-0 scroll-mt-16 border-t border-border-subtle/70 pt-7 sm:mt-10 sm:pt-8 lg:mt-0 lg:scroll-mt-28 lg:border-t-0 lg:pt-0"
       id="related-posts"
     >
       <h2
@@ -170,6 +170,6 @@ export function RelatedPosts({
           />
         </div>
       )}
-    </section>
+    </aside>
   );
 }

@@ -8,6 +8,19 @@ import {
   ProtectedMobileNavigation,
 } from "@/components/layout/protected-app-navigation";
 import { SiteFrame } from "@/components/layout/site-frame";
+import { isUuid } from "@/lib/profile-data";
+
+function isPostDetailPath(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  const postId = segments[1];
+
+  return (
+    segments.length === 2 &&
+    segments[0] === "posts" &&
+    typeof postId === "string" &&
+    isUuid(postId)
+  );
+}
 
 export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -16,7 +29,8 @@ export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
   const isWidePath =
     pathname === "/home" ||
     pathname === "/calendar" ||
-    pathname === "/notifications";
+    pathname === "/notifications" ||
+    isPostDetailPath(pathname);
 
   return (
     <SiteFrame

@@ -112,54 +112,76 @@ export default async function PostDetailPage({
   const tagRelated = resolveRelatedSection(tagRelatedResult);
   const hasRelatedPosts =
     authorRelated.posts.length > 0 || tagRelated.posts.length > 0;
+  const hasRelatedRegion =
+    hasRelatedPosts || authorRelated.error || tagRelated.error;
 
   return (
     <section className="flex flex-1 px-4 py-6 sm:py-8 lg:py-10">
-      <div className="mx-auto w-full max-w-2xl">
-        {query.status === "updated" && (
-          <FeedbackPanel className="mb-5" role="status" variant="success">
-            投稿を更新しました。
-          </FeedbackPanel>
-        )}
-        {query.status === "updated" && query.imageCleanup === "partial" && (
-          <FeedbackPanel className="mb-5" role="status" variant="warning">
-            投稿内容は保存済みですが、不要になった一部の画像を整理できませんでした。
-          </FeedbackPanel>
-        )}
-        <Link
-          className="mb-2 inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-medium text-text-secondary underline-offset-4 transition hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          href="/home"
+      <div
+        className={
+          hasRelatedRegion
+            ? "mx-auto w-full min-w-0 max-w-2xl lg:max-w-none"
+            : "mx-auto w-full min-w-0 max-w-2xl"
+        }
+      >
+        <div className="w-full max-w-2xl">
+          {query.status === "updated" && (
+            <FeedbackPanel className="mb-5" role="status" variant="success">
+              投稿を更新しました。
+            </FeedbackPanel>
+          )}
+          {query.status === "updated" && query.imageCleanup === "partial" && (
+            <FeedbackPanel className="mb-5" role="status" variant="warning">
+              投稿内容は保存済みですが、不要になった一部の画像を整理できませんでした。
+            </FeedbackPanel>
+          )}
+          <Link
+            className="mb-2 inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-medium text-text-secondary underline-offset-4 transition hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            href="/home"
+          >
+            <span aria-hidden="true">←</span>
+            <span className="ml-1">タイムラインへ戻る</span>
+          </Link>
+        </div>
+
+        <div
+          className={
+            hasRelatedRegion
+              ? "grid min-w-0 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:items-start lg:gap-8 xl:gap-10"
+              : "min-w-0"
+          }
         >
-          <span aria-hidden="true">←</span>
-          <span className="ml-1">タイムラインへ戻る</span>
-        </Link>
-        <PostDetail
-          canEditPost={canEditPost}
-          isOwnPost={isOwnPost}
-          post={result.post}
-        />
-        {hasRelatedPosts && (
-          <nav aria-label="関連する日記" className="mt-3">
-            <Link
-              className="inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-medium text-text-secondary underline-offset-4 transition hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-              href="#related-posts"
-            >
-              関連する日記を見る
-              <span aria-hidden="true" className="ml-1">
-                ↓
-              </span>
-            </Link>
-          </nav>
-        )}
-        <CommentList
-          comments={commentsResult.data}
-          currentUserId={currentUserId}
-          error={Boolean(commentsResult.error)}
-          isTruncated={commentsResult.isTruncated}
-          postId={postId}
-          total={commentsResult.total}
-        />
-        <RelatedPosts author={authorRelated} sameTag={tagRelated} />
+          <div className="w-full min-w-0 max-w-2xl">
+            <PostDetail
+              canEditPost={canEditPost}
+              isOwnPost={isOwnPost}
+              post={result.post}
+            />
+            {hasRelatedPosts && (
+              <nav aria-label="関連する日記" className="mt-3 lg:hidden">
+                <Link
+                  className="inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-medium text-text-secondary underline-offset-4 transition hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                  href="#related-posts"
+                >
+                  関連する日記を見る
+                  <span aria-hidden="true" className="ml-1">
+                    ↓
+                  </span>
+                </Link>
+              </nav>
+            )}
+            <CommentList
+              comments={commentsResult.data}
+              currentUserId={currentUserId}
+              error={Boolean(commentsResult.error)}
+              isTruncated={commentsResult.isTruncated}
+              postId={postId}
+              total={commentsResult.total}
+            />
+          </div>
+
+          <RelatedPosts author={authorRelated} sameTag={tagRelated} />
+        </div>
       </div>
     </section>
   );
