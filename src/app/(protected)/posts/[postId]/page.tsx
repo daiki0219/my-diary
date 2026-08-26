@@ -4,10 +4,19 @@ import { notFound, redirect } from "next/navigation";
 
 import { CommentList } from "@/components/posts/comment-list";
 import { PostDetail } from "@/components/posts/post-detail";
+import {
+  RelatedPosts,
+  type RelatedPostSection,
+} from "@/components/posts/related-posts";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { getCommentsForPost } from "@/lib/comment-data";
 import { getPostDetail } from "@/lib/post-data";
 import { isUuid } from "@/lib/profile-data";
+import {
+  getRelatedPostsByAuthor,
+  getRelatedPostsByTags,
+  type RelatedPostResult,
+} from "@/lib/related-post-data";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -23,6 +32,16 @@ type PostDetailPageProps = {
     status?: string;
   }>;
 };
+
+function resolveRelatedSection(
+  result: PromiseSettledResult<RelatedPostResult>,
+): RelatedPostSection {
+  if (result.status === "rejected" || result.value.data === null) {
+    return { posts: [], error: true };
+  }
+
+  return { posts: result.value.data, error: false };
+}
 
 export default async function PostDetailPage({
   params,
@@ -79,6 +98,20 @@ export default async function PostDetailPage({
     isOwnPost &&
     !accountResult?.error &&
     accountResult?.data?.status === "active";
+  const currentPostTagIds = result.post.tags.map((tag) => tag.id);
+  const [authorRelatedResult, tagRelatedResult] = await Promise.allSettled([
+    getRelatedPostsByAuthor(supabase, postId, result.post.user_id),
+    getRelatedPostsByTags(
+      supabase,
+      postId,
+      result.post.user_id,
+      currentPostTagIds,
+    ),
+  ]);
+  const authorRelated = resolveRelatedSection(authorRelatedResult);
+  const tagRelated = resolveRelatedSection(tagRelatedResult);
+  const hasRelatedPosts =
+    authorRelated.posts.length > 0 || tagRelated.posts.length > 0;
 
   return (
     <section className="flex flex-1 px-4 py-6 sm:py-8 lg:py-10">
@@ -105,6 +138,19 @@ export default async function PostDetailPage({
           isOwnPost={isOwnPost}
           post={result.post}
         />
+        {hasRelatedPosts && (
+          <nav aria-label="関連する日記" className="mt-3">
+            <Link
+              className="inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-medium text-text-secondary underline-offset-4 transition hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              href="#related-posts"
+            >
+              関連する日記を見る
+              <span aria-hidden="true" className="ml-1">
+                ↓
+              </span>
+            </Link>
+          </nav>
+        )}
         <CommentList
           comments={commentsResult.data}
           currentUserId={currentUserId}
@@ -113,6 +159,7 @@ export default async function PostDetailPage({
           postId={postId}
           total={commentsResult.total}
         />
+        <RelatedPosts author={authorRelated} sameTag={tagRelated} />
       </div>
     </section>
   );
