@@ -79,14 +79,12 @@ export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
     <ProtectedMoreMenu key={pathname}>
       {({ desktopTrigger, mobileTrigger }) => (
         <SiteFrame
-          afterFooter={
-            <>
-              {mobileTrigger}
-              <ProtectedMobileNavigation />
-            </>
-          }
+          afterFooter={<ProtectedMobileNavigation />}
           headerContent={
-            <ProtectedHeader moreMenuTrigger={desktopTrigger} />
+            <ProtectedHeader
+              mobileMoreMenuTrigger={mobileTrigger}
+              moreMenuTrigger={desktopTrigger}
+            />
           }
           headerInnerClassName="px-4 py-0 sm:px-5 lg:px-8"
           headerWidth={isAdminPath ? "default" : "shell"}

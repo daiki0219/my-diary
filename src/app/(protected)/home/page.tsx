@@ -145,12 +145,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             className="mt-3 lg:mt-6"
           >
             <SegmentedNavLink
+              className="min-h-11"
               href="/home?feed=following"
               isCurrent={feed === "following"}
             >
               フォロー中
             </SegmentedNavLink>
             <SegmentedNavLink
+              className="min-h-11"
               href="/home?feed=latest"
               isCurrent={feed === "latest"}
             >

@@ -23,8 +23,10 @@ const menuItems = [
   { href: "/settings", label: "設定" },
 ] as const;
 
-function isAdminPath(pathname: string) {
-  return pathname === "/admin" || pathname.startsWith("/admin/");
+function isMenuItemCurrent(pathname: string, href: string) {
+  const routeFamily = href === "/profile/posts" ? "/profile" : href;
+
+  return pathname === routeFamily || pathname.startsWith(`${routeFamily}/`);
 }
 
 type ProtectedMoreMenuProps = {
@@ -45,7 +47,6 @@ export function ProtectedMoreMenu({ children }: ProtectedMoreMenuProps) {
   const activeTriggerIdRef = useRef<string | null>(null);
   const previousOverflowRef = useRef<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const hasMobileBottomNavigation = !isAdminPath(pathname);
 
   useEffect(() => {
     return () => {
@@ -124,38 +125,32 @@ export function ProtectedMoreMenu({ children }: ProtectedMoreMenuProps) {
   );
 
   const mobileTrigger = (
-    <>
-      <div aria-hidden="true" className="h-16 shrink-0 lg:hidden" />
-      <Button
-        aria-controls={dialogId}
-        aria-expanded={isOpen}
-        aria-haspopup="dialog"
-        aria-label="その他のメニューを開く"
-        className={joinClassNames(
-          "fixed right-3 z-30 gap-2 border border-border-subtle bg-surface-elevated/95 px-3 text-sm shadow-surface hover:bg-surface-muted sm:right-4 lg:hidden",
-          hasMobileBottomNavigation
-            ? "bottom-[calc(53px+env(safe-area-inset-bottom)+0.75rem)]"
-            : "bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]",
-        )}
-        id={mobileTriggerId}
-        onClick={() => openDrawer(mobileTriggerId)}
-        type="button"
-        variant="quiet"
+    <button
+      aria-controls={dialogId}
+      aria-expanded={isOpen}
+      aria-haspopup="dialog"
+      aria-label="その他のメニューを開く"
+      className={joinClassNames(
+        protectedHeaderUtilityClassName,
+        isOpen && "bg-brand-soft text-brand-primary-hover",
+      )}
+      id={mobileTriggerId}
+      onClick={() => openDrawer(mobileTriggerId)}
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        className="size-6"
+        fill="none"
+        focusable="false"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+        viewBox="0 0 24 24"
       >
-        <svg
-          aria-hidden="true"
-          className="size-5"
-          fill="currentColor"
-          focusable="false"
-          viewBox="0 0 24 24"
-        >
-          <circle cx="5" cy="12" r="1.6" />
-          <circle cx="12" cy="12" r="1.6" />
-          <circle cx="19" cy="12" r="1.6" />
-        </svg>
-        <span>その他</span>
-      </Button>
-    </>
+        <path d="M5 7h14M5 12h14M5 17h14" />
+      </svg>
+    </button>
   );
 
   return (
@@ -222,19 +217,28 @@ export function ProtectedMoreMenu({ children }: ProtectedMoreMenuProps) {
 
           <nav aria-label="その他のメニュー" className="px-4 py-5">
             <ul className="space-y-1">
-              {menuItems.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    className="flex min-h-12 min-w-0 items-center rounded-control px-4 py-3 font-medium leading-6 text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                    href={item.href}
-                    onClick={closeDrawer}
-                  >
-                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-                      {item.label}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+              {menuItems.map((item) => {
+                const isCurrent = isMenuItemCurrent(pathname, item.href);
+
+                return (
+                  <li key={item.href}>
+                    <Link
+                      aria-current={isCurrent ? "page" : undefined}
+                      className={joinClassNames(
+                        "flex min-h-12 min-w-0 items-center rounded-control px-4 py-3 font-medium leading-6 text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+                        isCurrent &&
+                          "bg-brand-soft font-semibold text-text-primary",
+                      )}
+                      href={item.href}
+                      onClick={closeDrawer}
+                    >
+                      <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                        {item.label}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
 

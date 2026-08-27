@@ -144,8 +144,10 @@ function PrimaryLinks({ mobile = false }: { mobile?: boolean }) {
 }
 
 export function ProtectedHeader({
+  mobileMoreMenuTrigger,
   moreMenuTrigger,
 }: {
+  mobileMoreMenuTrigger?: ReactNode;
   moreMenuTrigger?: ReactNode;
 }) {
   const pathname = usePathname();
@@ -156,14 +158,15 @@ export function ProtectedHeader({
         <p className="font-brand text-2xl font-medium tracking-tight text-text-primary">
           my-diary
         </p>
-        <div className="hidden lg:block">{moreMenuTrigger}</div>
+        <div className="shrink-0">
+          <div className="lg:hidden">{mobileMoreMenuTrigger}</div>
+          <div className="hidden lg:block">{moreMenuTrigger}</div>
+        </div>
       </div>
     );
   }
 
   const isSearchCurrent = pathname === "/search";
-  const isNotificationsCurrent =
-    pathname === "/notifications" || pathname.startsWith("/notifications/");
 
   return (
     <div className="flex h-[52px] min-w-0 items-center justify-between gap-2 lg:h-24 lg:gap-6">
@@ -191,17 +194,7 @@ export function ProtectedHeader({
         >
           <NavigationIcon className="size-6" name="search" />
         </Link>
-        <Link
-          aria-label="通知"
-          className={joinClassNames(
-            protectedHeaderUtilityClassName,
-            isNotificationsCurrent &&
-              "bg-brand-soft text-brand-primary-hover",
-          )}
-          href="/notifications"
-        >
-          <NavigationIcon className="size-6" name="notification" />
-        </Link>
+        {mobileMoreMenuTrigger}
       </div>
       <div className="hidden shrink-0 items-center gap-1 lg:flex">
         <Link
