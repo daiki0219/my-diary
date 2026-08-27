@@ -23,6 +23,18 @@ function isPostDetailPath(pathname: string) {
   );
 }
 
+function isExchangeDiaryDetailPath(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  const diaryId = segments[1];
+
+  return (
+    segments.length === 2 &&
+    segments[0] === "exchange" &&
+    typeof diaryId === "string" &&
+    isUuid(diaryId)
+  );
+}
+
 export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isAdminPath =
@@ -32,6 +44,7 @@ export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
     pathname === "/calendar" ||
     pathname === "/notifications" ||
     pathname === "/exchange" ||
+    isExchangeDiaryDetailPath(pathname) ||
     isPostDetailPath(pathname);
 
   return (

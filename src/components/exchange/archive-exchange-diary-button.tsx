@@ -44,7 +44,7 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
   }
 
   return (
-    <div className="mt-5 border-t border-orange-200 pt-5">
+    <div className="mt-4 min-w-0">
       {isConfirming ? (
         <div
           aria-describedby={descriptionId}
@@ -126,7 +126,7 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
         <button
           aria-controls={confirmationId}
           aria-expanded={isConfirming}
-          className="min-h-11 w-full rounded-full border border-red-300 bg-white px-4 py-2.5 font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 sm:w-auto"
+          className="min-h-11 w-full rounded-full border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
           onClick={() => setIsConfirming(true)}
           ref={triggerRef}
           type="button"

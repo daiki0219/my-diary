@@ -87,21 +87,26 @@ export function ExchangeDiaryTitleForm({
   }, [router, state]);
 
   return (
-    <form
-      action={formAction}
-      className="mt-5 rounded-2xl border border-orange-200 bg-white/80 p-4"
-      onSubmit={(event) => {
-        if (submissionInFlight.current) {
-          event.preventDefault();
-          return;
-        }
+    <details className="group mt-5 border-t border-stone-200 pt-4">
+      <summary className="flex min-h-10 w-fit cursor-pointer items-center rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600 [&::marker]:text-stone-400">
+        タイトルを変更
+      </summary>
 
-        submissionInFlight.current = true;
-      }}
-    >
-      <input name="diaryId" type="hidden" value={diaryId} />
+      <form
+        action={formAction}
+        className="mt-3 rounded-2xl bg-stone-50 p-4"
+        onSubmit={(event) => {
+          if (submissionInFlight.current) {
+            event.preventDefault();
+            return;
+          }
 
-      <fieldset disabled={isPending}>
+          submissionInFlight.current = true;
+        }}
+      >
+        <input name="diaryId" type="hidden" value={diaryId} />
+
+        <fieldset disabled={isPending}>
         <label
           className="block text-sm font-semibold text-stone-800"
           htmlFor="exchange-diary-title"
@@ -176,7 +181,8 @@ export function ExchangeDiaryTitleForm({
         <p aria-live="polite" className="sr-only">
           {isPending ? "交換日記のタイトルを変更しています" : ""}
         </p>
-      </fieldset>
-    </form>
+        </fieldset>
+      </form>
+    </details>
   );
 }

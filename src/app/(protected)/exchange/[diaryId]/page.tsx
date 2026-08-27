@@ -17,11 +17,9 @@ import { PostImageGallery } from "@/components/posts/post-image-gallery";
 import {
   getExchangeDiaryDetail,
   getExchangeEntryPage,
-  getLatestExchangeEntry,
   type ExchangeActiveEntry,
   type ExchangeDiaryDetail,
   type ExchangeEntry,
-  type LatestExchangeEntry,
 } from "@/lib/exchange-data";
 import { canonicalizeExchangeUuid } from "@/lib/exchange-cursor";
 import {
@@ -79,38 +77,6 @@ function getAuthorName(diary: ExchangeDiaryDetail, participantId: string) {
   return participant.profile?.username ?? "利用できないユーザー";
 }
 
-function getNextTurnMessage(
-  diary: ExchangeDiaryDetail,
-  latestEntry: LatestExchangeEntry | null,
-) {
-  if (!latestEntry) {
-    return "最初の日記を書いてみましょう";
-  }
-
-  const nextParticipant = diary.participants.find(
-    (participant) =>
-      participant.participantId !== latestEntry.authorParticipantId,
-  );
-  const latestAuthor = diary.participants.find(
-    (participant) =>
-      participant.participantId === latestEntry.authorParticipantId,
-  );
-
-  if (!latestAuthor || !nextParticipant) {
-    return null;
-  }
-
-  if (
-    nextParticipant.participantId === diary.viewerParticipant.participantId
-  ) {
-    return "次はあなたの番";
-  }
-
-  return nextParticipant.profile
-    ? `次は${nextParticipant.profile.username}さんの番`
-    : "次は相手の方の番";
-}
-
 function buildEntryHref(
   diaryId: string,
   mode: "oldest" | "latest",
@@ -126,7 +92,7 @@ function EntryTags({ tags }: { tags: ExchangeActiveEntry["tags"] }) {
   }
 
   return (
-    <ul aria-label="タグ" className="mt-4 flex min-w-0 max-w-full flex-wrap gap-2">
+    <ul aria-label="タグ" className="mt-5 flex min-w-0 max-w-full flex-wrap gap-2">
       {tags.map((tag) => (
         <li className="min-w-0 max-w-full" key={tag.tagId}>
           <span className="inline-flex min-h-8 max-w-full items-center break-words rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-900 [overflow-wrap:anywhere]">
@@ -160,90 +126,81 @@ function ActiveEntryArticle({
   return (
     <article
       aria-label={`このページの${position}件目、${authorName}の日記`}
-      className="min-w-0 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6"
+      className="min-w-0 rounded-3xl border border-stone-200 bg-white px-5 py-6 shadow-sm sm:px-7 sm:py-8"
     >
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <p className="min-w-0 break-words font-semibold text-stone-800 [overflow-wrap:anywhere]">
+      <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <p className="min-w-0 break-words text-sm font-semibold text-stone-700 [overflow-wrap:anywhere]">
           {authorName}
         </p>
-        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-          <time className="text-xs text-stone-500" dateTime={entry.createdAt}>
-            {dateFormatter.format(new Date(entry.createdAt))}
-          </time>
-          {canEdit && (
-            <Link
-              aria-label={`このページの${position}件目、${dateFormatter.format(new Date(entry.createdAt))}の日記を編集`}
-              className="inline-flex min-h-9 items-center rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-              href={`/exchange/${diary.diaryId}/entries/${entry.entryId}/edit`}
-            >
-              編集
-            </Link>
-          )}
-        </div>
+        <time className="shrink-0 text-xs text-stone-500" dateTime={entry.createdAt}>
+          {dateFormatter.format(new Date(entry.createdAt))}
+        </time>
       </div>
 
       {entry.title && (
-        <h3 className="mt-5 break-words text-xl font-bold leading-8 text-stone-800 [overflow-wrap:anywhere]">
+        <h3 className="mt-4 break-words text-xl font-bold leading-8 text-stone-800 [overflow-wrap:anywhere] sm:text-2xl">
           {entry.title}
         </h3>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+      <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-xs text-stone-600">
         {entry.mood && (
           <span className="rounded-full bg-orange-50 px-3 py-1 font-medium text-orange-800">
             気分：{getMoodLabel(entry.mood)}
           </span>
         )}
-        {entry.images.length > 0 && (
-          <span className="rounded-full bg-stone-100 px-3 py-1 font-medium text-stone-700">
-            画像 {entry.images.length}枚
+        {entry.locationName && (
+          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+            場所：{entry.locationName}
           </span>
         )}
       </div>
 
-      {entry.locationName && (
-        <p className="mt-3 min-w-0 break-words text-sm leading-6 text-stone-500 [overflow-wrap:anywhere]">
-          <span className="font-medium text-stone-600">場所:</span>{" "}
-          {entry.locationName}
-        </p>
-      )}
-
-      <EntryTags tags={entry.tags} />
-
-      <p className="mt-6 whitespace-pre-wrap break-words text-[15px] leading-7 text-stone-700 [overflow-wrap:anywhere]">
+      <p className="mt-6 whitespace-pre-wrap break-words text-base leading-8 text-stone-700 [overflow-wrap:anywhere]">
         {entry.body}
       </p>
 
       <PostImageGallery images={entry.images} variant="exchange-entry" />
+      <EntryTags tags={entry.tags} />
 
-      <div className="mt-5 border-t border-stone-100 pt-4">
+      <div
+        aria-label={isOwnEntry ? "日記の操作" : "安全に関する操作"}
+        className="mt-6 flex min-w-0 flex-wrap items-start gap-2 border-t border-stone-100 pt-4"
+        role="group"
+      >
         {isOwnEntry ? (
-          <DeleteExchangeEntryButton
-            accessibleName={`このページの${position}件目、${dateFormatter.format(new Date(entry.createdAt))}の日記を削除`}
-            diaryId={diary.diaryId}
-            entryId={entry.entryId}
-          />
+          <>
+            {canEdit && (
+              <Link
+                aria-label={`このページの${position}件目、${dateFormatter.format(new Date(entry.createdAt))}の日記を編集`}
+                className="inline-flex min-h-10 items-center rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-semibold text-stone-600 transition hover:bg-stone-50 hover:text-stone-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+                href={`/exchange/${diary.diaryId}/entries/${entry.entryId}/edit`}
+              >
+                編集
+              </Link>
+            )}
+            <DeleteExchangeEntryButton
+              accessibleName={`このページの${position}件目、${dateFormatter.format(new Date(entry.createdAt))}の日記を削除`}
+              diaryId={diary.diaryId}
+              entryId={entry.entryId}
+            />
+          </>
         ) : (
-          <div aria-label="安全に関する操作" className="min-w-0 space-y-3" role="group">
-            <p className="text-xs font-semibold text-stone-500">
-              安全に関する操作
-            </p>
-            <div className="flex min-w-0 flex-col items-start gap-3">
-              <ReportExchangeEntryButton
-                accessibleName={`このページの${position}件目、${authorName}の${dateFormatter.format(new Date(entry.createdAt))}の日記そのものを通報`}
+          <>
+            <ReportExchangeEntryButton
+              accessibleName={`このページの${position}件目、${authorName}の${dateFormatter.format(new Date(entry.createdAt))}の日記そのものを通報`}
+              diaryId={diary.diaryId}
+              entryId={entry.entryId}
+            />
+            {diary.counterpart.profile && (
+              <ReportExchangeUserButton
+                accessibleName={`このページの${position}件目、${diary.counterpart.profile.username}さんを、この日記を関連情報として添付可能な状態で通報`}
+                counterpartName={diary.counterpart.profile.username}
                 diaryId={diary.diaryId}
-                entryId={entry.entryId}
+                relatedEntryId={entry.entryId}
               />
-              {diary.counterpart.profile && (
-                <ReportExchangeUserButton
-                  accessibleName={`このページの${position}件目、${diary.counterpart.profile.username}さんを、この日記を関連情報として添付可能な状態で通報`}
-                  counterpartName={diary.counterpart.profile.username}
-                  diaryId={diary.diaryId}
-                  relatedEntryId={entry.entryId}
-                />
-              )}
-            </div>
-          </div>
+            )}
+          </>
         )}
       </div>
     </article>
@@ -345,100 +302,75 @@ export default async function ExchangeDiaryPage({
   }
 
   const diary = diaryResult.data;
-  const [entriesResult, latestEntryResult] = await Promise.all([
-    getExchangeEntryPage(
-      supabase,
-      canonicalDiaryId,
-      query.mode,
-      query.cursor,
-    ),
-    getLatestExchangeEntry(supabase, canonicalDiaryId),
-  ]);
-  const nextTurnMessage = latestEntryResult.error
-    ? null
-    : getNextTurnMessage(diary, latestEntryResult.data);
+  const entriesResult = await getExchangeEntryPage(
+    supabase,
+    canonicalDiaryId,
+    query.mode,
+    query.cursor,
+  );
   const hasUnknownAuthor = Boolean(
     entriesResult.data?.some(
       (entry) => getAuthorName(diary, entry.authorParticipantId) === null,
     ),
   );
-  const hasEntryLoadError = Boolean(
-    entriesResult.error ||
-      latestEntryResult.error ||
-      nextTurnMessage === null ||
-      hasUnknownAuthor,
-  );
+  const hasEntryLoadError = Boolean(entriesResult.error || hasUnknownAuthor);
   const title = getDiaryTitle(diary);
   const counterpartName = getCounterpartName(diary);
+  const hasManagement =
+    diary.state === "active" || Boolean(diary.counterpart.profile);
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto min-w-0 w-full max-w-lg">
+    <section className="flex min-w-0 flex-1 px-4 py-8 sm:px-8 sm:py-10">
+      <div className="mx-auto min-w-0 w-full max-w-6xl">
         <Link
-          className="inline-flex rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
+          className="inline-flex min-h-10 items-center rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
           href={`/exchange?view=${diary.state}`}
         >
           ← 交換日記一覧へ戻る
         </Link>
 
-        <header className="mt-5 min-w-0 rounded-3xl bg-orange-50 p-5 sm:p-7">
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <header className="mt-5 min-w-0 rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm sm:p-8 lg:px-10">
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-orange-700">ふたりの記録</p>
-              <h1 className="mt-2 break-words text-3xl font-bold tracking-tight text-stone-800 [overflow-wrap:anywhere]">
+              <p className="text-sm font-medium text-stone-500">ふたりの記録</p>
+              <h1 className="mt-2 break-words text-3xl font-bold tracking-tight text-stone-800 [overflow-wrap:anywhere] sm:text-4xl">
                 {title}
               </h1>
             </div>
             <span
-              className={`w-fit shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+              className={`w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${
                 diary.state === "active"
-                  ? "bg-orange-700 text-white"
-                  : "bg-stone-200 text-stone-700"
+                  ? "border-orange-200 bg-orange-50 text-stone-700"
+                  : "border-stone-200 bg-stone-100 text-stone-600"
               }`}
             >
               {diary.state === "active" ? "交換中" : "終了済み"}
             </span>
           </div>
 
-          <p className="mt-4 min-w-0 break-words text-sm leading-6 text-stone-700 [overflow-wrap:anywhere]">
-            参加者：あなた と {counterpartName}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
-            開始：
-            <time dateTime={diary.startedAt}>
-              {dateFormatter.format(new Date(diary.startedAt))}
-            </time>
-          </p>
+          <div className="mt-5 flex min-w-0 flex-col gap-1 text-sm leading-6 text-stone-600 sm:flex-row sm:flex-wrap sm:gap-x-5">
+            <p className="min-w-0 break-words [overflow-wrap:anywhere]">
+              お相手：{counterpartName}
+            </p>
+            <p>
+              <span className="sr-only">交換日記の</span>開始：
+              <time dateTime={diary.startedAt}>
+                {dateFormatter.format(new Date(diary.startedAt))}
+              </time>
+            </p>
+          </div>
 
           {diary.state === "archived" && diary.archivedAt && (
-            <div className="mt-3 rounded-2xl border border-stone-200 bg-white/80 p-4">
+            <div className="mt-6 border-t border-stone-200 pt-5">
               <p className="text-sm leading-6 text-stone-700">
-                この交換日記は終了しています
+                ふたりで残した過去の日記です。これまでの記録を、いつでも読み返せます。
               </p>
-              <p className="mt-1 text-xs text-stone-500">
+              <p className="mt-2 text-xs text-stone-500">
                 終了：
                 <time dateTime={diary.archivedAt}>
                   {dateFormatter.format(new Date(diary.archivedAt))}
                 </time>
               </p>
-            </div>
-          )}
-
-          {diary.counterpart.profile && (
-            <div className="mt-5 min-w-0 rounded-2xl border border-stone-200 bg-white/80 p-4">
-              <p className="text-xs font-semibold text-stone-500">
-                安全に関する操作
-              </p>
-              <p className="mt-1 min-w-0 break-words text-sm leading-6 text-stone-700 [overflow-wrap:anywhere]">
-                相手ユーザーについて運営へ報告できます。日記の終了とは別の操作です。
-              </p>
-              <div className="mt-3">
-                <ReportExchangeUserButton
-                  accessibleName={`${diary.counterpart.profile.username}さんを通報`}
-                  counterpartName={diary.counterpart.profile.username}
-                  diaryId={canonicalDiaryId}
-                />
-              </div>
             </div>
           )}
 
@@ -449,64 +381,36 @@ export default async function ExchangeDiaryPage({
             />
           )}
 
-          {!hasEntryLoadError && nextTurnMessage && (
-            <p className="mt-5 rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm font-bold leading-6 text-orange-900">
-              {nextTurnMessage}
-            </p>
-          )}
-
           {diary.state === "active" && (
-            <>
+            <div className="mt-7 flex min-w-0 flex-col gap-4 rounded-2xl bg-orange-50 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="min-w-0">
+                <p className="font-semibold text-stone-800">
+                  いつでも、書きたい方から。
+                </p>
+                <p className="mt-1 text-sm leading-6 text-stone-600">
+                  順番を気にせず、その日のことを残せます。
+                </p>
+              </div>
               <Link
-                className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-orange-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 sm:w-auto"
+                className="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-full bg-orange-600 px-6 py-3 text-center font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 sm:w-auto"
                 href={`/exchange/${canonicalDiaryId}/entries/new`}
               >
-                新しい日記を書く
+                日記を書く
               </Link>
-              <ArchiveExchangeDiaryButton diaryId={canonicalDiaryId} />
-            </>
+            </div>
           )}
         </header>
 
-        {diary.state === "active" && (
-          <section
-            aria-labelledby="exchange-diary-notification-heading"
-            className="mt-6 min-w-0 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6"
-          >
-            <h2
-              className="text-lg font-bold text-stone-800"
-              id="exchange-diary-notification-heading"
-            >
-              通知
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-stone-600">
-              この交換日記の新しい日記について設定します。
-            </p>
-
-            <div className="mt-4">
-              {diary.notificationSetting?.status === "available" ? (
-                <ExchangeDiaryNotificationForm
-                  diaryId={canonicalDiaryId}
-                  initialReceiveNewEntryNotifications={
-                    diary.notificationSetting.receiveNewEntryNotifications
-                  }
-                  initialUpdatedAt={diary.notificationSetting.updatedAt}
-                />
-              ) : (
-                <p
-                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700"
-                  role="alert"
-                >
-                  通知設定を読み込めませんでした。時間をおいて、もう一度お試しください。
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        <section aria-labelledby="exchange-entries-heading" className="mt-8">
-          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0">
+        <div
+          className={`mt-8 grid min-w-0 gap-8 ${
+            hasManagement
+              ? "lg:grid-cols-[minmax(0,44rem)_minmax(16rem,20rem)] lg:items-start lg:justify-center"
+              : "lg:grid-cols-[minmax(0,44rem)] lg:justify-center"
+          }`}
+        >
+          <section aria-labelledby="exchange-entries-heading" className="min-w-0">
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
               <h2
                 className="text-2xl font-bold tracking-tight text-stone-800"
                 id="exchange-entries-heading"
@@ -518,8 +422,8 @@ export default async function ExchangeDiaryPage({
                   ? "最近の日記を、古いものから順に表示しています。"
                   : "最初の日記から、古いものを順に表示しています。"}
               </p>
-            </div>
-            <nav aria-label="日記の表示位置" className="shrink-0">
+              </div>
+              <nav aria-label="日記の表示位置" className="shrink-0">
               {query.mode === "latest" ? (
                 <Link
                   className="inline-flex min-h-10 items-center rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
@@ -535,8 +439,8 @@ export default async function ExchangeDiaryPage({
                   最新の日記へ
                 </Link>
               )}
-            </nav>
-          </div>
+              </nav>
+            </div>
 
           {hasEntryLoadError ? (
             <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5">
@@ -585,7 +489,9 @@ export default async function ExchangeDiaryPage({
                 まだ日記はありません
               </h3>
               <p className="mt-2 text-sm leading-6 text-stone-500">
-                最初の日記を書いてみましょう。
+                {diary.state === "active"
+                  ? "どちらからでも、書きたいときに始められます。"
+                  : "この交換日記には、残された日記がありません。"}
               </p>
             </div>
           )}
@@ -612,7 +518,93 @@ export default async function ExchangeDiaryPage({
                 この方向で表示できる日記をすべて表示しました。
               </p>
             )}
-        </section>
+          </section>
+
+          {hasManagement && (
+            <aside
+              aria-label="交換日記の管理"
+              className="min-w-0 space-y-5 lg:sticky lg:top-6"
+            >
+              {diary.state === "active" && (
+                <section
+                  aria-labelledby="exchange-diary-notification-heading"
+                  className="min-w-0 rounded-3xl border border-stone-200 bg-stone-50/70 p-5"
+                >
+                  <h2
+                    className="text-base font-semibold text-stone-800"
+                    id="exchange-diary-notification-heading"
+                  >
+                    通知設定
+                  </h2>
+                  <p className="mt-2 text-xs leading-5 text-stone-500">
+                    この交換日記の新しい日記について設定します。
+                  </p>
+
+                  <div className="mt-4">
+                    {diary.notificationSetting?.status === "available" ? (
+                      <ExchangeDiaryNotificationForm
+                        diaryId={canonicalDiaryId}
+                        initialReceiveNewEntryNotifications={
+                          diary.notificationSetting.receiveNewEntryNotifications
+                        }
+                        initialUpdatedAt={diary.notificationSetting.updatedAt}
+                      />
+                    ) : (
+                      <p
+                        className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700"
+                        role="alert"
+                      >
+                        通知設定を読み込めませんでした。時間をおいて、もう一度お試しください。
+                      </p>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {diary.counterpart.profile && (
+                <section
+                  aria-labelledby="exchange-diary-safety-heading"
+                  className="min-w-0 rounded-3xl border border-stone-200 bg-white p-5"
+                >
+                  <h2
+                    className="text-base font-semibold text-stone-800"
+                    id="exchange-diary-safety-heading"
+                  >
+                    安全に関する操作
+                  </h2>
+                  <p className="mt-2 min-w-0 break-words text-xs leading-5 text-stone-500 [overflow-wrap:anywhere]">
+                    相手ユーザーについて運営へ報告できます。日記の終了とは別の操作です。
+                  </p>
+                  <div className="mt-4">
+                    <ReportExchangeUserButton
+                      accessibleName={`${diary.counterpart.profile.username}さんを通報`}
+                      counterpartName={diary.counterpart.profile.username}
+                      diaryId={canonicalDiaryId}
+                    />
+                  </div>
+                </section>
+              )}
+
+              {diary.state === "active" && (
+                <section
+                  aria-labelledby="exchange-diary-management-heading"
+                  className="min-w-0 rounded-3xl border border-stone-200 bg-white p-5"
+                >
+                  <h2
+                    className="text-base font-semibold text-stone-800"
+                    id="exchange-diary-management-heading"
+                  >
+                    この日記の管理
+                  </h2>
+                  <p className="mt-2 text-xs leading-5 text-stone-500">
+                    終了後も、これまでの日記は読み返せます。
+                  </p>
+                  <ArchiveExchangeDiaryButton diaryId={canonicalDiaryId} />
+                </section>
+              )}
+            </aside>
+          )}
+        </div>
       </div>
     </section>
   );

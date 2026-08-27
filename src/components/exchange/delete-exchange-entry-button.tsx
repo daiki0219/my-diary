@@ -142,7 +142,7 @@ export function DeleteExchangeEntryButton({
           aria-controls={confirmationId}
           aria-expanded={isConfirming}
           aria-label={accessibleName}
-          className="inline-flex min-h-9 items-center rounded-full border border-red-300 bg-white px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+          className="inline-flex min-h-10 items-center rounded-full border border-red-300 bg-white px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
           onClick={() => setIsConfirming(true)}
           ref={triggerRef}
           type="button"
