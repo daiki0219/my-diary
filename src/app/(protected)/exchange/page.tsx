@@ -1,8 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ExchangeInvitationActions } from "@/components/exchange/exchange-invitation-actions";
+import { ActionLink } from "@/components/ui/actions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import { PageHeader } from "@/components/ui/page-header";
+import { Pagination, PaginationLink } from "@/components/ui/pagination";
+import {
+  SegmentedNav,
+  SegmentedNavLink,
+} from "@/components/ui/segmented-nav";
+import { Surface } from "@/components/ui/surface";
 import {
   getExchangeDiaryListPage,
   getPendingExchangeInvitationsPage,
@@ -30,6 +39,21 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo",
 });
 
+const viewCopy = {
+  active: {
+    description: "相手と続けている日記を、新しく始まった順に表示します。",
+    title: "交換中の日記",
+  },
+  invitations: {
+    description: "届いた招待への返事と、送った招待の状況を確認できます。",
+    title: "交換日記の招待",
+  },
+  archived: {
+    description: "終了した交換日記も、ふたりの記録として読み返せます。",
+    title: "これまでの交換日記",
+  },
+} as const;
+
 function getCounterpartName(
   counterpart: ExchangeDiaryListItem["counterpart"],
 ) {
@@ -54,120 +78,184 @@ function DiaryList({
   view: "active" | "archived";
 }) {
   return (
-    <ul
-      aria-label={view === "active" ? "交換中の交換日記" : "終了した交換日記"}
-      className="mt-5 min-w-0 space-y-4"
+    <Surface
+      className="mt-4 overflow-hidden border border-border-subtle/70 shadow-surface"
+      variant="elevated"
     >
-      {items.map((item) => {
-        const title = getDiaryTitle(item);
-        const counterpartName = getCounterpartName(item.counterpart);
+      <ul
+        aria-label={view === "active" ? "交換中の交換日記" : "終了した交換日記"}
+        className="divide-y divide-border-subtle/70"
+      >
+        {items.map((item) => {
+          const title = getDiaryTitle(item);
+          const counterpartName = getCounterpartName(item.counterpart);
+          const stateDate =
+            view === "active"
+              ? item.startedAt
+              : (item.archivedAt ?? item.createdAt);
 
-        return (
-          <li className="min-w-0" key={item.diaryId}>
-            <article className="min-w-0 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <h2 className="break-words text-xl font-bold leading-8 text-stone-800 [overflow-wrap:anywhere]">
-                    {title}
-                  </h2>
-                  <p className="mt-1 min-w-0 break-words text-sm leading-6 text-stone-600 [overflow-wrap:anywhere]">
-                    相手：{counterpartName}
-                  </p>
-                </div>
-                <span
-                  className={`w-fit shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-                    view === "active"
-                      ? "bg-orange-100 text-orange-800"
-                      : "bg-stone-100 text-stone-700"
-                  }`}
-                >
-                  {view === "active" ? "交換中" : "終了済み"}
-                </span>
-              </div>
-
-              <p className="mt-3 text-sm leading-6 text-stone-500">
-                {view === "active" ? "開始：" : "終了："}
-                <time
-                  dateTime={
-                    view === "active"
-                      ? item.startedAt
-                      : (item.archivedAt ?? item.createdAt)
-                  }
-                >
-                  {dateFormatter.format(
-                    new Date(
+          return (
+            <li className="min-w-0 px-4 py-5 sm:px-6" key={item.diaryId}>
+              <article className="min-w-0">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                  <div className="min-w-0">
+                    <h3 className="break-words text-lg font-semibold leading-7 text-text-primary [overflow-wrap:anywhere] sm:text-xl">
+                      {title}
+                    </h3>
+                    <p className="mt-1 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]">
+                      {item.counterpart.profile
+                        ? `${counterpartName}さんと`
+                        : counterpartName}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex min-h-7 w-fit shrink-0 items-center gap-2 rounded-full px-3 text-xs font-semibold ${
                       view === "active"
-                        ? item.startedAt
-                        : (item.archivedAt ?? item.createdAt),
-                    ),
-                  )}
-                </time>
-              </p>
+                        ? "bg-success/10 text-success"
+                        : "bg-surface-muted text-text-secondary"
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`size-1.5 rounded-full ${
+                        view === "active" ? "bg-success" : "bg-text-muted"
+                      }`}
+                    />
+                    {view === "active" ? "交換中" : "終了・閲覧できます"}
+                  </span>
+                </div>
 
-              <Link
-                aria-label={`${title}の詳細を見る`}
-                className="mt-5 inline-flex min-h-10 items-center rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
-                href={`/exchange/${item.diaryId}`}
-              >
-                詳細を見る
-              </Link>
-            </article>
-          </li>
-        );
-      })}
-    </ul>
+                <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-x-5 gap-y-2">
+                  <p className="break-words text-xs leading-5 text-text-muted [overflow-wrap:anywhere]">
+                    {view === "active" ? "開始" : "終了"}：
+                    <time dateTime={stateDate}>
+                      {dateFormatter.format(new Date(stateDate))}
+                    </time>
+                  </p>
+                  <ActionLink
+                    aria-label={`${title}の詳細を見る`}
+                    className="-mr-3 max-w-full gap-2 px-3"
+                    href={`/exchange/${item.diaryId}`}
+                    variant="quiet"
+                  >
+                    <span>{view === "active" ? "日記を開く" : "記録を読む"}</span>
+                    <span aria-hidden="true">→</span>
+                  </ActionLink>
+                </div>
+              </article>
+            </li>
+          );
+        })}
+      </ul>
+    </Surface>
   );
 }
 
 function InvitationList({ items }: { items: PendingExchangeInvitation[] }) {
   return (
-    <ul aria-label="現在の交換日記の招待" className="mt-5 min-w-0 space-y-4">
-      {items.map((item) => {
-        const counterpartName =
-          item.counterpartProfile?.username ?? "利用できないユーザー";
-        const message =
-          item.direction === "received"
-            ? item.counterpartProfile
-              ? `${counterpartName}さんからの招待`
-              : `${counterpartName}からの招待`
-            : item.counterpartProfile
-              ? `${counterpartName}さんの承認待ち`
-              : `${counterpartName}の承認待ち`;
+    <Surface
+      className="mt-4 overflow-hidden border border-border-subtle/70 shadow-surface"
+      variant="elevated"
+    >
+      <ul
+        aria-label="現在の交換日記の招待"
+        className="divide-y divide-border-subtle/70"
+      >
+        {items.map((item) => {
+          const counterpartName =
+            item.counterpartProfile?.username ?? "利用できないユーザー";
+          const isReceived = item.direction === "received";
 
-        return (
-          <li className="min-w-0" key={item.invitationId}>
-            <article className="min-w-0 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <h2 className="min-w-0 break-words text-lg font-bold leading-7 text-stone-800 [overflow-wrap:anywhere]">
-                  {message}
-                </h2>
-                <span className="w-fit shrink-0 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">
-                  {item.direction === "received" ? "招待中" : "承認待ち"}
-                </span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-stone-500">
-                <time dateTime={item.createdAt}>
-                  {dateFormatter.format(new Date(item.createdAt))}
-                </time>
-              </p>
-              {item.counterpartProfile && (
-                <Link
-                  className="mt-3 inline-flex min-h-10 items-center rounded-lg text-sm font-semibold text-orange-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
-                  href={`/users/${item.counterpartUserId}`}
-                >
-                  相手のプロフィールを見る
-                </Link>
-              )}
-              <ExchangeInvitationActions
-                counterpartName={counterpartName}
-                direction={item.direction}
-                invitationId={item.invitationId}
-              />
-            </article>
-          </li>
-        );
-      })}
-    </ul>
+          return (
+            <li
+              className={`min-w-0 px-4 py-5 sm:px-6 ${
+                isReceived ? "bg-brand-soft/20" : "bg-surface-elevated"
+              }`}
+              key={item.invitationId}
+            >
+              <article className="min-w-0">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                  <div className="min-w-0">
+                    <h3 className="break-words text-lg font-semibold leading-7 text-text-primary [overflow-wrap:anywhere] sm:text-xl">
+                      {counterpartName}
+                    </h3>
+                    <p className="mt-1 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]">
+                      {isReceived
+                        ? "あなたに交換日記の招待が届いています。"
+                        : "交換日記へ招待しました。返事を待っています。"}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex min-h-7 w-fit shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${
+                      isReceived
+                        ? "bg-brand-soft text-brand-primary-hover"
+                        : "bg-surface-muted text-text-secondary"
+                    }`}
+                  >
+                    <span aria-hidden="true">{isReceived ? "←" : "→"}</span>
+                    {isReceived ? "受け取った招待" : "送信した招待"}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+                  <p className="break-words text-xs leading-5 text-text-muted [overflow-wrap:anywhere]">
+                    {isReceived ? "受信" : "送信"}：
+                    <time dateTime={item.createdAt}>
+                      {dateFormatter.format(new Date(item.createdAt))}
+                    </time>
+                  </p>
+                  {item.counterpartProfile && (
+                    <ActionLink
+                      className="-ml-3 max-w-full gap-1 px-3 text-sm"
+                      href={`/users/${item.counterpartUserId}`}
+                      variant="quiet"
+                    >
+                      プロフィールを見る
+                      <span aria-hidden="true">→</span>
+                    </ActionLink>
+                  )}
+                </div>
+
+                <ExchangeInvitationActions
+                  counterpartName={counterpartName}
+                  direction={item.direction}
+                  invitationId={item.invitationId}
+                />
+              </article>
+            </li>
+          );
+        })}
+      </ul>
+    </Surface>
+  );
+}
+
+function NewExchangeGuide() {
+  return (
+    <Surface
+      as="section"
+      aria-labelledby="new-exchange-heading"
+      className="mt-8 p-5 sm:p-6 xl:mt-0"
+      variant="muted"
+    >
+      <h2
+        className="text-base font-semibold text-text-primary"
+        id="new-exchange-heading"
+      >
+        新しい交換日記を始める
+      </h2>
+      <p className="mt-2 max-w-2xl break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]">
+        フォロー中の人やユーザー検索から相手のプロフィールを開き、交換日記へ招待できます。
+      </p>
+      <div className="mt-4 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap xl:flex-col">
+        <ActionLink href="/profile/following" variant="secondary">
+          フォロー中の人を見る
+        </ActionLink>
+        <ActionLink href="/search?category=users" variant="neutral">
+          ユーザーを検索
+        </ActionLink>
+      </div>
+    </Surface>
   );
 }
 
@@ -203,150 +291,145 @@ export default async function ExchangePage({
       : null;
   const hasLoadError = Boolean(diaryResult?.error || invitationResult?.error);
   const nextCursor = diaryResult?.nextCursor ?? invitationResult?.nextCursor;
+  const currentViewCopy = query ? viewCopy[query.view] : null;
 
   return (
-    <section className="flex flex-1 px-4 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto min-w-0 w-full max-w-lg">
-        <Link
-          className="inline-flex rounded-lg text-sm font-semibold text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-600"
-          href="/home"
-        >
+    <section className="flex flex-1 px-4 pb-8 pt-4 sm:px-8 sm:pb-10 sm:pt-6 lg:py-10">
+      <div className="mx-auto min-w-0 w-full max-w-5xl lg:max-w-6xl xl:max-w-none">
+        <ActionLink className="-ml-3" href="/home" variant="quiet">
           ← ホームへ戻る
-        </Link>
+        </ActionLink>
 
-        <div className="mt-5 min-w-0 rounded-3xl bg-orange-50 p-5 sm:p-7">
-          <p className="text-sm font-medium text-orange-700">ふたりの記録</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-800">
-            交換日記
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
-            参加している交換日記と、現在の招待を確認できます。
-          </p>
-        </div>
+        <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_18rem] xl:gap-x-8">
+          <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+            <PageHeader
+              className="mt-3"
+              description="ふたりで続けている日記と、現在の招待を確認できます。"
+              eyebrow="ふたりの記録"
+              title="交換日記"
+              variant="plain"
+            />
 
-        <section
-          aria-labelledby="new-exchange-heading"
-          className="mt-5 rounded-3xl border border-stone-200 bg-white p-5 shadow-sm"
-        >
-          <h2
-            className="text-lg font-bold text-stone-800"
-            id="new-exchange-heading"
+            <SegmentedNav aria-label="交換日記の種類" className="mt-5">
+              {(
+                [
+                  ["active", "交換中"],
+                  ["invitations", "招待"],
+                  ["archived", "終了"],
+                ] as const
+              ).map(([view, label]) => (
+                <SegmentedNavLink
+                  className="min-h-11"
+                  href={`/exchange?${buildExchangeTopQuery(view)}`}
+                  isCurrent={query?.view === view}
+                  key={view}
+                >
+                  {label}
+                </SegmentedNavLink>
+              ))}
+            </SegmentedNav>
+          </div>
+
+          <div className="mt-6 min-w-0 xl:col-start-1 xl:row-start-2">
+            {currentViewCopy && (
+              <div className="min-w-0">
+                <h2 className="break-words text-xl font-semibold text-text-primary [overflow-wrap:anywhere] sm:text-2xl">
+                  {currentViewCopy.title}
+                </h2>
+                <p className="mt-1 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]">
+                  {currentViewCopy.description}
+                </p>
+              </div>
+            )}
+
+            {!query ? (
+              <FeedbackPanel
+                className="mt-4 max-w-3xl"
+                role="alert"
+                title="ページ情報を確認できませんでした"
+                variant="error"
+              >
+                <p>
+                  URLを確認するか、交換日記一覧の最初からもう一度お試しください。
+                </p>
+                <ActionLink className="mt-4" href="/exchange" variant="neutral">
+                  交換日記一覧の最初へ戻る
+                </ActionLink>
+              </FeedbackPanel>
+            ) : hasLoadError ? (
+              <FeedbackPanel
+                className="mt-4 max-w-3xl"
+                role="alert"
+                title="交換日記を読み込めませんでした"
+                variant="error"
+              >
+                時間をおいて、もう一度お試しください。
+              </FeedbackPanel>
+            ) : query.view === "invitations" && invitationResult?.data?.length ? (
+              <InvitationList items={invitationResult.data} />
+            ) : query.view !== "invitations" && diaryResult?.data?.length ? (
+              <DiaryList items={diaryResult.data} view={query.view} />
+            ) : query.cursor ? (
+              <EmptyState
+                action={
+                  <ActionLink
+                    href={`/exchange?${buildExchangeTopQuery(query.view)}`}
+                    variant="neutral"
+                  >
+                    最初の一覧へ戻る
+                  </ActionLink>
+                }
+                className="mt-4 max-w-3xl"
+                title="次の交換日記はありません"
+                titleAs="h3"
+              />
+            ) : (
+              <EmptyState
+                className="mt-4 max-w-3xl"
+                description={
+                  query.view === "active"
+                    ? "招待が承認されると、ここに交換中の日記が表示されます。"
+                    : query.view === "invitations"
+                      ? "新しい招待が届いたときや、招待を送ったときにここで確認できます。"
+                      : "終了した交換日記は、ここからいつでも読み返せます。"
+                }
+                title={
+                  query.view === "active"
+                    ? "交換中の日記はまだありません"
+                    : query.view === "invitations"
+                      ? "現在の招待はありません"
+                      : "終了した交換日記はまだありません"
+                }
+                titleAs="h3"
+              />
+            )}
+
+            {query && nextCursor && (
+              <Pagination aria-label="交換日記一覧のページ移動" className="mt-6">
+                <PaginationLink
+                  className="w-full sm:w-auto"
+                  href={`/exchange?${buildExchangeTopQuery(query.view, nextCursor)}`}
+                >
+                  <span>次の20件を見る</span>
+                  <span aria-hidden="true">→</span>
+                </PaginationLink>
+              </Pagination>
+            )}
+
+            {query && query.cursor && !nextCursor && !hasLoadError && (
+              <p className="mt-6 text-center text-sm text-text-muted">
+                現在表示できる交換日記をすべて表示しました。
+              </p>
+            )}
+          </div>
+
+          <aside
+            aria-label="新しい交換日記の案内"
+            className="min-w-0 xl:col-start-2 xl:row-start-2 xl:mt-6 xl:pt-14"
           >
-            新しい交換日記
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
-            フォロー中の人やユーザー検索から相手のプロフィールを開き、交換日記へ招待できます。
-          </p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <Link
-              className="flex min-h-11 items-center justify-center rounded-full border border-orange-300 bg-orange-50 px-4 py-2.5 text-center text-sm font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-              href="/profile/following"
-            >
-              フォロー中の人を見る
-            </Link>
-            <Link
-              className="flex min-h-11 items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600"
-              href="/search?category=users"
-            >
-              ユーザーを検索
-            </Link>
-          </div>
-        </section>
-
-        <nav
-          aria-label="交換日記の種類"
-          className="mt-5 grid grid-cols-3 gap-1 rounded-2xl bg-stone-100 p-1"
-        >
-          {(
-            [
-              ["active", "交換中"],
-              ["invitations", "招待"],
-              ["archived", "終了"],
-            ] as const
-          ).map(([view, label]) => (
-            <Link
-              aria-current={query?.view === view ? "page" : undefined}
-              className={`min-w-0 rounded-xl px-2 py-2.5 text-center text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 ${
-                query?.view === view
-                  ? "bg-white text-orange-800 shadow-sm"
-                  : "text-stone-600 hover:bg-white/70 hover:text-stone-800"
-              }`}
-              href={`/exchange?${buildExchangeTopQuery(view)}`}
-              key={view}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
-
-        {!query ? (
-          <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5">
-            <h2 className="font-semibold text-stone-800">
-              ページ情報を確認できませんでした
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-red-700" role="alert">
-              URLを確認するか、交換日記一覧の最初からもう一度お試しください。
-            </p>
-            <Link
-              className="mt-5 inline-flex min-h-10 items-center rounded-full border border-red-300 bg-white px-5 py-2 text-sm font-semibold text-red-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
-              href="/exchange"
-            >
-              交換日記一覧の最初へ戻る
-            </Link>
-          </div>
-        ) : hasLoadError ? (
-          <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5">
-            <h2 className="font-semibold text-stone-800">
-              交換日記を読み込めませんでした
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-red-700" role="alert">
-              時間をおいて、もう一度お試しください。
-            </p>
-          </div>
-        ) : query.view === "invitations" && invitationResult?.data?.length ? (
-          <InvitationList items={invitationResult.data} />
-        ) : query.view !== "invitations" && diaryResult?.data?.length ? (
-          <DiaryList items={diaryResult.data} view={query.view} />
-        ) : query.cursor ? (
-          <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-            <h2 className="text-lg font-bold text-stone-800">
-              次の交換日記はありません
-            </h2>
-            <Link
-              className="mt-5 inline-flex min-h-10 items-center rounded-full border border-orange-300 bg-orange-50 px-5 py-2 font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-              href={`/exchange?${buildExchangeTopQuery(query.view)}`}
-            >
-              最初の一覧へ戻る
-            </Link>
-          </div>
-        ) : (
-          <div className="mt-5 rounded-3xl border border-stone-200 bg-white p-6 text-center shadow-sm">
-            <h2 className="text-lg font-bold text-stone-800">
-              {query.view === "active"
-                ? "交換中の交換日記はまだありません"
-                : query.view === "invitations"
-                  ? "現在の招待はありません"
-                  : "終了した交換日記はまだありません"}
-            </h2>
-          </div>
-        )}
-
-        {query && nextCursor && (
-          <nav aria-label="交換日記一覧のページ移動" className="mt-6">
-            <Link
-              className="flex min-h-11 w-full items-center justify-center rounded-full border border-orange-300 bg-orange-50 px-5 py-3 text-center font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-              href={`/exchange?${buildExchangeTopQuery(query.view, nextCursor)}`}
-            >
-              次の20件を見る →
-            </Link>
-          </nav>
-        )}
-
-        {query && query.cursor && !nextCursor && !hasLoadError && (
-          <p className="mt-6 text-center text-sm text-stone-500">
-            現在表示できる交換日記をすべて表示しました。
-          </p>
-        )}
+            <NewExchangeGuide />
+          </aside>
+        </div>
       </div>
     </section>
   );

@@ -109,6 +109,9 @@ function primaryLinkClassName(isCurrent: boolean, isMobile = false) {
   );
 }
 
+export const protectedHeaderUtilityClassName =
+  "inline-flex size-11 shrink-0 items-center justify-center rounded-full text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary";
+
 function PrimaryLinks({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
 
@@ -140,15 +143,20 @@ function PrimaryLinks({ mobile = false }: { mobile?: boolean }) {
   });
 }
 
-export function ProtectedHeader() {
+export function ProtectedHeader({
+  moreMenuTrigger,
+}: {
+  moreMenuTrigger?: ReactNode;
+}) {
   const pathname = usePathname();
 
   if (isAdminPath(pathname)) {
     return (
-      <div className="flex h-16 items-center">
+      <div className="flex h-16 items-center justify-between gap-2">
         <p className="font-brand text-2xl font-medium tracking-tight text-text-primary">
           my-diary
         </p>
+        <div className="hidden lg:block">{moreMenuTrigger}</div>
       </div>
     );
   }
@@ -156,8 +164,6 @@ export function ProtectedHeader() {
   const isSearchCurrent = pathname === "/search";
   const isNotificationsCurrent =
     pathname === "/notifications" || pathname.startsWith("/notifications/");
-  const utilityClassName =
-    "inline-flex size-11 shrink-0 items-center justify-center rounded-full text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary";
 
   return (
     <div className="flex h-[52px] min-w-0 items-center justify-between gap-2 lg:h-24 lg:gap-6">
@@ -178,7 +184,7 @@ export function ProtectedHeader() {
           aria-current={isSearchCurrent ? "page" : undefined}
           aria-label="検索"
           className={joinClassNames(
-            utilityClassName,
+            protectedHeaderUtilityClassName,
             isSearchCurrent && "bg-brand-soft text-brand-primary-hover",
           )}
           href="/search"
@@ -188,7 +194,7 @@ export function ProtectedHeader() {
         <Link
           aria-label="通知"
           className={joinClassNames(
-            utilityClassName,
+            protectedHeaderUtilityClassName,
             isNotificationsCurrent &&
               "bg-brand-soft text-brand-primary-hover",
           )}
@@ -197,18 +203,20 @@ export function ProtectedHeader() {
           <NavigationIcon className="size-6" name="notification" />
         </Link>
       </div>
-      <Link
-        aria-current={isSearchCurrent ? "page" : undefined}
-        aria-label="検索"
-        className={joinClassNames(
-          utilityClassName,
-          "hidden lg:inline-flex",
-          isSearchCurrent && "bg-brand-soft text-brand-primary-hover",
-        )}
-        href="/search"
-      >
-        <NavigationIcon className="size-6" name="search" />
-      </Link>
+      <div className="hidden shrink-0 items-center gap-1 lg:flex">
+        <Link
+          aria-current={isSearchCurrent ? "page" : undefined}
+          aria-label="検索"
+          className={joinClassNames(
+            protectedHeaderUtilityClassName,
+            isSearchCurrent && "bg-brand-soft text-brand-primary-hover",
+          )}
+          href="/search"
+        >
+          <NavigationIcon className="size-6" name="search" />
+        </Link>
+        {moreMenuTrigger}
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   ProtectedHeader,
   ProtectedMobileNavigation,
 } from "@/components/layout/protected-app-navigation";
+import { ProtectedMoreMenu } from "@/components/layout/protected-more-menu";
 import { SiteFrame } from "@/components/layout/site-frame";
 import { isUuid } from "@/lib/profile-data";
 
@@ -30,18 +31,30 @@ export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
     pathname === "/home" ||
     pathname === "/calendar" ||
     pathname === "/notifications" ||
+    pathname === "/exchange" ||
     isPostDetailPath(pathname);
 
   return (
-    <SiteFrame
-      afterFooter={<ProtectedMobileNavigation />}
-      headerContent={<ProtectedHeader />}
-      headerInnerClassName="px-4 py-0 sm:px-5 lg:px-8"
-      headerWidth={isAdminPath ? "default" : "shell"}
-      showFooter={false}
-      width={isWidePath ? "wide" : "default"}
-    >
-      {children}
-    </SiteFrame>
+    <ProtectedMoreMenu key={pathname}>
+      {({ desktopTrigger, mobileTrigger }) => (
+        <SiteFrame
+          afterFooter={
+            <>
+              {mobileTrigger}
+              <ProtectedMobileNavigation />
+            </>
+          }
+          headerContent={
+            <ProtectedHeader moreMenuTrigger={desktopTrigger} />
+          }
+          headerInnerClassName="px-4 py-0 sm:px-5 lg:px-8"
+          headerWidth={isAdminPath ? "default" : "shell"}
+          showFooter={false}
+          width={isWidePath ? "wide" : "default"}
+        >
+          {children}
+        </SiteFrame>
+      )}
+    </ProtectedMoreMenu>
   );
 }

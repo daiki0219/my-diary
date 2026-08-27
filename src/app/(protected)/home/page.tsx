@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 
-import { logout } from "@/app/auth/actions";
 import { CalendarSummary } from "@/components/calendar/calendar-summary";
 import { TimelinePostCard } from "@/components/posts/timeline-post-card";
 import { HomeProfileSummary } from "@/components/profile/home-profile-summary";
-import { ActionLink, Button } from "@/components/ui/actions";
+import { ActionLink } from "@/components/ui/actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { Pagination, PaginationLink } from "@/components/ui/pagination";
@@ -237,42 +236,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             />
           )}
 
-          <nav
-            aria-label="その他のメニュー"
-            className="mt-10 border-t border-border-subtle pt-6"
-          >
-            <p className="text-sm font-medium text-text-muted">
-              そのほかのメニュー
-            </p>
-            <ul className="mt-2 grid min-w-0 grid-cols-2 gap-1">
-              {[
-                { href: "/profile/posts", label: "自分の日記" },
-                { href: "/search", label: "検索" },
-                { href: "/exchange", label: "交換日記" },
-                { href: "/tags", label: "タグ" },
-                { href: "/settings", label: "設定" },
-              ].map((item) => (
-                <li className="min-w-0" key={item.href}>
-                  <ActionLink
-                    className="w-full min-w-0 justify-start break-words [overflow-wrap:anywhere]"
-                    href={item.href}
-                    variant="quiet"
-                  >
-                    {item.label}
-                  </ActionLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          <form
-            action={logout}
-            className="mt-4 border-t border-border-subtle pt-4"
-          >
-            <Button className="w-full" type="submit" variant="quiet">
-              ログアウト
-            </Button>
-          </form>
         </div>
 
         <aside

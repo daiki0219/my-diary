@@ -90,6 +90,45 @@ body {
   color: var(--text-primary);
 }
 
+@keyframes more-drawer-enter {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes more-drawer-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+dialog[data-more-drawer]::backdrop {
+  background: rgb(59 41 34 / 18%);
+}
+
+dialog[data-more-drawer][open]::backdrop {
+  animation: more-drawer-backdrop-enter 200ms ease-out;
+}
+
+dialog[data-more-drawer][open] [data-more-drawer-panel] {
+  animation: more-drawer-enter 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog[data-more-drawer][open]::backdrop,
+  dialog[data-more-drawer][open] [data-more-drawer-panel] {
+    animation: none;
+  }
+}
+
 @media (forced-colors: active) {
   :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
     outline: 2px solid CanvasText;
