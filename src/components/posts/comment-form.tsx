@@ -39,10 +39,13 @@ export function CommentForm({ postId }: { postId: string }) {
 
   useEffect(() => {
     if (state.createdCommentId) {
-      setBody("");
-      setShowSuccess(true);
-      dialogRef.current?.close();
-      return;
+      const animationFrame = requestAnimationFrame(() => {
+        setBody("");
+        setShowSuccess(true);
+        dialogRef.current?.close();
+      });
+
+      return () => cancelAnimationFrame(animationFrame);
     }
 
     if (state.fieldError) {
