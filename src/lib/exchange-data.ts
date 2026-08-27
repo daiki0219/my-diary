@@ -70,6 +70,14 @@ export type ExchangeProfileContext = {
   isBlockingInvitations: boolean;
 };
 
+export type ExchangeDiaryNotificationSetting =
+  | {
+      status: "available";
+      receiveNewEntryNotifications: boolean;
+      updatedAt: string;
+    }
+  | { status: "unavailable" };
+
 export type ExchangeDiaryDetail = {
   diaryId: string;
   title: string | null;
@@ -80,6 +88,7 @@ export type ExchangeDiaryDetail = {
   participants: [ExchangeParticipant, ExchangeParticipant];
   viewerParticipant: ExchangeParticipant;
   counterpart: ExchangeParticipant;
+  notificationSetting: ExchangeDiaryNotificationSetting | null;
 };
 
 export type ExchangeEntryTag = {
@@ -592,6 +601,96 @@ async function hydrateParticipants(
   return { participantsByDiaryId, error: null };
 }
 
+async function getExchangeDiaryNotificationSettingForParticipant(
+  supabase: SupabaseClient,
+  participantId: string,
+): Promise<ExchangeDiaryNotificationSetting> {
+  try {
+    const result = await supabase
+      .from("exchange_diary_mutes")
+      .select("participant_id, muted, updated_at")
+      .eq("participant_id", participantId)
+      .limit(2)
+      .returns<unknown[]>();
+
+    if (result.error || result.data?.length !== 1) {
+      return { status: "unavailable" };
+    }
+
+    const row = result.data[0];
+
+    if (
+      typeof row !== "object" ||
+      row === null ||
+      !("participant_id" in row) ||
+      !("muted" in row) ||
+      typeof row.participant_id !== "string" ||
+      !isUuid(row.participant_id) ||
+      row.participant_id.toLowerCase() !== participantId ||
+      typeof row.muted !== "boolean" ||
+      !("updated_at" in row) ||
+      typeof row.updated_at !== "string" ||
+      !Number.isFinite(Date.parse(row.updated_at))
+    ) {
+      return { status: "unavailable" };
+    }
+
+    return {
+      status: "available",
+      receiveNewEntryNotifications: !row.muted,
+      updatedAt: row.updated_at,
+    };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
+export async function getExchangeDiaryNotificationSetting(
+  supabase: SupabaseClient,
+  viewerUserId: string,
+  diaryId: string,
+): Promise<ExchangeDiaryNotificationSetting> {
+  const canonicalViewerUserId = canonicalizeExchangeUuid(viewerUserId);
+  const canonicalDiaryId = canonicalizeExchangeUuid(diaryId);
+
+  if (!canonicalViewerUserId || !canonicalDiaryId) {
+    return { status: "unavailable" };
+  }
+
+  try {
+    const participantResult = await supabase
+      .from("exchange_diary_participants")
+      .select("id")
+      .eq("diary_id", canonicalDiaryId)
+      .eq("user_id", canonicalViewerUserId)
+      .limit(2)
+      .returns<unknown[]>();
+
+    if (participantResult.error || participantResult.data?.length !== 1) {
+      return { status: "unavailable" };
+    }
+
+    const participant = participantResult.data[0];
+
+    if (
+      typeof participant !== "object" ||
+      participant === null ||
+      !("id" in participant) ||
+      typeof participant.id !== "string" ||
+      !isUuid(participant.id)
+    ) {
+      return { status: "unavailable" };
+    }
+
+    return getExchangeDiaryNotificationSettingForParticipant(
+      supabase,
+      participant.id.toLowerCase(),
+    );
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
 function getViewerParticipants(
   participants: [ExchangeParticipant, ExchangeParticipant],
   viewerUserId: string,
@@ -1042,6 +1141,14 @@ export async function getExchangeDiaryDetail(
     return { status: "error" as const };
   }
 
+  const notificationSetting =
+    diary.state === "active"
+      ? await getExchangeDiaryNotificationSettingForParticipant(
+          supabase,
+          viewerParticipants.viewerParticipant.participantId,
+        )
+      : null;
+
   const data: ExchangeDiaryDetail = {
     diaryId: diary.id,
     title: diary.title,
@@ -1052,6 +1159,7 @@ export async function getExchangeDiaryDetail(
     participants,
     viewerParticipant: viewerParticipants.viewerParticipant,
     counterpart: viewerParticipants.counterpart,
+    notificationSetting,
   };
 
   return { status: "found" as const, data };

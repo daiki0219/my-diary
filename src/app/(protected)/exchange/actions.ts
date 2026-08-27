@@ -13,6 +13,7 @@ import {
   isExchangeEntryImageStoragePathFor,
   parseExchangeEntryImageStoragePath,
 } from "@/lib/exchange-entry-image-input";
+import { getExchangeDiaryNotificationSetting } from "@/lib/exchange-data";
 import {
   validateExchangeEntryReportFormData,
   type ExchangeEntryReportFieldErrors,
@@ -60,6 +61,13 @@ export type ExchangeDiaryMutationActionState = {
   revision: number;
 };
 
+export type ExchangeDiaryNotificationActionState = {
+  status: "idle" | "success" | "error";
+  message: string | null;
+  confirmedReceiveNewEntryNotifications: boolean | null;
+  revision: number;
+};
+
 export type ExchangeEntryReportActionState = {
   error: string | null;
   fieldErrors: ExchangeEntryReportFieldErrors;
@@ -82,6 +90,15 @@ const ENTRY_OPERATION_ERROR =
   "現在この日記を保存できません。状態を更新して、少し時間をおいてもう一度お試しください。";
 const DIARY_MUTATION_ERROR =
   "現在この交換日記を更新できません。状態を更新して、少し時間をおいてもう一度お試しください。";
+const DIARY_NOTIFICATION_SAVE_ERROR =
+  "通知設定を保存できませんでした。現在の設定を表示しています。";
+const DIARY_NOTIFICATION_UNCERTAIN_ERROR =
+  "保存結果を確認できませんでした。画面を更新して、現在の設定を確認してください。";
+const DIARY_NOTIFICATION_RELOADED_ERROR =
+  "保存結果を確認できませんでした。現在の設定を再読み込みしました。";
+const DIARY_NOTIFICATION_OPERATION_ERROR =
+  "通知設定を保存できませんでした。画面を更新して、もう一度お試しください。";
+const DIARY_NOTIFICATION_ROLLBACK_CODES = new Set(["22023", "42501"]);
 const ENTRY_DELETE_ERROR =
   "現在この日記を削除できません。状態を更新して、少し時間をおいてもう一度お試しください。";
 const EXCHANGE_REPORT_ERROR =
@@ -235,6 +252,28 @@ function getUuid(formData: FormData, fieldName: string) {
     : null;
 }
 
+function getSingleUuid(formData: FormData, fieldName: string) {
+  const values = formData.getAll(fieldName);
+  const value = values[0];
+
+  return values.length === 1 && typeof value === "string" && isUuid(value)
+    ? value.toLowerCase()
+    : null;
+}
+
+function getSingleBoolean(formData: FormData, fieldName: string) {
+  const values = formData.getAll(fieldName);
+
+  if (
+    values.length !== 1 ||
+    (values[0] !== "true" && values[0] !== "false")
+  ) {
+    return null;
+  }
+
+  return values[0] === "true";
+}
+
 function getSingleOptionalUuid(formData: FormData, fieldName: string) {
   const entries = formData.getAll(fieldName);
 
@@ -359,6 +398,163 @@ async function getAuthenticatedContext() {
   } catch {
     return null;
   }
+}
+
+function diaryNotificationState(
+  previousState: ExchangeDiaryNotificationActionState,
+  status: "success" | "error",
+  message: string,
+  confirmedReceiveNewEntryNotifications: boolean | null,
+): ExchangeDiaryNotificationActionState {
+  return {
+    status,
+    message,
+    confirmedReceiveNewEntryNotifications,
+    revision: previousState.revision + 1,
+  };
+}
+
+async function reconcileExchangeDiaryNotificationSetting(
+  previousState: ExchangeDiaryNotificationActionState,
+  context: NonNullable<Awaited<ReturnType<typeof getAuthenticatedContext>>>,
+  diaryId: string,
+  requestedValue: boolean,
+  outcome: "failed" | "uncertain",
+) {
+  const currentSetting = await getExchangeDiaryNotificationSetting(
+    context.supabase,
+    context.currentUserId,
+    diaryId,
+  );
+
+  if (currentSetting.status !== "available") {
+    return diaryNotificationState(
+      previousState,
+      "error",
+      DIARY_NOTIFICATION_UNCERTAIN_ERROR,
+      null,
+    );
+  }
+
+  if (
+    outcome === "uncertain" &&
+    currentSetting.receiveNewEntryNotifications === requestedValue
+  ) {
+    revalidatePath(`/exchange/${diaryId}`);
+
+    return diaryNotificationState(
+      previousState,
+      "success",
+      "現在の通知設定を確認しました。",
+      currentSetting.receiveNewEntryNotifications,
+    );
+  }
+
+  return diaryNotificationState(
+    previousState,
+    "error",
+    outcome === "failed"
+      ? DIARY_NOTIFICATION_SAVE_ERROR
+      : DIARY_NOTIFICATION_RELOADED_ERROR,
+    currentSetting.receiveNewEntryNotifications,
+  );
+}
+
+export async function updateExchangeDiaryNotificationSetting(
+  previousState: ExchangeDiaryNotificationActionState,
+  formData: FormData,
+): Promise<ExchangeDiaryNotificationActionState> {
+  const diaryId = getSingleUuid(formData, "diaryId");
+  const receiveNewEntryNotifications = getSingleBoolean(
+    formData,
+    "receiveNewEntryNotifications",
+  );
+
+  if (!diaryId || receiveNewEntryNotifications === null) {
+    return diaryNotificationState(
+      previousState,
+      "error",
+      DIARY_NOTIFICATION_OPERATION_ERROR,
+      previousState.confirmedReceiveNewEntryNotifications,
+    );
+  }
+
+  const context = await getAuthenticatedContext();
+
+  if (!context) {
+    return diaryNotificationState(
+      previousState,
+      "error",
+      DIARY_NOTIFICATION_OPERATION_ERROR,
+      previousState.confirmedReceiveNewEntryNotifications,
+    );
+  }
+
+  const currentSetting = await getExchangeDiaryNotificationSetting(
+    context.supabase,
+    context.currentUserId,
+    diaryId,
+  );
+
+  if (currentSetting.status !== "available") {
+    return diaryNotificationState(
+      previousState,
+      "error",
+      DIARY_NOTIFICATION_OPERATION_ERROR,
+      previousState.confirmedReceiveNewEntryNotifications,
+    );
+  }
+
+  let result;
+
+  try {
+    result = await context.supabase.rpc(
+      "my_diary_update_exchange_diary_mute",
+      {
+        p_diary_id: diaryId,
+        p_muted: !receiveNewEntryNotifications,
+      },
+    );
+  } catch {
+    return reconcileExchangeDiaryNotificationSetting(
+      previousState,
+      context,
+      diaryId,
+      receiveNewEntryNotifications,
+      "uncertain",
+    );
+  }
+
+  if (result.error) {
+    return reconcileExchangeDiaryNotificationSetting(
+      previousState,
+      context,
+      diaryId,
+      receiveNewEntryNotifications,
+      DIARY_NOTIFICATION_ROLLBACK_CODES.has(result.error.code)
+        ? "failed"
+        : "uncertain",
+    );
+  }
+
+  if (result.data !== true) {
+    return reconcileExchangeDiaryNotificationSetting(
+      previousState,
+      context,
+      diaryId,
+      receiveNewEntryNotifications,
+      "uncertain",
+    );
+  }
+
+  revalidatePath(`/exchange/${diaryId}`);
+
+  return diaryNotificationState(
+    previousState,
+    "success",
+    "通知設定を保存しました。",
+    receiveNewEntryNotifications,
+  );
 }
 
 async function exchangeEntryBelongsToDiary(

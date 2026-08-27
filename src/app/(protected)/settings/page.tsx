@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { ExchangeNotificationPreferenceForm } from "@/components/settings/exchange-notification-preference-form";
 import { TimeZoneForm } from "@/components/settings/timezone-form";
 import { ActionLink } from "@/components/ui/actions";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { Surface } from "@/components/ui/surface";
 import { getViewerTimeZone } from "@/lib/account-data";
+import { getViewerExchangeNotificationPreference } from "@/lib/exchange-notification-data";
 import { createClient } from "@/lib/supabase/server";
 import { getTimeZoneOptions } from "@/lib/timezone";
 
@@ -16,9 +18,15 @@ export const metadata: Metadata = {
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const timezoneResult = await getViewerTimeZone(supabase);
+  const [timezoneResult, exchangeNotificationResult] = await Promise.all([
+    getViewerTimeZone(supabase),
+    getViewerExchangeNotificationPreference(supabase),
+  ]);
 
-  if (timezoneResult.error === "unauthenticated") {
+  if (
+    timezoneResult.error === "unauthenticated" ||
+    exchangeNotificationResult.status === "unauthenticated"
+  ) {
     redirect("/login");
   }
 
@@ -31,8 +39,8 @@ export default async function SettingsPage() {
 
         <PageHeader
           className="mt-3"
-          description="日記を振り返るときに使うタイムゾーンを設定できます。"
-          eyebrow="あなたの日付表示"
+          description="日付表示と交換日記のアプリ内通知を設定できます。"
+          eyebrow="あなたの使い方"
           title="設定"
         />
 
@@ -61,6 +69,33 @@ export default async function SettingsPage() {
             </div>
           </Surface>
         )}
+
+        <Surface className="mt-6 min-w-0 p-5 sm:p-7" variant="elevated">
+          <h2 className="text-xl font-semibold text-text-primary">
+            交換日記の通知
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">
+            新しい日記について受け取るアプリ内通知を設定します。
+          </p>
+          <div className="mt-6">
+            {exchangeNotificationResult.status === "found" ? (
+              <ExchangeNotificationPreferenceForm
+                currentNewEntryEnabled={
+                  exchangeNotificationResult.newEntryEnabled
+                }
+                currentUpdatedAt={exchangeNotificationResult.updatedAt}
+              />
+            ) : (
+              <FeedbackPanel
+                role="alert"
+                title="通知設定を読み込めませんでした"
+                variant="error"
+              >
+                時間をおいて、もう一度お試しください。
+              </FeedbackPanel>
+            )}
+          </div>
+        </Surface>
       </div>
     </section>
   );
