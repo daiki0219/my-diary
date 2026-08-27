@@ -18,7 +18,7 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
   const titleId = `${confirmationId}-title`;
   const descriptionId = `${confirmationId}-description`;
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const submissionInFlight = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [state, formAction, isPending] = useActionState(
@@ -28,7 +28,7 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
 
   useEffect(() => {
     if (isConfirming) {
-      confirmRef.current?.focus();
+      cancelRef.current?.focus();
     }
   }, [isConfirming]);
 
@@ -49,7 +49,7 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
         <div
           aria-describedby={descriptionId}
           aria-labelledby={titleId}
-          className="rounded-2xl border border-red-200 bg-red-50 p-4"
+          className="rounded-control border border-danger/20 bg-danger/5 p-4"
           id={confirmationId}
           onKeyDown={(event) => {
             if (event.key === "Escape" && !isPending) {
@@ -59,20 +59,23 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
           role="alertdialog"
         >
           <h2
-            className="text-base font-bold leading-6 text-stone-800"
+            className="text-base font-semibold leading-6 text-text-primary"
             id={titleId}
           >
             この交換日記を終了しますか？
           </h2>
           <div
-            className="mt-2 space-y-2 text-sm leading-6 text-stone-700"
+            className="mt-2 space-y-2 text-sm leading-6 text-text-secondary"
             id={descriptionId}
           >
             <p>
-              終了後も過去の日記は読めますが、新しい日記の作成、既存の日記の編集、タイトル変更はできなくなります。
+              終了すると、この交換日記への新しい書き込みを終えます。新しい日記の作成や、これまでの日記・タイトル・通知設定の変更はできなくなります。
             </p>
             <p>
-              終了した交換日記は再開できません。自分が書いた日記は、終了後も削除できます。
+              これまでの日記は、過去の日記として引き続き読み返せます。自分が書いた日記は、終了後も削除できます。
+            </p>
+            <p className="font-semibold text-text-primary">
+              この操作は元に戻せません。
             </p>
           </div>
 
@@ -91,21 +94,21 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
             <input name="diaryId" type="hidden" value={diaryId} />
             <button
               aria-disabled={isPending}
-              className="min-h-11 w-full rounded-full bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-wait disabled:bg-stone-400"
-              disabled={isPending}
-              ref={confirmRef}
-              type="submit"
-            >
-              {isPending ? "終了中…" : "交換日記を終了する"}
-            </button>
-            <button
-              aria-disabled={isPending}
-              className="min-h-11 w-full rounded-full border border-stone-300 bg-white px-4 py-2.5 font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-wait disabled:opacity-60"
+              className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:bg-surface-muted disabled:text-control-disabled-text"
               disabled={isPending}
               onClick={closeConfirmation}
+              ref={cancelRef}
               type="button"
             >
               終了しない
+            </button>
+            <button
+              aria-disabled={isPending}
+              className="min-h-11 w-full rounded-control bg-danger px-4 py-2.5 font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text"
+              disabled={isPending}
+              type="submit"
+            >
+              {isPending ? "終了中…" : "交換日記を終了する"}
             </button>
           </form>
 
@@ -114,7 +117,7 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
           </p>
           {state.error && (
             <p
-              className="mt-3 rounded-xl border border-red-200 bg-white px-3 py-2 text-sm leading-6 text-red-700"
+              className="mt-3 rounded-control border border-danger/20 bg-surface-elevated px-3 py-2 text-sm leading-6 text-danger"
               key={state.revision}
               role="alert"
             >
@@ -126,7 +129,7 @@ export function ArchiveExchangeDiaryButton({ diaryId }: { diaryId: string }) {
         <button
           aria-controls={confirmationId}
           aria-expanded={isConfirming}
-          className="min-h-11 w-full rounded-full border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+          className="-ml-3 inline-flex min-h-11 max-w-full items-center rounded-control px-3 py-2.5 text-left text-sm font-semibold leading-6 text-danger underline-offset-4 transition hover:bg-danger/5 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
           onClick={() => setIsConfirming(true)}
           ref={triggerRef}
           type="button"

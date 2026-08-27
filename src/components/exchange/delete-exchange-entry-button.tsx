@@ -41,7 +41,7 @@ export function DeleteExchangeEntryButton({
   const titleId = `${confirmationId}-title`;
   const descriptionId = `${confirmationId}-description`;
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const submissionInFlight = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [state, formAction, isPending] = useActionState(
@@ -51,7 +51,7 @@ export function DeleteExchangeEntryButton({
 
   useEffect(() => {
     if (isConfirming) {
-      confirmRef.current?.focus();
+      cancelRef.current?.focus();
     }
   }, [isConfirming]);
 
@@ -71,12 +71,12 @@ export function DeleteExchangeEntryButton({
   }
 
   return (
-    <div>
+    <div className={isConfirming ? "min-w-0 basis-full" : "min-w-0"}>
       {isConfirming ? (
         <div
           aria-describedby={descriptionId}
           aria-labelledby={titleId}
-          className="min-w-0 rounded-2xl border border-red-200 bg-red-50 p-4"
+          className="min-w-0 rounded-control border border-danger/20 bg-danger/5 p-4"
           id={confirmationId}
           onKeyDown={(event) => {
             if (event.key === "Escape" && !isPending) {
@@ -85,12 +85,23 @@ export function DeleteExchangeEntryButton({
           }}
           role="alertdialog"
         >
-          <p className="text-sm font-bold leading-6 text-stone-800" id={titleId}>
+          <h3
+            className="text-base font-semibold leading-6 text-text-primary"
+            id={titleId}
+          >
             この日記を削除しますか？
-          </p>
-          <p className="mt-1 text-xs leading-5 text-stone-600" id={descriptionId}>
-            削除すると元に戻せません。内容は「この日記は削除されました」という表示に置き換わります。
-          </p>
+          </h3>
+          <div
+            className="mt-2 space-y-2 text-sm leading-6 text-text-secondary"
+            id={descriptionId}
+          >
+            <p>
+              削除すると、交換日記では内容を読めなくなり、「この日記は削除されました」という表示に置き換わります。
+            </p>
+            <p className="font-semibold text-text-primary">
+              この操作は元に戻せません。
+            </p>
+          </div>
           <form
             action={formAction}
             className="mt-3 grid gap-2 sm:grid-cols-2"
@@ -107,21 +118,21 @@ export function DeleteExchangeEntryButton({
             <input name="entryId" type="hidden" value={entryId} />
             <button
               aria-disabled={isPending}
-              className="min-h-10 w-full rounded-full bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-wait disabled:bg-stone-400"
-              disabled={isPending}
-              ref={confirmRef}
-              type="submit"
-            >
-              {isPending ? "削除中…" : "削除する"}
-            </button>
-            <button
-              aria-disabled={isPending}
-              className="min-h-10 w-full rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-wait disabled:opacity-60"
+              className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:bg-surface-muted disabled:text-control-disabled-text"
               disabled={isPending}
               onClick={closeConfirmation}
+              ref={cancelRef}
               type="button"
             >
               削除しない
+            </button>
+            <button
+              aria-disabled={isPending}
+              className="min-h-11 w-full rounded-control bg-danger px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text"
+              disabled={isPending}
+              type="submit"
+            >
+              {isPending ? "削除中…" : "この日記を削除する"}
             </button>
           </form>
           <p aria-live="polite" className="sr-only">
@@ -129,7 +140,7 @@ export function DeleteExchangeEntryButton({
           </p>
           {state.error && (
             <p
-              className="mt-3 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs leading-5 text-red-700"
+              className="mt-3 rounded-control border border-danger/20 bg-surface-elevated px-3 py-2 text-sm leading-6 text-danger"
               key={state.revision}
               role="alert"
             >
@@ -142,12 +153,12 @@ export function DeleteExchangeEntryButton({
           aria-controls={confirmationId}
           aria-expanded={isConfirming}
           aria-label={accessibleName}
-          className="inline-flex min-h-10 items-center rounded-full border border-red-300 bg-white px-4 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+          className="inline-flex min-h-11 items-center rounded-control px-3 py-2.5 text-sm font-medium text-danger underline-offset-4 transition hover:bg-danger/5 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
           onClick={() => setIsConfirming(true)}
           ref={triggerRef}
           type="button"
         >
-          削除
+          この日記を削除
         </button>
       )}
     </div>

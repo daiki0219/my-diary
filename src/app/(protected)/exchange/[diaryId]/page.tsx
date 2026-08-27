@@ -573,7 +573,7 @@ export default async function ExchangeDiaryPage({
                     安全に関する操作
                   </h2>
                   <p className="mt-2 min-w-0 break-words text-xs leading-5 text-stone-500 [overflow-wrap:anywhere]">
-                    相手ユーザーについて運営へ報告できます。日記の終了とは別の操作です。
+                    相手ユーザーについて運営へ知らせます。日記そのものの通報や、交換日記の終了とは別の操作です。
                   </p>
                   <div className="mt-4">
                     <ReportExchangeUserButton
@@ -594,10 +594,10 @@ export default async function ExchangeDiaryPage({
                     className="text-base font-semibold text-stone-800"
                     id="exchange-diary-management-heading"
                   >
-                    この日記の管理
+                    交換日記の終了
                   </h2>
                   <p className="mt-2 text-xs leading-5 text-stone-500">
-                    終了後も、これまでの日記は読み返せます。
+                    新しい書き込みを終え、これまでの日記を過去の記録として残します。
                   </p>
                   <ArchiveExchangeDiaryButton diaryId={canonicalDiaryId} />
                 </section>

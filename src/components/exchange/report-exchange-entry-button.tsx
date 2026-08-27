@@ -54,6 +54,7 @@ function ExchangeReportButton({
   const titleId = `${confirmationId}-title`;
   const descriptionId = `${confirmationId}-description`;
   const reasonId = `${confirmationId}-reason`;
+  const reasonHelpId = `${confirmationId}-reason-help`;
   const reasonErrorId = `${confirmationId}-reason-error`;
   const detailsId = `${confirmationId}-details`;
   const detailsHelpId = `${confirmationId}-details-help`;
@@ -63,7 +64,7 @@ function ExchangeReportButton({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const reasonRef = useRef<HTMLSelectElement>(null);
   const detailsRef = useRef<HTMLTextAreaElement>(null);
-  const successRef = useRef<HTMLParagraphElement>(null);
+  const successRef = useRef<HTMLDivElement>(null);
   const submissionInFlight = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [reason, setReason] = useState("");
@@ -117,26 +118,29 @@ function ExchangeReportButton({
 
   if (state.completed) {
     return (
-      <p
+      <div
         aria-atomic="true"
         aria-live="polite"
-        className="text-sm font-semibold leading-6 text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        className="min-w-0 basis-full rounded-control border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
         ref={successRef}
         role="status"
         tabIndex={-1}
       >
-        通報を受け付けました
-      </p>
+        <p className="font-semibold">通報を受け付けました</p>
+        <p className="mt-1 text-emerald-800">
+          内容を運営へ送りました。追加の操作は必要ありません。
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="min-w-0">
+    <div className={isConfirming ? "min-w-0 basis-full" : "min-w-0"}>
       {isConfirming ? (
         <div
           aria-describedby={descriptionId}
           aria-labelledby={titleId}
-          className="min-w-0 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          className="min-w-0 rounded-control border border-border-subtle bg-surface-muted/70 p-4"
           id={confirmationId}
           onKeyDown={(event) => {
             if (event.key === "Escape" && !isPending) {
@@ -145,18 +149,21 @@ function ExchangeReportButton({
           }}
           role="dialog"
         >
-          <p className="text-sm font-bold leading-6 text-stone-800" id={titleId}>
+          <h3
+            className="break-words text-base font-semibold leading-6 text-text-primary [overflow-wrap:anywhere]"
+            id={titleId}
+          >
             {isUserReport
-              ? `${target.counterpartName}さんを通報しますか？`
-              : "この日記を通報しますか？"}
-          </p>
+              ? `${target.counterpartName}さんについて通報`
+              : "この日記を通報"}
+          </h3>
           <p
-            className="mt-1 text-xs leading-5 text-stone-600"
+            className="mt-2 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]"
             id={descriptionId}
           >
             {isUserReport
-              ? "この交換日記の相手について運営へ報告します。通報理由を選び、必要に応じて詳しい状況を入力してください。"
-              : "この日記そのものについて運営へ報告します。通報理由を選び、必要に応じて詳しい状況を入力してください。"}
+              ? `${target.counterpartName}さんについて、問題を運営へ知らせることができます。日記そのものの通報とは別の操作です。相手には、あなたが通報したことは表示されません。`
+              : "問題のある内容を運営へ知らせることができます。相手には、あなたが通報したことは表示されません。"}
           </p>
 
           <form
@@ -206,15 +213,22 @@ function ExchangeReportButton({
 
             <div>
               <label
-                className="block text-sm font-semibold text-stone-800"
+                className="block text-sm font-semibold text-text-primary"
                 htmlFor={reasonId}
               >
-                通報理由 <span className="text-red-700">必須</span>
+                通報する理由
+                <span className="ml-2 text-xs font-medium text-danger">必須</span>
               </label>
+              <p
+                className="mt-1 text-xs leading-5 text-text-muted"
+                id={reasonHelpId}
+              >
+                問題に最も近い理由を選んでください。
+              </p>
               <select
-                aria-describedby={fieldErrors.reason ? reasonErrorId : undefined}
+                aria-describedby={`${reasonHelpId}${fieldErrors.reason ? ` ${reasonErrorId}` : ""}`}
                 aria-invalid={Boolean(fieldErrors.reason)}
-                className="mt-2 min-h-11 w-full min-w-0 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+                className="mt-2 min-h-11 w-full min-w-0 rounded-control border border-border-control bg-surface-elevated px-3 py-2 text-base text-text-primary focus:border-focus focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-control-disabled-text"
                 disabled={isPending || retryIsBlocked}
                 id={reasonId}
                 name="reason"
@@ -238,7 +252,7 @@ function ExchangeReportButton({
               </select>
               {fieldErrors.reason && (
                 <p
-                  className="mt-2 text-xs leading-5 text-red-700"
+                  className="mt-2 text-sm leading-6 text-danger"
                   id={reasonErrorId}
                   role="alert"
                 >
@@ -249,15 +263,18 @@ function ExchangeReportButton({
 
             <div>
               <label
-                className="block text-sm font-semibold text-stone-800"
+                className="block text-sm font-semibold text-text-primary"
                 htmlFor={detailsId}
               >
-                詳細
+                詳しい状況
+                <span className="ml-2 text-xs font-medium text-text-muted">
+                  「その他」以外は任意
+                </span>
               </label>
               <textarea
                 aria-describedby={`${detailsHelpId}${fieldErrors.details ? ` ${detailsErrorId}` : ""}`}
                 aria-invalid={Boolean(fieldErrors.details)}
-                className="mt-2 min-h-32 w-full min-w-0 resize-y rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm leading-6 text-stone-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+                className="mt-2 min-h-32 w-full min-w-0 resize-y rounded-control border border-border-control bg-surface-elevated px-3 py-2 text-base leading-7 text-text-primary focus:border-focus focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-control-disabled-text"
                 disabled={isPending || retryIsBlocked}
                 id={detailsId}
                 name="details"
@@ -273,18 +290,18 @@ function ExchangeReportButton({
                 value={details}
               />
               <div
-                className="mt-1 flex min-w-0 flex-col gap-1 text-xs leading-5 text-stone-500 sm:flex-row sm:justify-between"
+                className="mt-1 flex min-w-0 flex-col gap-1 text-xs leading-5 text-text-muted sm:flex-row sm:justify-between"
                 id={detailsHelpId}
               >
                 <p className="min-w-0 break-words">
-                  2,000文字まで入力できます。「その他」を選んだ場合は必須です。
+                  必要な補足を2,000文字まで入力できます。「その他」を選んだ場合は必須です。
                 </p>
                 <p
                   aria-hidden="true"
                   className={
                     detailsCount >
                     EXCHANGE_ENTRY_REPORT_DETAILS_MAX_CODE_POINTS
-                      ? "shrink-0 font-semibold text-red-700"
+                      ? "shrink-0 font-semibold text-danger"
                       : "shrink-0"
                   }
                 >
@@ -293,7 +310,7 @@ function ExchangeReportButton({
               </div>
               {fieldErrors.details && (
                 <p
-                  className="mt-2 text-xs leading-5 text-red-700"
+                  className="mt-2 text-sm leading-6 text-danger"
                   id={detailsErrorId}
                   role="alert"
                 >
@@ -303,15 +320,18 @@ function ExchangeReportButton({
             </div>
 
             {target.kind === "user" && target.relatedEntryId && (
-              <div className="rounded-xl border border-stone-200 bg-white p-3">
+              <div className="rounded-control border border-border-subtle bg-surface-elevated p-3">
+                <p className="text-sm font-semibold text-text-primary">
+                  参考の日記 <span className="text-xs font-medium text-text-muted">任意</span>
+                </p>
                 <label
-                  className="flex min-h-11 cursor-pointer items-start gap-3 text-sm font-semibold leading-6 text-stone-800"
+                  className="mt-2 flex min-h-11 cursor-pointer items-start gap-3 text-sm font-medium leading-6 text-text-primary"
                   htmlFor={relatedEntryId}
                 >
                   <input
                     aria-describedby={relatedEntryHelpId}
                     checked={includeRelatedEntry}
-                    className="mt-1.5 h-4 w-4 shrink-0 accent-red-700"
+                    className="mt-1.5 h-4 w-4 shrink-0 accent-danger"
                     disabled={isPending || retryIsBlocked}
                     id={relatedEntryId}
                     onChange={(event) =>
@@ -320,14 +340,14 @@ function ExchangeReportButton({
                     type="checkbox"
                   />
                   <span className="min-w-0 break-words">
-                    この日記を関連情報として添付する
+                    この日記を通報内容の参考として伝える
                   </span>
                 </label>
                 <p
-                  className="mt-1 pl-7 text-xs leading-5 text-stone-600"
+                  className="mt-1 pl-7 text-xs leading-5 text-text-secondary"
                   id={relatedEntryHelpId}
                 >
-                  選択すると、現在表示している相手の日記1件だけを通報時点の関連情報として添付します。
+                  選択すると、現在表示している相手の日記1件を通報時点の関連情報として運営へ伝えます。選択しなくても通報できます。
                 </p>
               </div>
             )}
@@ -335,7 +355,7 @@ function ExchangeReportButton({
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 aria-disabled={isPending || retryIsBlocked}
-                className="min-h-11 w-full rounded-full bg-red-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-wait disabled:bg-stone-400"
+                className="min-h-11 w-full rounded-control bg-danger px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text"
                 disabled={isPending || retryIsBlocked}
                 type="submit"
               >
@@ -343,7 +363,7 @@ function ExchangeReportButton({
               </button>
               <button
                 aria-disabled={isPending}
-                className="min-h-11 w-full rounded-full border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 disabled:cursor-wait disabled:opacity-60"
+                className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:bg-surface hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:opacity-60"
                 disabled={isPending}
                 onClick={closeConfirmation}
                 type="button"
@@ -358,7 +378,7 @@ function ExchangeReportButton({
           </p>
           {state.error && (
             <p
-              className="mt-3 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs leading-5 text-red-700"
+              className="mt-3 rounded-control border border-danger/20 bg-surface-elevated px-3 py-2 text-sm leading-6 text-danger"
               key={state.revision}
               role="alert"
             >
@@ -371,7 +391,7 @@ function ExchangeReportButton({
           aria-controls={confirmationId}
           aria-expanded={isConfirming}
           aria-label={accessibleName}
-          className="inline-flex min-h-10 items-center rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-semibold text-stone-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+          className="inline-flex min-h-11 items-center rounded-control border border-border-control bg-surface-elevated px-3 py-2.5 text-sm font-medium text-text-secondary transition hover:border-danger/30 hover:bg-danger/5 hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           onClick={() => setIsConfirming(true)}
           ref={triggerRef}
           type="button"
