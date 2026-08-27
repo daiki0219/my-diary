@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useActionState,
@@ -18,6 +17,13 @@ import {
   updateExchangeEntry,
   type ExchangeEntryActionState,
 } from "@/app/(protected)/exchange/actions";
+import { ActionLink } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
+import {
+  FormInput,
+  FormSelect,
+  FormTextarea,
+} from "@/components/ui/form-controls";
 import { TagInput } from "@/components/posts/tag-input";
 import {
   DIARY_ENTRY_BODY_MAX_CODE_POINTS,
@@ -130,19 +136,21 @@ async function cleanupExchangeEntryImageUploads(
 }
 
 function SubmitButton({
+  isValidatingImages,
   mode,
   submissionBlocked,
 }: {
+  isValidatingImages: boolean;
   mode: "create" | "edit";
   submissionBlocked: boolean;
 }) {
   const { pending } = useFormStatus();
-  const disabled = pending || submissionBlocked;
+  const disabled = pending || isValidatingImages || submissionBlocked;
 
   return (
     <button
       aria-disabled={disabled}
-      className="w-full rounded-full bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-400 sm:w-auto sm:min-w-36"
+      className="min-h-12 w-full rounded-control bg-brand-primary px-6 py-3 font-semibold text-white transition hover:bg-brand-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text sm:w-auto sm:min-w-40"
       disabled={disabled}
       type="submit"
     >
@@ -150,10 +158,12 @@ function SubmitButton({
         ? mode === "create"
           ? "保存中…"
           : "更新中…"
+        : isValidatingImages
+          ? "画像を確認中…"
         : submissionBlocked
           ? "状態を確認してください"
         : mode === "create"
-          ? "日記を保存"
+          ? "日記を書く"
           : "変更を保存"}
     </button>
   );
@@ -172,7 +182,7 @@ export function ExchangeEntryForm({
       : [];
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const generalErrorRef = useRef<HTMLParagraphElement>(null);
+  const generalErrorRef = useRef<HTMLDivElement>(null);
   const submissionInFlight = useRef(false);
   const submissionBlockedRef = useRef(false);
   const imageSelectionInFlight = useRef(false);
@@ -406,6 +416,9 @@ export function ExchangeEntryForm({
     (dismissedImageErrorRevision === state.revision
       ? undefined
       : state.fieldErrors.images);
+  const hasUnknownOutcome =
+    state.createOutcome === "unknown-outcome" ||
+    state.updateOutcome === "unknown-outcome";
   const controlsDisabled =
     isPending || isValidatingImages || submissionBlocked;
 
@@ -431,7 +444,7 @@ export function ExchangeEntryForm({
     }
 
     const firstInvalidField = (
-      ["title", "body", "mood", "location", "tags", "images"] as const
+      ["title", "body", "mood", "location", "images", "tags"] as const
     ).find((field) => Boolean(state.fieldErrors[field]));
 
     if (firstInvalidField) {
@@ -521,7 +534,7 @@ export function ExchangeEntryForm({
       setClientImageError(null);
       setDismissedImageErrorRevision(state.revision);
       setImageAnnouncement(
-        `${additions.length}枚の画像を追加しました。現在${nextImages.length}枚です。`,
+        `${additions.length}枚の写真を追加しました。現在${nextImages.length}枚です。`,
       );
     } finally {
       imageSelectionInFlight.current = false;
@@ -557,7 +570,9 @@ export function ExchangeEntryForm({
     );
     updateImages(nextImages);
     setImageAnnouncement(
-      `${imageToRemove.kind === "existing" ? "既存" : "新規"}画像を削除対象にしました。現在${nextImages.length}枚です。`,
+      imageToRemove.kind === "existing"
+        ? `写真を一覧から外しました。保存すると日記から外れます。現在${nextImages.length}枚です。`
+        : `選んだ写真を一覧から外しました。現在${nextImages.length}枚です。`,
     );
   }
 
@@ -578,7 +593,7 @@ export function ExchangeEntryForm({
       nextImages[index],
     ];
     updateImages(nextImages);
-    setImageAnnouncement(`画像を${destination + 1}番目へ移動しました。`);
+    setImageAnnouncement(`写真を${destination + 1}番目へ移動しました。`);
   }
 
   return (
@@ -603,42 +618,84 @@ export function ExchangeEntryForm({
         <input name="entryId" type="hidden" value={entry.entryId} />
       )}
 
-      <fieldset className="min-w-0 space-y-6" disabled={controlsDisabled}>
+      <fieldset className="min-w-0 space-y-8" disabled={controlsDisabled}>
         {state.error && (
-          <p
-            aria-live="polite"
-            className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700 focus:outline-2 focus:outline-offset-2 focus:outline-red-600"
+          <div
+            className="rounded-control focus:outline-2 focus:outline-offset-2 focus:outline-focus"
             ref={generalErrorRef}
-            role="alert"
             tabIndex={-1}
           >
-            {state.error}
-          </p>
+            <FeedbackPanel
+              role="alert"
+              title={
+                hasUnknownOutcome
+                  ? "保存結果を確認できませんでした"
+                  : undefined
+              }
+              variant={hasUnknownOutcome ? "warning" : "error"}
+            >
+              {hasUnknownOutcome ? (
+                <div className="space-y-3">
+                  <p>
+                    重複を避けるため、このままもう一度送信せず、まず交換日記を確認してください。
+                  </p>
+                  <p className="text-text-secondary">
+                    写真を添えた場合も、保存結果が不明なまま削除はしていません。
+                  </p>
+                  <ActionLink
+                    className="w-full bg-surface-elevated sm:w-auto"
+                    href={`/exchange/${diaryId}?view=latest`}
+                    variant="neutral"
+                  >
+                    交換日記を確認する
+                  </ActionLink>
+                </div>
+              ) : (
+                state.error
+              )}
+            </FeedbackPanel>
+          </div>
         )}
 
-        <div>
+        <section
+          aria-labelledby="exchange-entry-writing-heading"
+          className="min-w-0 space-y-6"
+        >
+          <div>
+            <h2
+              className="font-brand text-2xl font-medium tracking-wide text-text-primary"
+              id="exchange-entry-writing-heading"
+            >
+              日記に残すこと
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-text-muted">
+              本文を中心に、今日のことをゆっくり綴ってください。
+            </p>
+          </div>
+
+          <div>
           <label
-            className="mb-2 block text-sm font-medium text-stone-700"
+            className="mb-2 block text-sm font-medium text-text-secondary"
             htmlFor="exchange-entry-title"
           >
             タイトル
-            <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+            <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
           </label>
-          <input
+          <FormInput
             aria-describedby={
               state.fieldErrors.title
                 ? "exchange-entry-title-help exchange-entry-title-error"
                 : "exchange-entry-title-help"
             }
             aria-invalid={Boolean(state.fieldErrors.title)}
-            className="w-full min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:cursor-wait disabled:bg-stone-100"
+            className="min-w-0 bg-surface-elevated"
             id="exchange-entry-title"
             name="title"
             onChange={(event) => setTitle(event.target.value)}
             type="text"
             value={title}
           />
-          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
             <p id="exchange-entry-title-help">空欄の場合はタイトルなしで保存します。</p>
             <p aria-hidden="true" className="shrink-0">
               {getUnicodeCodePointCount(normalizedTitle)} /{" "}
@@ -647,7 +704,7 @@ export function ExchangeEntryForm({
           </div>
           {state.fieldErrors.title && (
             <p
-              className="mt-2 text-sm text-red-700"
+              className="mt-2 text-sm text-danger"
               id="exchange-entry-title-error"
               role="alert"
             >
@@ -656,14 +713,15 @@ export function ExchangeEntryForm({
           )}
         </div>
 
-        <div>
+          <div>
           <label
-            className="mb-2 block text-sm font-medium text-stone-700"
+            className="mb-2 block text-sm font-medium text-text-secondary"
             htmlFor="exchange-entry-body"
           >
             本文
+            <span className="ml-2 text-xs font-normal text-text-muted">必須</span>
           </label>
-          <textarea
+          <FormTextarea
             aria-describedby={
               state.fieldErrors.body
                 ? "exchange-entry-body-help exchange-entry-body-error"
@@ -671,13 +729,13 @@ export function ExchangeEntryForm({
             }
             aria-invalid={Boolean(state.fieldErrors.body)}
             aria-required="true"
-            className="min-h-64 w-full min-w-0 resize-y rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base leading-7 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:cursor-wait disabled:bg-stone-100"
+            className="min-h-72 min-w-0 resize-y bg-surface-elevated leading-8 sm:min-h-80"
             id="exchange-entry-body"
             name="body"
             onChange={(event) => setBody(event.target.value)}
             value={body}
           />
-          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
             <p id="exchange-entry-body-help">必須。前後の空白を除いて10,000文字以下。</p>
             <p aria-hidden="true" className="shrink-0">
               {getUnicodeCodePointCount(normalizedBody)} /{" "}
@@ -686,29 +744,46 @@ export function ExchangeEntryForm({
           </div>
           {state.fieldErrors.body && (
             <p
-              className="mt-2 text-sm text-red-700"
+              className="mt-2 text-sm text-danger"
               id="exchange-entry-body-error"
               role="alert"
             >
               {state.fieldErrors.body}
             </p>
           )}
-        </div>
+          </div>
+        </section>
 
-        <div>
+        <section
+          aria-labelledby="exchange-entry-details-heading"
+          className="min-w-0 space-y-6 rounded-card bg-surface-muted/45 px-4 py-5 sm:px-5"
+        >
+          <div>
+            <h2
+              className="font-brand text-xl font-medium tracking-wide text-text-primary"
+              id="exchange-entry-details-heading"
+            >
+              その日のこと
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-text-muted">
+              気分や場所は、残したいときだけ添えられます。
+            </p>
+          </div>
+
+          <div>
           <label
-            className="mb-2 block text-sm font-medium text-stone-700"
+            className="mb-2 block text-sm font-medium text-text-secondary"
             htmlFor="exchange-entry-mood"
           >
             気分
-            <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+            <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
           </label>
-          <select
+          <FormSelect
             aria-describedby={
               state.fieldErrors.mood ? "exchange-entry-mood-error" : undefined
             }
             aria-invalid={Boolean(state.fieldErrors.mood)}
-            className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:cursor-wait disabled:bg-stone-100"
+            className="bg-surface-elevated"
             defaultValue={mood}
             id="exchange-entry-mood"
             key={state.revision}
@@ -723,10 +798,10 @@ export function ExchangeEntryForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
           {state.fieldErrors.mood && (
             <p
-              className="mt-2 text-sm text-red-700"
+              className="mt-2 text-sm text-danger"
               id="exchange-entry-mood-error"
               role="alert"
             >
@@ -735,22 +810,22 @@ export function ExchangeEntryForm({
           )}
         </div>
 
-        <div>
+          <div>
           <label
-            className="mb-2 block text-sm font-medium text-stone-700"
+            className="mb-2 block text-sm font-medium text-text-secondary"
             htmlFor="exchange-entry-location"
           >
             場所
-            <span className="ml-2 text-xs font-normal text-stone-500">任意</span>
+            <span className="ml-2 text-xs font-normal text-text-muted">任意</span>
           </label>
-          <input
+          <FormInput
             aria-describedby={
               state.fieldErrors.location
                 ? "exchange-entry-location-help exchange-entry-location-error"
                 : "exchange-entry-location-help"
             }
             aria-invalid={Boolean(state.fieldErrors.location)}
-            className="w-full min-w-0 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:cursor-wait disabled:bg-stone-100"
+            className="min-w-0 bg-surface-elevated"
             id="exchange-entry-location"
             name="locationName"
             onChange={(event) => setLocationName(event.target.value)}
@@ -758,7 +833,7 @@ export function ExchangeEntryForm({
             type="text"
             value={locationName}
           />
-          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500">
+          <div className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted">
             <p id="exchange-entry-location-help">場所の名前を自由に入力できます。</p>
             <p aria-hidden="true" className="shrink-0">
               {getPostLocationNameCharacterCount(normalizedLocationName)} /{" "}
@@ -767,39 +842,43 @@ export function ExchangeEntryForm({
           </div>
           {state.fieldErrors.location && (
             <p
-              className="mt-2 text-sm text-red-700"
+              className="mt-2 text-sm text-danger"
               id="exchange-entry-location-error"
               role="alert"
             >
               {state.fieldErrors.location}
             </p>
           )}
-        </div>
+          </div>
+        </section>
 
-        <div
-          className="rounded-2xl focus:outline-2 focus:outline-offset-2 focus:outline-red-600"
-          id="exchange-entry-tags-section"
-          tabIndex={-1}
+        <section
+          aria-labelledby="exchange-entry-images-heading"
+          className="min-w-0 border-t border-border-subtle/70 pt-7"
         >
-          <TagInput
-            fieldError={state.fieldErrors.tags}
-            idPrefix="exchange-entry"
-            initialValues={state.submittedTagValues}
-            key={state.revision}
-          />
-        </div>
+          <div>
+            <h2
+              className="font-brand text-xl font-medium tracking-wide text-text-primary"
+              id="exchange-entry-images-heading"
+            >
+              写真を添える
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-text-muted">
+              保存後の日記に並ぶ順番で、写真を確認できます。
+            </p>
+          </div>
 
-        <div
-          className="min-w-0 rounded-2xl focus:outline-2 focus:outline-offset-2 focus:outline-red-600"
-          id="exchange-entry-images-section"
-          tabIndex={-1}
-        >
+          <div
+            className="mt-5 min-w-0 rounded-control focus:outline-2 focus:outline-offset-2 focus:outline-danger"
+            id="exchange-entry-images-section"
+            tabIndex={-1}
+          >
             <label
-              className="mb-2 block text-sm font-medium text-stone-700"
+              className="mb-2 block text-sm font-medium text-text-secondary"
               htmlFor="exchange-entry-images"
             >
-              画像
-              <span className="ml-2 text-xs font-normal text-stone-500">
+              写真を選ぶ
+              <span className="ml-2 text-xs font-normal text-text-muted">
                 任意
               </span>
             </label>
@@ -811,7 +890,7 @@ export function ExchangeEntryForm({
                   : "exchange-entry-images-help"
               }
               aria-invalid={Boolean(displayedImageError)}
-              className="block w-full min-w-0 rounded-2xl border border-stone-300 bg-white px-3 py-3 text-sm text-stone-700 file:mr-3 file:rounded-full file:border-0 file:bg-orange-50 file:px-4 file:py-2 file:font-semibold file:text-orange-800 hover:file:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:bg-stone-100"
+              className="block w-full min-w-0 rounded-control border border-border-control bg-surface px-3 py-3 text-sm text-text-secondary file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-semibold file:text-brand-primary-hover hover:file:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:bg-surface-muted"
               disabled={
                 controlsDisabled ||
                 selectedImages.length >= EXCHANGE_ENTRY_IMAGE_MAX_COUNT
@@ -822,23 +901,23 @@ export function ExchangeEntryForm({
               type="file"
             />
             <div
-              className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-stone-500"
+              className="mt-2 flex items-start justify-between gap-3 text-xs leading-5 text-text-muted"
               id="exchange-entry-images-help"
             >
               <p>
-                JPEG・PNG・WebP、1枚6MB以下。
-                {mode === "edit" ? "既存画像と合わせて" : "選択順で"}
-                最大10枚まで。
+                {mode === "edit"
+                  ? "JPEG・PNG・WebP、1枚6MB以下。現在の写真と合わせて最大10枚まで。取り外しや順番の変更は保存時に反映されます。"
+                  : "JPEG・PNG・WebP、1枚6MB以下。選択順で最大10枚まで。選んだ写真は送信前に取り外せます。"}
               </p>
               <p className="shrink-0">
-                <span className="sr-only">現在の画像数: </span>
+                <span className="sr-only">現在の写真数: </span>
                 {selectedImages.length} / {EXCHANGE_ENTRY_IMAGE_MAX_COUNT}
               </p>
             </div>
 
             {displayedImageError && (
               <p
-                className="mt-2 text-sm text-red-700"
+                className="mt-2 text-sm text-danger"
                 id="exchange-entry-images-error"
                 role="alert"
               >
@@ -848,17 +927,17 @@ export function ExchangeEntryForm({
 
             {selectedImages.length > 0 && (
               <ol
-                aria-label="交換日記の画像（保存後の順序）"
+                aria-label="交換日記の写真（保存後の順序）"
                 className="mt-4 grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3"
               >
                 {selectedImages.map((image, index) => (
                   <li
-                    className="min-w-0 overflow-hidden rounded-2xl border border-stone-200 bg-stone-50"
+                    className="min-w-0 overflow-hidden rounded-control border border-border-subtle bg-surface-muted/45"
                     key={image.id}
                   >
-                    <div className="relative aspect-square overflow-hidden bg-stone-200">
+                    <div className="relative aspect-square overflow-hidden bg-surface-muted">
                       <Image
-                        alt={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}${image.kind === "new" ? `「${image.file.name}」` : ""}`}
+                        alt=""
                         className="object-cover"
                         fill
                         loading="eager"
@@ -874,8 +953,8 @@ export function ExchangeEntryForm({
                         {index + 1}
                       </span>
                       <button
-                        aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を削除`}
-                        className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full bg-white/95 text-xl leading-none text-stone-800 shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-wait disabled:text-stone-400"
+                        aria-label={`${index + 1}番目の写真を一覧から外す`}
+                        className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full bg-surface-elevated/95 text-xl leading-none text-text-primary shadow-sm transition hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:text-control-disabled-text"
                         disabled={controlsDisabled}
                         onClick={() => removeImage(image.id)}
                         type="button"
@@ -884,16 +963,16 @@ export function ExchangeEntryForm({
                       </button>
                     </div>
                     <div className="space-y-2 px-2 py-2">
-                      <p className="min-w-0 break-words text-xs font-medium leading-5 text-stone-600 [overflow-wrap:anywhere]">
+                      <p className="min-w-0 break-words text-xs font-medium leading-5 text-text-muted [overflow-wrap:anywhere]">
                         {image.kind === "existing"
-                          ? `既存画像・現在${index + 1}番目`
-                          : `新規画像・現在${index + 1}番目「${image.file.name}」`}
+                          ? `${index + 1}番目の写真`
+                          : `${index + 1}番目「${image.file.name}」`}
                       </p>
                       {mode === "edit" && (
                         <div className="grid grid-cols-2 gap-2">
                           <button
-                            aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を前へ移動`}
-                            className="min-h-11 rounded-xl border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                            aria-label={`${index + 1}番目の写真を前へ移動`}
+                            className="min-h-11 rounded-control border border-border-subtle bg-surface px-2 text-xs font-semibold text-text-secondary transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-control-disabled-text"
                             disabled={controlsDisabled || index === 0}
                             onClick={() => moveImage(index, -1)}
                             type="button"
@@ -901,8 +980,8 @@ export function ExchangeEntryForm({
                             前へ
                           </button>
                           <button
-                            aria-label={`${image.kind === "existing" ? "既存" : "新規"}画像${index + 1}を後ろへ移動`}
-                            className="min-h-11 rounded-xl border border-stone-300 bg-white px-2 text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                            aria-label={`${index + 1}番目の写真を後ろへ移動`}
+                            className="min-h-11 rounded-control border border-border-subtle bg-surface px-2 text-xs font-semibold text-text-secondary transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-control-disabled-text"
                             disabled={
                               controlsDisabled ||
                               index === selectedImages.length - 1
@@ -923,29 +1002,57 @@ export function ExchangeEntryForm({
             <p aria-live="polite" className="sr-only">
               {imageAnnouncement}
             </p>
-        </div>
+          </div>
+        </section>
 
-        <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-          <Link
+        <section
+          aria-labelledby="exchange-entry-tags-heading"
+          className="min-w-0 border-t border-border-subtle/70 pt-7"
+        >
+          <div>
+            <h2
+              className="font-brand text-xl font-medium tracking-wide text-text-primary"
+              id="exchange-entry-tags-heading"
+            >
+              タグを添える
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-text-muted">
+              あとで思い出を見つけやすくしたいときに使えます。
+            </p>
+          </div>
+          <div
+            className="mt-5 rounded-control focus:outline-2 focus:outline-offset-2 focus:outline-danger"
+            id="exchange-entry-tags-section"
+            tabIndex={-1}
+          >
+            <TagInput
+              fieldError={state.fieldErrors.tags}
+              idPrefix="exchange-entry"
+              initialValues={state.submittedTagValues}
+              key={state.revision}
+            />
+          </div>
+        </section>
+
+        <div className="flex flex-col gap-2 pt-1 sm:items-end">
+          <SubmitButton
+            isValidatingImages={isValidatingImages}
+            mode={mode}
+            submissionBlocked={submissionBlocked}
+          />
+          <ActionLink
             aria-disabled={isPending}
-            className={`inline-flex min-h-12 w-full items-center justify-center rounded-full border border-stone-300 bg-white px-5 py-3 font-semibold text-stone-700 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-600 sm:w-auto ${
-              isPending
-                ? "pointer-events-none cursor-wait opacity-60"
-                : "hover:bg-stone-50"
-            }`}
+            className="w-full sm:w-auto sm:min-w-40"
             href={`/exchange/${diaryId}?view=latest`}
             tabIndex={isPending ? -1 : undefined}
+            variant="quiet"
           >
             キャンセル
-          </Link>
-          <SubmitButton
-            mode={mode}
-            submissionBlocked={submissionBlocked || isValidatingImages}
-          />
+          </ActionLink>
         </div>
         <p aria-live="polite" className="sr-only">
           {isValidatingImages
-            ? "画像を確認しています"
+            ? "写真を確認しています"
             : isPending
             ? mode === "create"
               ? "日記を保存しています"

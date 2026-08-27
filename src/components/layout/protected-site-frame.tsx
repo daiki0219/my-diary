@@ -35,6 +35,33 @@ function isExchangeDiaryDetailPath(pathname: string) {
   );
 }
 
+function isExchangeEntryFormPath(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  const diaryId = segments[1];
+
+  if (
+    segments[0] !== "exchange" ||
+    !diaryId ||
+    !isUuid(diaryId) ||
+    segments[2] !== "entries"
+  ) {
+    return false;
+  }
+
+  if (segments.length === 4) {
+    return segments[3] === "new";
+  }
+
+  const entryId = segments[3];
+
+  return (
+    segments.length === 5 &&
+    typeof entryId === "string" &&
+    isUuid(entryId) &&
+    segments[4] === "edit"
+  );
+}
+
 export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isAdminPath =
@@ -45,6 +72,7 @@ export function ProtectedSiteFrame({ children }: { children: ReactNode }) {
     pathname === "/notifications" ||
     pathname === "/exchange" ||
     isExchangeDiaryDetailPath(pathname) ||
+    isExchangeEntryFormPath(pathname) ||
     isPostDetailPath(pathname);
 
   return (
