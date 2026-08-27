@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -17,6 +16,8 @@ import {
   type ExchangeActionState,
   unblockExchangeInvitationsFromUser,
 } from "@/app/(protected)/exchange/actions";
+import { ActionLink, Button } from "@/components/ui/actions";
+import { FeedbackPanel } from "@/components/ui/feedback-panel";
 
 type ExchangeProfileActionsProps = {
   targetUserId: string;
@@ -80,6 +81,7 @@ export function ExchangeProfileActions({
     unblockExchangeInvitationsFromUser,
     initialState,
   );
+  const displayUsername = targetUsername.trim() || "このユーザー";
   const isPending = isCreating || isBlocking || isUnblocking;
   const actionState =
     lastAction === "create"
@@ -116,124 +118,160 @@ export function ExchangeProfileActions({
   return (
     <section
       aria-labelledby="exchange-profile-heading"
-      className="rounded-card bg-surface-muted/55 p-5 sm:p-6"
+      className="rounded-card border border-border-subtle bg-surface-muted/45 p-5 sm:p-6"
     >
-      <h2
-        className="font-brand text-xl font-medium tracking-wide text-text-primary"
-        id="exchange-profile-heading"
-      >
-        交換日記
-      </h2>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold tracking-wide text-brand-primary-hover">
+          ふたりの日記
+        </p>
+        <h2
+          className="mt-1 font-brand text-xl font-medium tracking-wide text-text-primary"
+          id="exchange-profile-heading"
+        >
+          交換日記
+        </h2>
+      </div>
 
       {!canManageExchange ? (
-        <p
-          className="mt-3 rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-danger"
-          role="alert"
-        >
+        <FeedbackPanel className="mt-4" role="alert" variant="error">
           交換日記の操作を現在読み込めません。時間をおいてもう一度お試しください。
-        </p>
+        </FeedbackPanel>
       ) : (
         <>
-          {pendingDirection === "sent" ? (
-            <div className="mt-3">
-              <p className="text-sm font-semibold leading-6 text-text-primary">
-                承認待ちです。
-              </p>
-              <Link
-                className="mt-2 inline-flex min-h-11 items-center rounded-control text-sm font-semibold text-brand-primary-hover underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
-                href="/exchange?view=invitations"
-              >
-                交換日記の招待一覧を見る
-              </Link>
-            </div>
-          ) : pendingDirection === "received" ? (
-            <div className="mt-3">
-              <p className="text-sm font-semibold leading-6 text-text-primary">
-                交換日記の招待が届いています。
-              </p>
-              <Link
-                className="mt-2 inline-flex min-h-11 items-center rounded-control text-sm font-semibold text-brand-primary-hover underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
-                href="/exchange?view=invitations"
-              >
-                交換日記の招待一覧を見る
-              </Link>
-            </div>
-          ) : isMutualFollowing ? (
-            <form
-              action={createAction}
-              className="mt-4"
-              onSubmit={() => setLastAction("create")}
-            >
-              <input
-                name="targetUserId"
-                type="hidden"
-                value={targetUserId}
-              />
-              <button
-                aria-disabled={isPending}
-                className="min-h-11 w-full rounded-control bg-brand-primary px-5 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text sm:w-auto"
-                disabled={isPending}
-                type="submit"
-              >
-                {isCreating ? "招待中…" : "交換日記に招待"}
-              </button>
-            </form>
-          ) : (
-            <p className="mt-3 text-sm leading-6 text-text-muted">
-              お互いにフォローすると、交換日記へ招待できます。
-            </p>
-          )}
-
-          <div className="mt-5 border-t border-border-subtle pt-4">
-            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="break-words text-sm font-semibold leading-6 text-text-primary [overflow-wrap:anywhere]">
-                  このユーザーから交換日記の招待を受け取らない
+          <div className="mt-4">
+            {pendingDirection === "sent" ? (
+              <div className="rounded-control bg-surface-elevated/80 px-4 py-4">
+                <p className="text-xs font-semibold text-text-muted">
+                  現在の招待
                 </p>
-                <p className="mt-1 text-xs leading-5 text-text-muted">
-                  交換日記の招待だけの設定です。フォローなどSNS全体には影響しません。
+                <p className="mt-1 text-sm font-semibold leading-6 text-text-primary">
+                  招待を送りました。
                 </p>
+                <p className="mt-1 text-sm leading-6 text-text-muted">
+                  相手からの返事を待っています。
+                </p>
+                <ActionLink
+                  className="mt-3 w-full sm:w-auto"
+                  href="/exchange?view=invitations"
+                  variant="secondary"
+                >
+                  招待を確認する
+                </ActionLink>
               </div>
-              <span className="w-fit shrink-0 rounded-full bg-surface-elevated px-3 py-1 text-xs font-semibold text-text-secondary">
-                {isBlockingInvitations ? "ON" : "OFF"}
-              </span>
-            </div>
+            ) : pendingDirection === "received" ? (
+              <div className="rounded-control bg-brand-soft/70 px-4 py-4">
+                <p className="text-xs font-semibold text-brand-primary-hover">
+                  招待が届いています
+                </p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-text-primary">
+                  この人から交換日記の招待が届いています。
+                </p>
+                <p className="mt-1 text-sm leading-6 text-text-muted">
+                  招待一覧で内容を確認できます。
+                </p>
+                <ActionLink
+                  className="mt-3 w-full sm:w-auto"
+                  href="/exchange?view=invitations"
+                  variant="primary"
+                >
+                  招待を見る
+                </ActionLink>
+              </div>
+            ) : isMutualFollowing ? (
+              <div>
+                <p className="text-sm font-semibold leading-6 text-text-primary">
+                  この人と2人で交換日記を始められます。
+                </p>
+                <p className="mt-1 text-sm leading-6 text-text-muted">
+                  招待が承認されると、2人だけの日記が始まります。
+                </p>
+                <form
+                  action={createAction}
+                  className="mt-4"
+                  onSubmit={() => setLastAction("create")}
+                >
+                  <input
+                    name="targetUserId"
+                    type="hidden"
+                    value={targetUserId}
+                  />
+                  <Button
+                    aria-disabled={isPending}
+                    className="w-full sm:w-auto"
+                    disabled={isPending}
+                    type="submit"
+                    variant="primary"
+                  >
+                    {isCreating ? "招待中…" : "交換日記に招待する"}
+                  </Button>
+                </form>
+              </div>
+            ) : (
+              <p className="text-sm leading-6 text-text-muted">
+                交換日記は相互フォローの相手と始められます。
+              </p>
+            )}
+          </div>
+
+          <div className="mt-6 border-t border-border-subtle pt-5">
+            <p className="text-xs font-semibold tracking-wide text-text-muted">
+              招待の受け取り設定
+            </p>
 
             {isBlockingInvitations ? (
-              <form
-                action={unblockAction}
-                className="mt-3"
-                onSubmit={() => setLastAction("unblock")}
-              >
-                <input
-                  name="targetUserId"
-                  type="hidden"
-                  value={targetUserId}
-                />
-                <button
-                  aria-disabled={isPending}
-                  className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:opacity-60 sm:w-auto"
-                  disabled={isPending}
-                  type="submit"
+              <div className="mt-2">
+                <p className="break-words text-sm font-semibold leading-6 text-text-primary [overflow-wrap:anywhere]">
+                  この人からの交換日記の招待は受け取らない設定です。
+                </p>
+                <p className="mt-1 text-xs leading-5 text-text-muted">
+                  交換日記の招待だけに影響します。フォローやプロフィール、通常の日記には影響しません。
+                </p>
+                <form
+                  action={unblockAction}
+                  className="mt-3"
+                  onSubmit={() => setLastAction("unblock")}
                 >
-                  {isUnblocking ? "設定中…" : "OFFにする"}
-                </button>
-              </form>
+                  <input
+                    name="targetUserId"
+                    type="hidden"
+                    value={targetUserId}
+                  />
+                  <Button
+                    aria-disabled={isPending}
+                    className="w-full sm:w-auto"
+                    disabled={isPending}
+                    type="submit"
+                    variant="neutral"
+                  >
+                    {isUnblocking
+                      ? "設定中…"
+                      : "交換日記の招待を受け取れるようにする"}
+                  </Button>
+                </form>
+              </div>
             ) : isConfirmingBlock ? (
               <div
-                className="mt-3 rounded-control border border-red-200 bg-red-50 p-4"
+                aria-labelledby={`${confirmationId}-title`}
+                className="mt-3 rounded-control border border-danger/20 bg-danger/5 p-4"
                 id={confirmationId}
                 onKeyDown={(event) => {
                   if (event.key === "Escape" && !isPending) {
                     closeBlockConfirmation();
                   }
                 }}
+                role="group"
               >
-                <p className="break-words text-sm font-semibold leading-6 text-text-primary [overflow-wrap:anywhere]">
-                  {targetUsername}さんからの交換日記の招待を受け取らない設定にしますか？
+                <p
+                  className="break-words text-sm font-semibold leading-6 text-text-primary [overflow-wrap:anywhere]"
+                  id={`${confirmationId}-title`}
+                >
+                  {displayUsername}さんからの交換日記の招待を受け取らない設定にしますか？
                 </p>
-                <p className="mt-1 text-xs leading-5 text-text-muted">
-                  このユーザーから届いている招待がある場合、招待一覧から表示されなくなります。
+                <p className="mt-2 text-xs leading-5 text-text-secondary">
+                  この設定は交換日記の招待だけに影響し、フォローやプロフィール、通常の日記には影響しません。設定はあとから解除できます。
+                </p>
+                <p className="mt-2 text-xs leading-5 text-text-secondary">
+                  この人から届いている招待がある場合は拒否されます。その場合、設定を解除しても、お互いに24時間は新しい招待を送れません。
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <form
@@ -247,12 +285,12 @@ export function ExchangeProfileActions({
                     />
                     <button
                       aria-disabled={isPending}
-                      className="min-h-11 w-full rounded-control border border-danger bg-surface-elevated px-4 py-2.5 font-semibold text-danger transition hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
+                      className="min-h-11 w-full rounded-control bg-danger px-4 py-2.5 font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:bg-control-disabled disabled:text-control-disabled-text"
                       disabled={isPending}
                       ref={blockSubmitRef}
                       type="submit"
                     >
-                      {isBlocking ? "設定中…" : "ONにする"}
+                      {isBlocking ? "設定中…" : "受け取らない設定にする"}
                     </button>
                   </form>
                   <button
@@ -262,23 +300,28 @@ export function ExchangeProfileActions({
                     onClick={closeBlockConfirmation}
                     type="button"
                   >
-                    確認をやめる
+                    キャンセル
                   </button>
                 </div>
               </div>
             ) : (
-              <button
-                aria-controls={confirmationId}
-                aria-disabled={isPending}
-                aria-expanded={isConfirmingBlock}
-                className="mt-3 min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-wait disabled:opacity-60 sm:w-auto"
-                disabled={isPending}
-                onClick={() => setIsConfirmingBlock(true)}
-                ref={blockTriggerRef}
-                type="button"
-              >
-                ONにする
-              </button>
+              <div className="mt-2">
+                <p className="text-sm leading-6 text-text-muted">
+                  必要なときは、この人からの交換日記の招待だけを受け取らないようにできます。
+                </p>
+                <button
+                  aria-controls={confirmationId}
+                  aria-disabled={isPending}
+                  aria-expanded={isConfirmingBlock}
+                  className="-ml-3 mt-2 inline-flex min-h-11 max-w-full items-center rounded-control px-3 py-2.5 text-left text-sm font-semibold leading-6 text-danger transition hover:bg-danger/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-wait disabled:opacity-60"
+                  disabled={isPending}
+                  onClick={() => setIsConfirmingBlock(true)}
+                  ref={blockTriggerRef}
+                  type="button"
+                >
+                  この人からの交換日記の招待を受け取らない
+                </button>
+              </div>
             )}
           </div>
         </>
@@ -293,23 +336,25 @@ export function ExchangeProfileActions({
       </p>
 
       {actionState.error && (
-        <p
-          className="mt-3 rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-danger"
+        <FeedbackPanel
+          className="mt-4"
           key={`${lastAction}:${actionState.revision}`}
           role="alert"
+          variant="error"
         >
           {actionState.error}
-        </p>
+        </FeedbackPanel>
       )}
       {actionState.completed && actionState.message && (
-        <p
+        <FeedbackPanel
           aria-live="polite"
-          className="mt-3 rounded-control border border-green-200 bg-green-50 px-4 py-3 text-sm leading-6 text-success"
+          className="mt-4"
           key={`${lastAction}:${actionState.revision}`}
           role="status"
+          variant="success"
         >
           {actionState.message}
-        </p>
+        </FeedbackPanel>
       )}
     </section>
   );
