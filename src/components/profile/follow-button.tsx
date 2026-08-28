@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -32,6 +32,10 @@ export function FollowButton({
   compact = false,
 }: FollowButtonProps) {
   const router = useRouter();
+  const confirmationId = useId();
+  const confirmationTitleId = `${confirmationId}-title`;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [followState, followAction, isFollowingPending] = useActionState(
     followUser,
@@ -48,8 +52,19 @@ export function FollowButton({
     }
   }, [followState.success, router, unfollowState.success]);
 
+  useEffect(() => {
+    if (isConfirming) {
+      cancelRef.current?.focus();
+    }
+  }, [isConfirming]);
+
   const error = followState.error ?? unfollowState.error;
   const isPending = isFollowingPending || isUnfollowingPending;
+
+  function closeConfirmation() {
+    setIsConfirming(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }
 
   if (!canManageFollows) {
     return (
@@ -68,8 +83,21 @@ export function FollowButton({
     <div className={className}>
       {isFollowing ? (
         isConfirming ? (
-          <div className="rounded-control bg-surface-muted/70 p-4">
-            <p className="text-sm font-semibold text-text-primary">
+          <div
+            aria-labelledby={confirmationTitleId}
+            className="rounded-control bg-surface-muted/70 p-4"
+            id={confirmationId}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && !isPending) {
+                closeConfirmation();
+              }
+            }}
+            role="alertdialog"
+          >
+            <p
+              className="text-sm font-semibold text-text-primary"
+              id={confirmationTitleId}
+            >
               フォローを解除しますか？
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -98,7 +126,8 @@ export function FollowButton({
                 aria-label={`${targetUsername}さんのフォロー解除をキャンセル`}
                 className="min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-4 py-2.5 font-semibold text-text-secondary transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isPending}
-                onClick={() => setIsConfirming(false)}
+                onClick={closeConfirmation}
+                ref={cancelRef}
                 type="button"
               >
                 キャンセル
@@ -107,12 +136,15 @@ export function FollowButton({
           </div>
         ) : (
           <button
+            aria-controls={confirmationId}
+            aria-expanded={isConfirming}
             aria-label={`${targetUsername}さんのフォロー解除の確認を開く`}
             aria-pressed="true"
             className={`min-h-11 rounded-control bg-brand-soft py-2.5 font-semibold text-brand-primary-hover transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
               compact ? "w-auto px-4 text-sm" : "w-full px-5"
             }`}
             onClick={() => setIsConfirming(true)}
+            ref={triggerRef}
             type="button"
           >
             フォロー中
