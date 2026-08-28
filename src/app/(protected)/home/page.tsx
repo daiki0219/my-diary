@@ -227,11 +227,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             />
           ) : (
             <EmptyState
-              action={
-                <ActionLink href="/posts/new" variant="secondary">
-                  日記を書く
-                </ActionLink>
-              }
               className="mt-3"
               description={currentFeedContent.emptyDescription}
               title={currentFeedContent.emptyTitle}

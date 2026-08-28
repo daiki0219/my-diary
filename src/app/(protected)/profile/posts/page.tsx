@@ -84,11 +84,6 @@ export default async function OwnPostsPage({
           </div>
         ) : (
           <EmptyState
-            action={
-              <ActionLink href="/posts/new" variant="secondary">
-                最初の日記を書く
-              </ActionLink>
-            }
             className="mt-5"
             description="最初の日記を、気軽に書いてみましょう。"
             title="まだ日記はありません"
